@@ -1,0 +1,23 @@
+{
+  "name": "audiobooks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm run build && node --test dist/*.test.js",
+    "test:browser": "node test-listener.mjs"
+  },
+  "dependencies": {
+    "cheerio": "1.1.2",
+    "fflate": "0.8.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.13.10",
+    "typescript": "5.8.2"
+  },
+  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
+  "license": "PolyForm-Noncommercial-1.0.0"
+}

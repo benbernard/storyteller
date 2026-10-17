@@ -1,0 +1,63 @@
+name: Checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: |
+          pnpm -C tools/audiobooks install --frozen-lockfile
+          pnpm -C tools/royal-road install --frozen-lockfile
+          pnpm -C tools/mac-tts install --frozen-lockfile
+          pnpm test
+      - run: |
+          python -m pip install -r tools/python-quality/requirements.txt
+          python -m ruff check tools/mac-tts
+          cd tools/mac-tts
+          python -m unittest test_local_book test_review_local_book test_retake_local_book test_audition_cache
+      - run: |
+          pnpm -C tools/audiobooks exec playwright install --with-deps chromium
+          pnpm -C tools/audiobooks test:browser
+      - run: |
+          node scripts/setup.mjs
+          docker compose config --quiet
+          docker compose build listener
+          docker compose run --rm demo
+          docker compose run --rm demo
+          node scripts/smoke.mjs
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - run: ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+        working-directory: android/audiobook-listener
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          echo '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git --redact --no-banner

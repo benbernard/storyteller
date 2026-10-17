@@ -1,0 +1,21 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {parseArgs,promisify} from 'node:util';
+import {execFile} from 'node:child_process';
+import {extname} from 'node:path';
+import {epubChapters} from './bookorbit-ingest.js';
+import {id,chapterSchema} from './schema.js';
+import {sha} from './store.js';
+const {values}=parseArgs({options:{file:{type:'string'},fiction:{type:'string'},output:{type:'string'}}});
+if(!values.file || !values.fiction || !values.output)throw new Error('Use --file BOOK.epub|pdf|txt --fiction ID --output chapters.json');
+const fiction=id.parse(values.fiction), extension=extname(values.file).toLowerCase();
+let entries:{key:string;title:string;text:string}[];
+if(extension==='.epub')entries=epubChapters(await readFile(values.file));
+else if(extension==='.pdf'){
+ const {stdout}=await promisify(execFile)('pdftotext',['-layout',values.file,'-'],{maxBuffer:50_000_000,timeout:120000});
+ entries=stdout.split('\f').map((text,i)=>({key:'page-'+(i+1),title:'Page '+(i+1),text:text.trim()})).filter(e=>e.text);
+}else if(extension==='.txt')entries=[{key:'chapter-1',title:'Chapter 1',text:await readFile(values.file,'utf8')}];
+else throw new Error('Supported inputs: EPUB, PDF with selectable text, UTF-8 TXT');
+if(!entries.length)throw new Error('No readable text. Scanned PDFs require OCR first.');
+const chapters=entries.map((e,i)=>chapterSchema.parse({schemaVersion:1,fictionId:fiction,chapterId:'chapter-'+sha(e.key).slice(0,24),sequence:i+1,url:'https://example.org/local-books/'+fiction+'#'+encodeURIComponent(e.key),title:e.title,text:e.text,contentHash:sha(e.text),retrievedAt:new Date().toISOString()}));
+await writeFile(values.output,JSON.stringify(chapters,null,2)+'\n',{mode:0o600,flag:'wx'});
+console.log(JSON.stringify({fiction,chapters:chapters.length,output:values.output}));

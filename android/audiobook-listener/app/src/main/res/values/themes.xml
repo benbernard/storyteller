@@ -1,0 +1,6 @@
+<resources>
+ <!-- A light parent theme tells WebView that prefers-color-scheme is light; values-night overrides it. -->
+ <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+  <item name="android:windowBackground">@color/site_background</item>
+ </style>
+</resources>

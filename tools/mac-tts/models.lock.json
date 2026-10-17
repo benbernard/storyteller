@@ -1,0 +1,23 @@
+{
+  "mlx-community/Chatterbox-TTS-fp16": "77c7c8f9307beb5dc6c03cebc7942c4de9d617c9",
+  "mlx-community/Kokoro-82M-bf16": "a71e4d38b236d968966a2002c4c895dbd12b1c3c",
+  "mlx-community/S3TokenizerV2": "e0c9886f0e1c35ae85b1f27277416fb19fc72bec",
+  "Qwen/Qwen3-TTS-12Hz-1.7B-Base": "fd4b254389122332181a7c3db7f27e918eec64e3",
+  "prince-canuma/Kokoro-82M": "e02c9eada7ce7416798af36b190a8a2dd2ecd566",
+  "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16": "52f4770fd9726457eae3d3b6aa92047a25a10776",
+  "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16": "a6eb4f68e4b056f1215157bb696209bc82a6db48",
+  "mlx-community/chatterbox-multilingual-v3": "03565773edd72e949572557597af8063bb49a18a",
+  "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign": "5ecdb67327fd37bb2e042aab12ff7391903235d3",
+  "mlx-community/chatterbox-turbo-fp16": "b2d0a13aa7cfff0a06d9acb247ae91c8f19a6d75",
+  "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16": "7d3824abff87e49756bb0f83fb5411de75d160c4",
+  "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice": "0c0e3051f131929182e2c023b9537f8b1c68adfe",
+  "appautomaton/fishaudio-s2-pro-8bit-mlx": "520af75a48816821e59fce7f6b7a85deb49e7f1c",
+  "appautomaton/openmoss-ttsd-mlx": "f631c960665caf6fa6cb88668107a784682bc71e",
+  "appautomaton/openmoss-audio-tokenizer-mlx": "3b22b5958c15f807e3ca8faae2cc3b7cc4b74552",
+  "mlx-community/higgs-audio-v2-3B-mlx-q8": "cada83e51fe3f49186b51738599827d6fc7850f6",
+  "mlx-community/higgs-audio-v2-tokenizer": "175578e703e743eb93f5bdcb0e695892521d7734",
+  "appautomaton/vibevoice-mlx": "61c5e40cd267c0442493b80b35d880202337c84e",
+  "FireRedTeam/FireRedTTS2": "4af3f5cc4963373b86b52d750220d4de85261f05",
+  "Qwen/Qwen3-14B-MLX-4bit": "ba63a5141812f9870287df53341123a71ba41433",
+  "mlx-community/whisper-small-mlx": "45f3915923c7a79a5a5b5a7d909d39aeb0e5630e"
+}

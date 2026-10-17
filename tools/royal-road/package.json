@@ -1,0 +1,27 @@
+{
+  "name": "royal-road",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm run build && node --test dist/*.test.js",
+    "test:ui": "pnpm run build && node test-viewer.mjs"
+  },
+  "dependencies": {
+    "cheerio": "1.1.2",
+    "fflate": "0.8.3",
+    "ipaddr.js": "2.2.0",
+    "sanitize-html": "2.17.7",
+    "sharp": "0.35.5",
+    "undici": "7.29.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/node": "22.13.10",
+    "@types/sanitize-html": "^2.16.0",
+    "typescript": "5.8.2"
+  },
+  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
+  "license": "PolyForm-Noncommercial-1.0.0"
+}

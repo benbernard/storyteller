@@ -1,0 +1,10 @@
+import {spawn} from 'node:child_process';
+import {resolve} from 'node:path';
+import {existsSync} from 'node:fs';
+if(existsSync('.env'))process.loadEnvFile('.env');
+if(!process.env.AUDIOBOOK_ANALYSIS_MODEL || process.env.AUDIOBOOK_ANALYSIS_MODEL.startsWith('choose-'))throw new Error('Choose AUDIOBOOK_ANALYSIS_MODEL in .env first');
+const paths={LISTENER_STATE:'data/listener',AUDIOBOOK_FICTIONS:'data/fictions',ROYAL_ROAD_ARCHIVE:'data/archive',LOCAL_AUDIO_WORK:'data/automation/jobs',LOCAL_AUDIO_POOL:'data/automation/pool.json',MAC_TTS_CREDENTIAL:'data/credentials/mac-client.json',ROYAL_ROAD_CLI:'tools/royal-road/dist/cli.js',LOCAL_AUDIO_RENDERER:'tools/mac-tts/local_book.py'};
+const env={...process.env,...Object.fromEntries(Object.entries(paths).map(([k,v])=>[k,resolve(process.env[k] ?? v)]))};
+const child=spawn(process.execPath,['tools/audiobooks/dist/library-worker.js'],{stdio:'inherit',env});
+for(const s of ['SIGTERM','SIGINT'])process.on(s,()=>child.kill(s));
+child.on('exit',code=>{process.exitCode=code ?? 1});child.on('error',e=>{throw e});

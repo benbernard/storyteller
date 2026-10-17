@@ -1,0 +1,94 @@
+name: audiobook-system
+x-runtime: &runtime
+  image: audiobook-system:local
+  build:
+    context: .
+    dockerfile: tools/audiobooks/Dockerfile
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: ["/tmp:size=256m,mode=1777"]
+services:
+  listener:
+    <<: *runtime
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    entrypoint: [node, dist/listener.js]
+    ports: ["${LISTENER_BIND:-127.0.0.1}:${LISTENER_PORT:-8080}:8080"]
+    environment:
+      LISTENER_PUBLIC_URL: ${LISTENER_PUBLIC_URL:-http://localhost:8080}
+      LISTENER_AUTH: basic
+      LISTENER_USERNAME: ${LISTENER_USERNAME:-listener}
+      LISTENER_PASSWORD_FILE: /credential/listener-password
+      LISTENER_STATE: /listener
+      AUDIOBOOK_FICTIONS: /fictions
+      ROYAL_ROAD_ARCHIVE: /archive
+    volumes:
+      - ./data/fictions:/fictions:ro
+      - ./data/listener:/listener
+      - ./data/archive:/archive:ro
+      - ./data/credentials/listener-password:/credential/listener-password:ro
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  cli:
+    <<: *runtime
+    profiles: [tools]
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    working_dir: /app
+    environment:
+      AUDIOBOOK_STATE: /fictions/${FICTION_ID:-lantern-pilot}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+    volumes:
+      - ./data/fictions:/fictions
+      - ./data/archive:/archive
+      - ./data/exports:/exports
+      - ./data/input:/input:ro
+  downloader:
+    <<: *runtime
+    profiles: [tools]
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    entrypoint: [node, /royal-road/dist/cli.js]
+    environment:
+      ROYAL_ROAD_STATE: /archive
+    volumes: [./data/archive:/archive]
+  demo:
+    <<: *runtime
+    profiles: [tools]
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    entrypoint: [node, /scripts/demo.mjs]
+    environment:
+      AUDIOBOOK_DEMO_STATE: /fictions/lantern-pilot
+    volumes:
+      - ./data/fictions:/fictions
+      - ./scripts:/scripts:ro
+      - ./tools/audiobooks/examples:/examples:ro
+  worker:
+    <<: *runtime
+    profiles: [local]
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    restart: unless-stopped
+    stop_grace_period: 120s
+    entrypoint: [node, dist/library-worker.js]
+    environment:
+      LISTENER_STATE: /listener
+      AUDIOBOOK_FICTIONS: /fictions
+      ROYAL_ROAD_ARCHIVE: /archive
+      LOCAL_AUDIO_WORK: /automation/jobs
+      LOCAL_AUDIO_POOL: /automation/pool.json
+      MAC_TTS_CREDENTIAL: /credential/mac-client.json
+      AUDIOBOOK_ANALYSIS_MODEL: ${AUDIOBOOK_ANALYSIS_MODEL:?Set your analysis model in .env}
+      AUDIOBOOK_CODEX_BIN: /codex/bin/codex
+      CODEX_HOME: /codex/home
+    volumes:
+      - ./data/fictions:/fictions
+      - ./data/listener:/listener
+      - ./data/archive:/archive
+      - ./data/automation:/automation
+      - ./data/credentials/mac-client.json:/credential/mac-client.json:ro
+      - ./data/codex:/codex
+    extra_hosts: [host.docker.internal:host-gateway]

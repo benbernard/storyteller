@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "fictionId": "lantern-pilot",
+  "narrator": {
+    "voiceId": "choose_narrator",
+    "settings": {
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "style": 0,
+      "use_speaker_boost": true,
+      "speed": 1
+    }
+  },
+  "anonymous": {
+    "voiceId": "choose_anonymous",
+    "settings": {
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "style": 0,
+      "use_speaker_boost": true,
+      "speed": 1
+    }
+  },
+  "protagonistId": "mara",
+  "protagonistUsesNarrator": false,
+  "narrationRules": "Narrate thoughts and system messages. Speak quoted dialogue with its attributed voice.",
+  "pool": [],
+  "policy": {
+    "version": "pilot-v3",
+    "model": "eleven_v3",
+    "maxCharacters": 1800,
+    "grouping": "scene",
+    "continuity": "none",
+    "dialogueSettings": {
+      "stability": 0.5,
+      "similarity": 0.75
+    },
+    "normalization": "auto",
+    "seed": 42,
+    "joinPauseMs": 80,
+    "selectedAfterListening": false,
+    "listeningEvidence": ""
+  },
+  "analysis": {
+    "model": "choose-analysis-model",
+    "promptVersion": "analysis-v1",
+    "maxAttempts": 2,
+    "maxOutputTokens": 16000,
+    "maxCallsPerBatch": 0,
+    "usdPerMillionInputTokens": 0,
+    "usdPerMillionOutputTokens": 0
+  },
+  "budget": {
+    "maxCharacters": 0,
+    "maxEstimatedUsd": 0,
+    "usdPerThousandCharacters": 0,
+    "maxAttemptsPerSegment": 3
+  },
+  "dictionary": [],
+  "providerDictionaries": []
+}

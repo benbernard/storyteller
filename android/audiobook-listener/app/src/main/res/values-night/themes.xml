@@ -1,0 +1,5 @@
+<resources>
+ <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+  <item name="android:windowBackground">@color/site_background</item>
+ </style>
+</resources>

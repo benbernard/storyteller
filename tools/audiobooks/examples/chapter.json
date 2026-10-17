@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "fictionId": "lantern-pilot",
+  "chapterId": "lantern-1",
+  "sequence": 1,
+  "url": "https://example.org/original-scenes/the-lantern",
+  "title": "The lantern",
+  "text": "Mara set the lantern down. “Did he say ‘come alone’?” she asked.\n\n“He did,” replied the keeper.\n\n“Then wait.”\nA voice sounded behind the door. “Hurry.”",
+  "retrievedAt": "2026-09-27T00:00:00Z",
+  "contentHash": "869c25ce3c5d7dfdaede16d408ce33c7d567c8e3ab25827add1a168eef3114ca"
+}

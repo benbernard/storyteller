@@ -1,0 +1,14 @@
+[extend]
+useDefault = true
+
+# Public Hugging Face tokenizer revision pins, verified as Git SHAs.
+# Restrict the exception to these exact values in this one lockfile.
+[[allowlists]]
+condition = "AND"
+paths = ['''^tools/mac-tts/models\.lock\.json$''']
+regexTarget = "secret"
+regexes = [
+  '''^e0c9886f0e1c35ae85b1f27277416fb19fc72bec$''',
+  '''^3b22b5958c15f807e3ca8faae2cc3b7cc4b74552$''',
+  '''^175578e703e743eb93f5bdcb0e695892521d7734$''',
+]

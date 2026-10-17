@@ -1,0 +1,8 @@
+[
+  "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+  "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16",
+  "mlx-community/Chatterbox-TTS-fp16",
+  "mlx-community/S3TokenizerV2",
+  "Qwen/Qwen3-14B-MLX-4bit",
+  "mlx-community/whisper-small-mlx"
+]

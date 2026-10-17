@@ -1,0 +1,18 @@
+{
+  "selection": "Synthetic example voices; listen and review before using for a book.",
+  "reference_text": "The lantern shone along the empty road. We would reach the bridge before dawn. A quiet voice asked whether we should wait.",
+  "voices": {
+    "narrator": {
+      "description": "An adult woman with a calm warm alto, clear articulation and restrained narration."
+    },
+    "anonymous": {
+      "description": "A neutral adult voice with a clear middle register, distinct from the narrator."
+    },
+    "mara": {
+      "description": "An adult woman with a bright clear voice and measured conversational phrasing."
+    },
+    "keeper": {
+      "description": "An adult man with a warm low baritone and patient conversational phrasing."
+    }
+  }
+}

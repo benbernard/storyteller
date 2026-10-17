@@ -1,0 +1,5 @@
+<resources>
+ <!-- The site background and panel colors (nas/homesearch/web/style.css) so the shell blends into the page. -->
+ <color name="site_background">#F7F7F5</color>
+ <color name="site_panel">#FFFFFF</color>
+</resources>

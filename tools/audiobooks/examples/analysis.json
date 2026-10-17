@@ -1,0 +1,96 @@
+{
+  "characters": [
+    {
+      "id": "mara",
+      "name": "Mara",
+      "aliases": [],
+      "portrayal": "An adult traveler",
+      "importance": "major",
+      "tags": [
+        "adult"
+      ],
+      "evidence": "Mara",
+      "continuityFrom": null
+    },
+    {
+      "id": "keeper",
+      "name": "Keeper",
+      "aliases": [],
+      "portrayal": "An adult keeper",
+      "importance": "minor",
+      "tags": [
+        "adult"
+      ],
+      "evidence": "keeper",
+      "continuityFrom": null
+    }
+  ],
+  "aliasUpdates": [],
+  "spans": [
+    {
+      "text": "Mara set the lantern down. ",
+      "kind": "prose",
+      "speaker": "narrator",
+      "certainty": "attributed",
+      "confidence": 0.98,
+      "reason": "Explicit attribution"
+    },
+    {
+      "text": "“Did he say ‘come alone’?”",
+      "kind": "dialogue",
+      "speaker": "mara",
+      "certainty": "attributed",
+      "confidence": 0.98,
+      "reason": "Explicit attribution"
+    },
+    {
+      "text": " she asked.\n\n",
+      "kind": "prose",
+      "speaker": "narrator",
+      "certainty": "attributed",
+      "confidence": 0.98,
+      "reason": "Explicit attribution"
+    },
+    {
+      "text": "“He did,”",
+      "kind": "dialogue",
+      "speaker": "keeper",
+      "certainty": "attributed",
+      "confidence": 0.98,
+      "reason": "Explicit attribution"
+    },
+    {
+      "text": " replied the keeper.\n\n",
+      "kind": "prose",
+      "speaker": "narrator",
+      "certainty": "attributed",
+      "confidence": 0.98,
+      "reason": "Explicit attribution"
+    },
+    {
+      "text": "“Then wait.”",
+      "kind": "dialogue",
+      "speaker": "mara",
+      "certainty": "attributed",
+      "confidence": 0.98,
+      "reason": "Explicit attribution"
+    },
+    {
+      "text": "\nA voice sounded behind the door. ",
+      "kind": "prose",
+      "speaker": "narrator",
+      "certainty": "attributed",
+      "confidence": 0.98,
+      "reason": "Explicit attribution"
+    },
+    {
+      "text": "“Hurry.”",
+      "kind": "dialogue",
+      "speaker": "anonymous",
+      "certainty": "concealed",
+      "confidence": 0.4,
+      "reason": "Concealed identity"
+    }
+  ],
+  "summary": "Mara and a keeper hear someone behind a door."
+}

@@ -1,0 +1,29 @@
+{
+  "narrator": {
+    "tags": [
+      "female",
+      "adult",
+      "narrator"
+    ],
+    "reserved": true
+  },
+  "anonymous": {
+    "tags": [
+      "adult",
+      "neutral"
+    ],
+    "reserved": true
+  },
+  "mara": {
+    "tags": [
+      "female",
+      "adult"
+    ]
+  },
+  "keeper": {
+    "tags": [
+      "male",
+      "adult"
+    ]
+  }
+}
