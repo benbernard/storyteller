@@ -35,8 +35,8 @@ class ListenerUiTest {
         screenshot("library-titles")
         compose.onAllNodesWithText(book.title).onFirst().performClick()
         compose.onNodeWithText("Back to library").assertIsDisplayed()
-        compose.onNodeWithTag("story-chapters").performScrollToNode(hasText("Flash"))
-        compose.onNodeWithText("Flash").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("story-chapters").performScrollToNode(hasTestTag("edition-picker"))
+        compose.onNodeWithText("Flash").assertIsDisplayed()
         screenshot("story-detail")
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithText("Your stories").assertIsDisplayed()

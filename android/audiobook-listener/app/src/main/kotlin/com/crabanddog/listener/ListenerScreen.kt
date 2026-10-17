@@ -251,11 +251,16 @@ private fun StoryDetail(state: ListenerUiState, id: String, onBack: () -> Unit, 
                     val first = book.editions[summary.edition]?.firstOrNull()
                     if (resume != null) Button(onClick = { onPlay(book, latest!!.optString("edition"), resume) }) { Text("Continue listening") }
                     else if (first != null) Button(onClick = { onPlay(book, summary.edition, first) }) { Text("Start listening") }
-                    Text("Chapters", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 24.dp, bottom = 8.dp))
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        book.editions.keys.forEach { value -> FilterChip(selected = edition == value, onClick = { edition = value }, label = { Text(editionName(value)) }) }
-                    }
                 } else Text("Turn on audiobook generation below to prepare chapters for listening.", Modifier.padding(vertical = 16.dp))
+            }
+            // Keep edition controls in their own lazy item so they remain reachable with large text.
+            if (book != null) item {
+                Column(Modifier.fillMaxWidth().testTag("edition-picker")) {
+                Text("Chapters", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    book.editions.keys.forEach { value -> FilterChip(selected = edition == value, onClick = { edition = value }, label = { Text(editionName(value)) }) }
+                }
+                }
             }
             source?.optJSONObject("repair")?.let { repair -> item { RepairStatusPanel(repair) } }
             item { BookAudioControls(id, source, book, edition, state.updatingStories.contains(id), state.storyErrors[id], onAudio, onJob) }

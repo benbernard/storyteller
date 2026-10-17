@@ -87,10 +87,15 @@ code, not the state of the original deployment.
 - Browser interactions across five viewport widths.
 - Docker image build, repeatable silent demo, login and API smoke checks.
 - Android unit tests, debug lint, debug APK, and instrumentation APK builds.
-- Native UI fixtures at 390dp/130% text and 840dp, plus narrow large-text checks.
+- Native UI fixtures at 390dp/130% text and 840dp, plus 320dp/200% text in dark mode.
 
 Paid synthesis, a fresh model download, a new Mac inference run, successful
 subscription analysis with another account, physical phone/Bluetooth behavior,
 and a Linux/Windows friend's installation are not established by these tests.
 The repository includes CI so future source changes repeat its portable checks.
 See the GitHub Actions runs for verification of the published revision.
+
+On the validation Mac, `avdmanager` could not load missing `devices.xml` files in
+the existing SDK. A separate task-owned AVD using the installed Android 36 ARM64
+image booted and ran the fixtures. Existing AVDs were left unchanged. The large-text
+fixture scrolls to the edition picker before checking its controls.
