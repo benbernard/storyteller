@@ -7,6 +7,15 @@ const require=createRequire(new URL('../../tools/audiobooks/package.json',import
 const {chromium}=require('@playwright/test');
 const output=resolve(process.argv[2]??'.agent-scratch/ui-review');
 const html=await fs.readFile(join(output,'storyteller-design-review.html'));
+const luminance=value=>{const rgb=[1,3,5].map(i=>parseInt(value.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];};
+const contrast=(a,b)=>{const [low,high]=[luminance(a),luminance(b)].sort((a,b)=>a-b);return (high+.05)/(low+.05);};
+let contrastPairs=0;
+for(const match of html.toString().matchAll(/([^{}]+)\{([^{}]+)\}/g)){
+ const palette=Object.fromEntries([...match[2].matchAll(/--(bg|surface|ink|muted|accent|on-accent|soft|line):(#[0-9a-fA-F]{6})/g)].map(m=>[m[1],m[2]]));if(Object.keys(palette).length!==8)continue;
+ const pairs=['ink','muted'].flatMap(a=>['bg','surface','soft'].map(b=>[a,b,4.5]));pairs.push(['on-accent','accent',4.5],['line','surface',3]);
+ for(const [a,b,minimum]of pairs){assert.ok(contrast(palette[a],palette[b])>=minimum,`Insufficient ${a}/${b} contrast`);contrastPairs++;}
+}
+assert.equal(contrastPairs,48);
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html);});
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 const base=`http://127.0.0.1:${server.address().port}`;
@@ -36,5 +45,5 @@ try{
  await page.goto(base);await page.keyboard.press('Tab');assert.notEqual(await page.locator(':focus').evaluate(element=>getComputedStyle(element).outlineStyle),'none');
  await page.setViewportSize({width:320,height:900});await page.addStyleTag({content:'html{font-size:200%}'});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.close();await fs.writeFile(join(output,'verification.json'),JSON.stringify({verified:true,renderedStates:results.length,results,interactions:['search','safe input retention','transport','seek','author-note toggle','saved feedback','choice','export','keyboard focus','320px large text'],privateBookContent:false},null,2)+'\n');
- console.log(JSON.stringify({verified:true,renderedStates:results.length,screenshots:18,interactions:10}));
+ console.log(JSON.stringify({verified:true,renderedStates:results.length,screenshots:18,interactions:10,contrastPairs}));
 }finally{await browser.close();await new Promise(done=>server.close(done));}
