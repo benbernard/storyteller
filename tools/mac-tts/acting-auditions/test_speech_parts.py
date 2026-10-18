@@ -5,6 +5,21 @@ from speech_parts import speech_parts, speakable_text, synthesis_text, delivery_
 
 
 class SpeechPartsTests(unittest.TestCase):
+    def test_decimal_adjacent_to_units_keeps_point_and_every_fraction_digit(self) -> None:
+        for source, expected in [
+            ('Weight: 12.5kg (+0%)', 'twelve point five kg'),
+            ('Weight: 1,234.050kg', 'one thousand two hundred thirty four point zero five zero kg'),
+            ('Length: -7.25m', '-seven point two five m'),
+            ('Mass: 0.05µg', 'zero point zero five µg'),
+            ('Rate: 3.20abcd/sec', 'three point two zero abcd/sec'),
+            ('Value: 12.5k', 'twelve point five k'),
+            ('Temperature: 12.5K (+0%)', 'twelve point five K'),
+            ('Value: 12.50.', '12.50.'),
+        ]:
+            with self.subTest(source=source):
+                self.assertIn(expected, speakable_text(source))
+                self.assertEqual(''.join(p['text'] for p in speech_parts(source)), source)
+
     def test_glitch_lettering_keeps_word_and_source_without_stripping_normal_accents(self) -> None:
         source = '“Why so much [H\u0335\u035d\u0358u\u0337\u0314\u0301n\u0337\u0300\u0360g\u0337\u030c\u0315e\u0338\u0344\u0301r\u0335\u030d\u031a]?”'
         self.assertEqual(speakable_text(source), '“Why so much Hunger?”')

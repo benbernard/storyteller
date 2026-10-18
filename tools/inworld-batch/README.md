@@ -158,6 +158,10 @@ Both fresh ASR models, independent unprompted phonemes and subscription review o
 the complete derived passages are required before publication, including every
 reused clip. A failed review does not grant another migration attempt.
 
+New preparation keeps the decimal point and every fractional digit when a number
+touches a unit, such as `12.50kg`. Historical notation proofs replay the original
+formatter from its exact SHA-256 snapshot. Queued inputs remain unchanged.
+
 Credentials stay on the remote synthesis host. `credentialFile` names its private
 Inworld env file. The fixed-host gateway sends it only to `api.inworld.ai`.
 The Codex executable is selected with `AUDIOBOOK_CODEX_BIN`. Analysis and review

@@ -209,7 +209,8 @@ def integer_words(value: int) -> str:
 def spoken_notation(text: str) -> str:
     """Expand mathematical display notation while retaining its exact values."""
     import re
-    if not re.search(r'\bTBD\b|\d\s*\|\s*\d|\d\s*%|\d\s*->|\d+(?:\.\d+)?(?:s|lvl)\b|\d\s*/\s*\d', text):
+    decimal = r'(?<![\w.])(\d+(?:,\d{3})*)\.(\d+)(?!\d|\.\d)'
+    if not re.search(r'\bTBD\b|\d\s*\|\s*\d|\d\s*%|\d\s*->|\d+(?:\.\d+)?(?:s|lvl)\b|\d\s*/\s*\d', text) and not re.search(decimal + r'(?=[^\W\d_])', text):
         return text
     text = re.sub(r'\bTBD\b', 'to be determined', text)
     text = re.sub(r'(\d+(?:\.\d+)?)s/(\d+)lvl\b', r'\1 seconds per \2 levels', text)
@@ -217,7 +218,8 @@ def spoken_notation(text: str) -> str:
     text = re.sub(r'(\d+(?:\.\d+)?)\s*/\s*(\d+)', r'\1 out of \2', text)
     text = re.sub(r'(\d)(s|lvl)\b', lambda m: m[1] + (' seconds' if m[2] == 's' else ' levels'), text)
     text = text.replace('α', 'alpha ').replace('->', ' to ')
+    text = re.sub(decimal, lambda m: integer_words(int(m[1].replace(',', ''))) + ' point ' + ' '.join(integer_words(int(d)) for d in m[2])
+                  + (' ' if text[m.end():m.end() + 1].isalpha() else ''), text)
     text = re.sub(r'\b(\d+)[kK]\b', lambda m: integer_words(int(m[1]) * 1000), text)
-    text = re.sub(r'\b(\d+(?:,\d{3})*)\.(\d+)\b', lambda m: integer_words(int(m[1].replace(',', ''))) + ' point ' + ' '.join(integer_words(int(d)) for d in m[2]), text)
     text = re.sub(r'\b\d+(?:,\d{3})*\b', lambda m: integer_words(int(m[0].replace(',', ''))), text)
     return text.replace('|', ', ').replace('+', ' plus ').replace('%', ' percent').replace('(', ', ').replace(')', ', ')

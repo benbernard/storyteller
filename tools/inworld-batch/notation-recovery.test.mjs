@@ -7,7 +7,7 @@ import {spawnSync} from 'node:child_process';
 import {hash,sha,assertBudget} from './core.mjs';
 import {fingerprint} from '../audiobooks/dist/store.js';
 import {buildChapter} from './prepare.mjs';
-import {notationPolicy,notationRenderer,chapterNotationManifest} from './notation-recovery.mjs';
+import {notationPolicy,notationRenderer,chapterNotationManifest,replayNotationInput} from './notation-recovery.mjs';
 import {preflightNotationRecovery,recoverVisualRedactionPassage,canonicalHash} from './rendering-recovery.mjs';
 import {renderingContext} from './rendering-review.mjs';
 import {pcmASRModels} from './pcm-symbol-evidence.mjs';
@@ -64,6 +64,27 @@ async function fixture(){
  const recover=(target,saveFn=save)=>recoverVisualRedactionPassage({...args,item:target.item,render:target.render,verify:target.verify,policy:notationPolicy,save:saveFn,run,synthesize,status:async()=>{}});
  return {root,folder,entry,chapter,config,notation,originals,preflight,pin,recover,paid:()=>paid,setUncertain:value=>{uncertain=value;}};
 }
+
+test('legacy normalization is replayed by exact historical module hash without changing queued inputs',async()=>{
+ const f=await fixture();try{
+  const plan=structuredClone(f.notation.manifest.preparedPlan);
+  plan.segments[0].text='Weight: 12.5kg (+0%).';
+  const texts=JSON.stringify(plan.segments.map(s=>s.text));
+  const old=spawnSync('python3',[resolve('tools/inworld-batch/normalization/replay_v1.py')],{input:texts,encoding:'utf8'});
+  assert.equal(old.status,0);
+  const chapter=buildChapter(plan,JSON.parse(old.stdout),f.config),manifest=structuredClone(f.notation.manifest);
+  manifest.preparedPlan=plan;manifest.inputHash=hash(chapter);
+  manifest.normalizationModules['tools/mac-tts/acting-auditions/speech_parts.py']=sha(await fs.readFile(resolve('tools/inworld-batch/normalization/speech_parts_v1.py')));
+  const materials={manifest,hash:fingerprint(manifest),evidence:f.notation.evidence},before=JSON.stringify(chapter);
+  assert.match(chapter.items[0].spokenText,/twelve\.5kg/);
+  assert.equal(await replayNotationInput(chapter,materials,f.config),true);
+  assert.equal(JSON.stringify(chapter),before);
+  const current=spawnSync('python3',[resolve('tools/inworld-batch/normalize.py')],{input:texts,encoding:'utf8'});
+  assert.equal(current.status,0);assert.match(JSON.parse(current.stdout)[0],/twelve point five kg/);
+  materials.manifest.normalizationModules['tools/mac-tts/acting-auditions/speech_parts.py']='0'.repeat(64);
+  materials.hash=fingerprint(materials.manifest);await assert.rejects(()=>replayNotationInput(chapter,materials,f.config));
+ }finally{await fs.rm(f.root,{recursive:true,force:true});}
+});
 
 test('three reviewed notation children share one durable allowance and retain all other source/audio/counters',async()=>{
  const f=await fixture();try{const before=await fs.readFile(join(f.folder,'input.json')),plans=await f.preflight();assert.equal(plans.flatMap(p=>p.plan.parts.filter(c=>!c.reused)).length,3);await f.pin();for(const target of plans)await f.recover(target);assert.equal(f.paid(),3);assert.deepEqual(await fs.readFile(join(f.folder,'input.json')),before);

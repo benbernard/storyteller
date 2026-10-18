@@ -14,6 +14,7 @@ const here=dirname(fileURLToPath(import.meta.url)),fail=()=>{throw Error('Source
 const safeId=value=>typeof value==='string'&&/^[A-Za-z0-9_-]+$/.test(value);
 const digest=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const modules=['tools/inworld-batch/prepare.mjs','tools/inworld-batch/normalize.py','tools/mac-tts/acting-auditions/speech_parts.py'];
+const legacySpeechSha='2d273c9d185975c3cfef49f8fd6e893e657f13893650560188d505dee9053b6a';
 const kinds=['comparison','celsius','literal-unit'];
 const selected=manifest=>manifest.passages.flatMap(passage=>passage.selectedChildren??[]);
 function structure(manifest){
@@ -70,9 +71,15 @@ export async function replayNotationInput(chapter,materials,settings){
   ||hash(manifest.preparedPlan)!==chapter.provenance?.planHash)fail();
  const expected={acronyms:settings.acronyms??[],pronunciations:settings.pronunciations??{},narratorPolicy:settings.narratorPolicy};
  if(fingerprint(expected)!==fingerprint(manifest.preparationSettings))fail();
- for(const path of modules)if(manifest.normalizationModules?.[path]!==sha(await fs.readFile(join(here,'../..',path))))fail();
+ let legacy=false;
+ for(const path of modules){
+  const expected=manifest.normalizationModules?.[path],current=sha(await fs.readFile(join(here,'../..',path)));
+  if(expected===current)continue;
+  if(path===modules[2]&&expected===legacySpeechSha&&sha(await fs.readFile(join(here,'normalization/speech_parts_v1.py')))===legacySpeechSha)legacy=true;
+  else fail();
+ }
  const policy=chapter.provenance?.spokenRendering?.policy,view=policy?await renderPlanSpoken(manifest.preparedPlan,true,policy):{texts:manifest.preparedPlan.segments.map(s=>s.text)};
- const normalized=spawnSync('python3',[join(here,'normalize.py')],{input:JSON.stringify(view.texts),encoding:'utf8',maxBuffer:8e6});
+ const normalized=spawnSync('python3',[join(here,legacy?'normalization/replay_v1.py':'normalize.py')],{input:JSON.stringify(view.texts),encoding:'utf8',maxBuffer:8e6});
  if(normalized.status!==0)fail();
  const rebuilt=buildChapter(manifest.preparedPlan,JSON.parse(normalized.stdout),expected,view.provenance);
  if(hash(rebuilt)!==hash(chapter))fail();
