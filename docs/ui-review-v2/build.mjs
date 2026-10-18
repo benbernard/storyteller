@@ -1,0 +1,14 @@
+import fs from 'node:fs/promises';
+import {dirname,join,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=dirname(fileURLToPath(import.meta.url));
+const output=resolve(process.argv[2]??join(root,'../../.agent-scratch/ui-review-v2'));
+const art=resolve(process.argv[3]??join(output,'cover-art-sprite.png'));
+await fs.mkdir(output,{recursive:true});
+const mascot='data:image/png;base64,'+(await fs.readFile(join(root,'../../tools/audiobooks/listener-web/storyteller-mark.png'))).toString('base64');
+const covers='data:image/png;base64,'+(await fs.readFile(art)).toString('base64');
+const css=await fs.readFile(join(root,'review.css'),'utf8');
+const js=(await fs.readFile(join(root,'review.js'),'utf8')).replaceAll('__COVER_ART__',covers).replaceAll('../../tools/audiobooks/listener-web/storyteller-mark.png',mascot);
+const html=(await fs.readFile(join(root,'index.html'),'utf8')).replace('<link rel="stylesheet" href="review.css">',`<style>${css}</style>`).replace('<script src="review.js" defer></script>',`<script>document.addEventListener('DOMContentLoaded',()=>{${js.replaceAll('</script>','<\\/script>')} });</script>`).replaceAll('../../tools/audiobooks/listener-web/storyteller-mark.png',mascot);
+await fs.writeFile(join(output,'storyteller-design-review-v2.html'),html);
+console.log(JSON.stringify({output:join(output,'storyteller-design-review-v2.html'),selfContained:true,sampleContentOnly:true}));
