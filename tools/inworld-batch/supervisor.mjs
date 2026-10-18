@@ -42,31 +42,40 @@ export async function supervise(path) {
  try {const pid=Number(await fs.readFile(lockPath,'utf8'));process.kill(pid,0);throw Error('Supervisor already active');}
  catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;}
  await fs.writeFile(lockPath,String(process.pid),{flag:'w',mode:0o600});
- const children=new Map(),stopping=new AbortController();let interrupted=false;
+ const children=new Map(),stopping=new AbortController(),preparationStopping=new AbortController();let interrupted=false,pauseRequested=false,pauseMonitor;
  const status=createSupervisorStatusWriter(prior,async next=>{await save(statusPath,next);prior=next;});
  const terminatePreparation=()=>{for(const [pid,lane]of children)if(lane!=='render')try{process.kill(-pid,'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}};
- const stop=()=>{interrupted=true;stopping.abort();void save(join(root,'pause.requested'),{at:new Date().toISOString()});terminatePreparation();};process.on('SIGTERM',stop);process.on('SIGINT',stop);
+ const pausedPreparation=()=>Object.assign(Error('Preparation paused; checkpoints retained'),{code:'PREPARATION_PAUSED'});
+ const stop=()=>{interrupted=true;stopping.abort();preparationStopping.abort();void save(join(root,'pause.requested'),{at:new Date().toISOString()});terminatePreparation();};process.on('SIGTERM',stop);process.on('SIGINT',stop);
+ const checkPause=async()=>{
+  if(pauseRequested||stopping.signal.aborted)return;
+  try{await fs.access(join(root,'pause.requested'));}catch(error){if(error.code==='ENOENT')return;throw error;}
+  pauseRequested=true;preparationStopping.abort();terminatePreparation();
+  await status({status:'pausing',stage:'waiting-for-render-pause',reason:null,nextAttemptAt:null});
+ };
  const heartbeat=setInterval(()=>{void status({childPid:children.keys().next().value??null,children:[...children].map(([pid,lane])=>({pid,lane}))}).catch(()=>{});},15000);
  const command=async(args,lane='prepare')=>new Promise((done,fail)=>{
-  if(stopping.signal.aborted){fail(Error('Supervision stopped'));return;}
+  if(stopping.signal.aborted||lane!=='render'&&preparationStopping.signal.aborted){fail(pauseRequested&&!interrupted?pausedPreparation():Error('Supervision stopped'));return;}
   const child=spawn(process.execPath,args,{env:process.env,stdio:['ignore','pipe','pipe'],detached:true});children.set(child.pid,lane);let error='';
   const output=fs.open(join(root,'supervisor.log'),'a');
   child.stdout.on('data',data=>{void output.then(f=>f.write(data));});
   child.stderr.on('data',data=>{error=(error+data).slice(-1500);void output.then(f=>f.write(data));});
-  child.once('error',fail);child.once('close',code=>{children.delete(child.pid);void output.then(f=>f.close());code===0?done():fail(Error('Child exited '+code+': '+error));});
+  child.once('error',fail);child.once('close',code=>{children.delete(child.pid);void output.then(f=>f.close());if(lane!=='render'&&pauseRequested&&!interrupted){fail(pausedPreparation());return;}code===0?done():fail(Error('Child exited '+code+': '+error));});
  });
  const retry=async(stage,work,lane='prepare')=>{
+  const signal=lane==='render'?stopping.signal:preparationStopping.signal;
   for(let attempt=0;;attempt++){
-   try{if(stopping.signal.aborted)throw Error('Supervision stopped');await status({status:'running',stage,attempt:attempt+1,reason:null,nextAttemptAt:null,[lane+'Stage']:stage,lanes:{[stage]:{status:'running',attempt:attempt+1,reason:null,nextAttemptAt:null}}});const result=await work();await status({lanes:{[stage]:{status:stopping.signal.aborted?'interrupted':'complete',attempt:attempt+1,reason:stopping.signal.aborted?'Supervision stopped':null,nextAttemptAt:null}}});return result;}
+   try{if(signal.aborted||stopping.signal.aborted)throw pauseRequested&&!interrupted&&lane!=='render'?pausedPreparation():Error('Supervision stopped');await status({status:'running',stage,attempt:attempt+1,reason:null,nextAttemptAt:null,[lane+'Stage']:stage,lanes:{[stage]:{status:'running',attempt:attempt+1,reason:null,nextAttemptAt:null}}});const result=await work();await status({lanes:{[stage]:{status:signal.aborted?'interrupted':'complete',attempt:attempt+1,reason:signal.aborted?'Supervision stopped':null,nextAttemptAt:null}}});return result;}
    catch(error){
-    if(stopping.signal.aborted){await status({lanes:{[stage]:{status:'interrupted',attempt:attempt+1,reason:String(error.message),nextAttemptAt:null}}});throw error;}
+    if(error.code==='PREPARATION_PAUSED'){await status({lanes:{[stage]:{status:'paused',attempt:attempt+1,reason:null,nextAttemptAt:null}}});throw error;}
+    if(signal.aborted||stopping.signal.aborted){await status({lanes:{[stage]:{status:'interrupted',attempt:attempt+1,reason:String(error.message),nextAttemptAt:null}}});throw error;}
     const reason=String(error.message);
     if(attempt>=(config.maxRecoveryAttempts??8)-1||recoveryAction({reason})==='attention'){await status({lanes:{[stage]:{status:'needs-attention',attempt:attempt+1,reason,nextAttemptAt:null}}});throw error;}
     const seconds=Math.min(config.maxRetrySeconds??1800,(config.retrySeconds??30)*2**attempt);
     const nextAttemptAt=new Date(Date.now()+seconds*1000).toISOString();
     await status({status:'recovering',stage,attempt:attempt+1,reason,nextAttemptAt,lanes:{[stage]:{status:'recovering',attempt:attempt+1,reason,nextAttemptAt}}});
-    try{await wait(seconds*1000,undefined,{signal:stopping.signal});}
-    catch(error){await status({lanes:{[stage]:{status:'interrupted',attempt:attempt+1,reason:String(error.message),nextAttemptAt:null}}});throw error;}
+    try{await wait(seconds*1000,undefined,{signal});}
+    catch(error){const paused=pauseRequested&&!interrupted&&lane!=='render';await status({lanes:{[stage]:{status:paused?'paused':'interrupted',attempt:attempt+1,reason:paused?null:String(error.message),nextAttemptAt:null}}});throw paused?pausedPreparation():error;}
    }
   }
  };
@@ -131,6 +140,7 @@ export async function supervise(path) {
    });appendTail=task.catch(()=>{});return task;
   };
   if(queue.selectedChapterIds)await appendReady();
+  await checkPause();pauseMonitor=setInterval(()=>{void checkPause().catch(error=>{void status({status:'needs-attention',reason:'Pause marker unavailable: '+error.code});});},1000);
   const preparation=async()=>{
    if(!queue.selectedChapterIds||queue.preparationComplete)return;
    await prepareConcurrently(config.chapterIds,{
@@ -143,6 +153,7 @@ export async function supervise(path) {
      await retry('directions-'+id,()=>command([config.planner,config.plannerConfig,id,'directions'],'directions'),'directions');
     },ready:appendReady,
    },config.directionConcurrency??2);
+   if(preparationStopping.signal.aborted)throw pauseRequested&&!interrupted?pausedPreparation():Error('Supervision stopped');
    if(queue.chapters.length!==config.chapterIds.length)throw Error('Selected preparation incomplete');
    queue.preparationComplete=true;await save(join(root,'queue.json'),queue);
   };
@@ -157,7 +168,8 @@ export async function supervise(path) {
   },'render');
   let failure;
   const tasks=[preparation(),rendering()].map(task=>task.catch(async error=>{
-   failure??=error;stopping.abort();terminatePreparation();await save(join(root,'pause.requested'),{at:new Date().toISOString(),reason:'A supervised lane requires attention'});
+   if(error.code==='PREPARATION_PAUSED')return;
+   failure??=error;stopping.abort();preparationStopping.abort();terminatePreparation();await save(join(root,'pause.requested'),{at:new Date().toISOString(),reason:'A supervised lane requires attention'});
   }));
   await Promise.all(tasks);if(failure)throw failure;
   const state=await read(join(root,'status.json'));
@@ -166,7 +178,7 @@ export async function supervise(path) {
   if(state.status!=='complete')throw Error(state.reason??'Runner incomplete');
   await status({status:'complete',stage:'verified-publication',chapters:queue.chapters.length,reason:null});
  }catch(error){await status({status:interrupted?'interrupted':'needs-attention',reason:String(error.message)});}
- finally{clearInterval(heartbeat);process.off('SIGTERM',stop);process.off('SIGINT',stop);await fs.unlink(lockPath);}
+ finally{clearInterval(heartbeat);clearInterval(pauseMonitor);process.off('SIGTERM',stop);process.off('SIGINT',stop);await fs.unlink(lockPath);}
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  if(!process.argv[2])throw Error('Usage: supervisor.mjs CONFIG.json');await supervise(resolve(process.argv[2]));
