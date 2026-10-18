@@ -1,3 +1,4 @@
+import { openAIConnection } from './openai-connection.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { analysisSchema, comparePosition, type Analysis, type Cast, type Chapter, type Config,
@@ -143,16 +144,15 @@ export function analysisFingerprint(chapter: Chapter, config: Config, context: s
 
 export async function analyzeRemote(chapter: Chapter, config: Config, context: string, cast: Cast,
   reserve: (input: string) => Promise<void>, previous?: Analysis, record?: (attempt: unknown) => Promise<void>): Promise<Analysis> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error('OPENAI_API_KEY is not provisioned');
+  const connection = openAIConnection('api');
   const units = config.analysis.promptVersion === 'analysis-v2-units' ? sourceUnits(chapter.text) : undefined;
   let error = '';
   for (let attempt = 0; attempt < config.analysis.maxAttempts; attempt++) {
     const input = JSON.stringify({ ...(units ? { sourceUnits: units.map((text, unit) => ({ unit, text })) } : { chapter: chapter.text }), context, roster: rosterAt(cast, chapter.sequence),
       narrationRules: config.narrationRules, protagonistId: config.protagonistId, validationError: error });
     await reserve(input);
-    const response = await fetch('https://api.openai.com/v1/responses', { method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    const response = await fetch(connection.base+'/responses', { method: 'POST',
+      headers: { ...connection.headers, 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(180_000),
       body: JSON.stringify({ model: config.analysis.model, instructions: units ? PROMPT + '\n' + UNIT_PROMPT + '\nReturn labels as an object keyed unit_0, unit_1, etc., including EVERY required key. Do not return a units array.' : PROMPT, input, store: false,
         max_output_tokens: config.analysis.maxOutputTokens,

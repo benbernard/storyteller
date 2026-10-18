@@ -70,3 +70,25 @@ device mappings, and compare library and queue identities. Stop the old worker
 before starting its replacement. Preserve queue leases, budget ledgers and unknown
 paid request outcomes. Keep the old image and configuration for rollback; do not
 restore an old database over writes made after cutover.
+
+## Optional OpenAI gateway
+
+An operator can keep OpenAI authentication in a gateway. Set `AI_GATEWAY_ORIGIN`
+to its HTTPS origin, `AI_GATEWAY_CLIENT_ID` to a stable source name, and
+`AI_GATEWAY_USER_ID` to the authenticated owner's lowercase email. Supply a scoped
+service credential through `AI_GATEWAY_TOKEN_FILE` or `AI_GATEWAY_TOKEN`.
+These settings contain no backing provider API key or ChatGPT refresh token.
+
+The gateway must support `/ai/openai/api/v1` for metered requests and
+`/ai/openai/subscription/v1/responses` for ChatGPT subscription requests. Each
+request carries `Authorization`, `X-AI-Client-ID` and `X-AI-User-ID`.
+A configured gateway requires all three identities and never falls back to a
+local provider key. Without these gateway settings, standalone installations
+retain the existing OpenAI API key or local Codex subscription setup.
+
+Chapter analysis and speech auditions keep their selected models, output limits,
+reservation ledgers and retry rules. Subscription chapter analysis uses streaming
+Responses with high reasoning and the existing output schema. A failed or
+incomplete subscription response never switches to metered API billing.
+The gateway should record provider usage and pricing separately from the local
+budget ledger; a budget reservation is not a provider charge.

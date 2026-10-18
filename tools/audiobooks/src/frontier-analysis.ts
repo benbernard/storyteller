@@ -1,3 +1,4 @@
+import { openAIConnection } from './openai-connection.js';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { Store, fingerprint } from './store.js';
@@ -100,7 +101,7 @@ export async function analyzeFrontier(store: Store, chapter: Chapter, cast: Cast
     }
     throw new Error(`Subscription attribution needs review: ${validationError}`);
   }
-  const key = process.env.OPENAI_API_KEY; if (!key) throw new Error('OPENAI_API_KEY is not provisioned for frontier chapter analysis');
+  const connection = openAIConnection('api');
   const ledgerPath = `frontier-budgets/${policy.budgetId}.json`;
   if (policy.usdPerMillionInputTokens === undefined || policy.usdPerMillionOutputTokens === undefined) throw new Error('API analysis requires explicit input and output token prices');
   const prices = { input: policy.usdPerMillionInputTokens, output: policy.usdPerMillionOutputTokens };
@@ -117,7 +118,7 @@ export async function analyzeFrontier(store: Store, chapter: Chapter, cast: Cast
     if (ledger.charges.some(c => c.request === dependency && c.status === 'pending')) throw new Error('Unresolved frontier request; inspect its receipt before retrying');
     if (ledger.charges.reduce((sum, c) => sum + (c.actualUsd ?? c.reservedUsd), 0) + reservedUsd > policy.maxUsd) throw new Error('Frontier analysis budget exhausted');
     const charge: Charge = { id: randomUUID(), request: dependency, reservedUsd, status: 'pending' }; ledger.charges.push(charge); await store.write(ledgerPath, ledger);
-    const response = await request('https://api.openai.com/v1/responses', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(600000) });
+    const response = await request(connection.base+'/responses', { method: 'POST', headers: { ...connection.headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(600000) });
     if (!response.ok) throw new Error(`Frontier analysis HTTP ${response.status}; reservation retained`);
     const raw = await response.json() as { status?: string; usage?: { input_tokens: number; output_tokens: number; input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number } }; output?: { type: string; content?: { type: string; text?: string }[] }[] };
     await store.write(`${folder}/${charge.id}.json`, raw);

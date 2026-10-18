@@ -1,3 +1,4 @@
+import { openAIConnection } from './openai-connection.js';
 import { readFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -42,7 +43,7 @@ export function reservationAllowed(charges: Charge[], maximum: number, nextReser
 
 export async function runOpenaiAudition(input: unknown, destination: string, request: typeof fetch = fetch) {
   const plan = openaiAuditionSchema.parse(input);
-  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not provisioned');
+  const connection = openAIConnection('api');
   const store = new Store(destination);
   return store.lock(async () => {
     const identity = fingerprint(plan);
@@ -68,9 +69,9 @@ export async function runOpenaiAudition(input: unknown, destination: string, req
         await store.write('ledger.json', ledger); // Durable before any paid call; failures stay reserved.
         let response: Response;
         try {
-          response = await request('https://api.openai.com/v1/audio/speech', {
+          response = await request(connection.base+'/audio/speech', {
             method: 'POST', redirect: 'error', signal: AbortSignal.timeout(120_000),
-            headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+            headers: { ...connection.headers, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: plan.model, voice: turn.voice, input: turn.text,
               instructions: turn.instructions, response_format: 'pcm', speed: 1, stream_format: plan.streamFormat }),
           });
