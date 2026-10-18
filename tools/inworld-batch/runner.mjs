@@ -12,7 +12,8 @@ import {repairPassage,recoverRepairs} from './repair.mjs';
 import {validateQueueUpdate,queuePreparationComplete,archiveExcludes} from './queue.mjs';
 import {voiceDesignPrompt} from './voice-design.mjs';
 import {batchWindowSize,explicitProviderRejection,classifyBatchResponse,providerBlockingCodes,runBatchWindow,reconcileBatchJobs} from './batch-window.mjs';
-import {recoverVisualRedactionPassage,recoveryPolicy,overlayRecoveryPolicy} from './rendering-recovery.mjs';
+import {recoverVisualRedactionPassage,recoveryPolicy,overlayRecoveryPolicy,preflightNotationRecovery} from './rendering-recovery.mjs';
+import {notationPolicy,loadNotationMaterials,chapterNotationManifest} from './notation-recovery.mjs';
 import {renderingContext} from './rendering-review.mjs';
 import {withChapterProcessingLock} from './chapter-processing-lock.mjs';
 import {asrReviewCommand} from './review-command.mjs';
@@ -20,9 +21,10 @@ const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
 const overlayOnly=process.argv[3]==='--recover-overlays';
-const renderingOnly=['--recover-rendering','--recover-overlays'].includes(process.argv[3])?process.argv[4]:null,renderingIds=renderingOnly?process.argv.slice(5):[];
+const notationOnly=process.argv[3]==='--recover-notation';
+const renderingOnly=['--recover-rendering','--recover-overlays','--recover-notation'].includes(process.argv[3])?process.argv[4]:null,renderingIds=renderingOnly&&!notationOnly?process.argv.slice(5):[];
 batchWindowSize(config.maxInFlightBatches); // Reject invalid limits before any paid voice previews.
-if(process.argv.length>3&&!(processOnly&&process.argv.length===5)&&!(renderingOnly&&renderingIds.length&&new Set(renderingIds).size===renderingIds.length))throw Error('Usage: runner.mjs QUEUE [--process-only CHAPTER_ID | --recover-rendering CHAPTER_ID PASSAGE_ID ... | --recover-overlays CHAPTER_ID PASSAGE_ID ...]');
+if(process.argv.length>3&&!(processOnly&&process.argv.length===5)&&!(notationOnly&&renderingOnly&&process.argv.length===7)&&!(renderingOnly&&!notationOnly&&renderingIds.length&&new Set(renderingIds).size===renderingIds.length))throw Error('Usage: runner.mjs QUEUE [--process-only CHAPTER_ID | --recover-rendering CHAPTER_ID PASSAGE_ID ... | --recover-overlays CHAPTER_ID PASSAGE_ID ... | --recover-notation CHAPTER_ID MANIFEST_JSON REVIEWED_SHA256]');
 const reviewEntry=processOnly?config.chapters.find(c=>c.chapterId===processOnly):null;
 if(processOnly&&!reviewEntry)throw Error('Unknown chapter');
 process.umask(0o077);
@@ -347,12 +349,14 @@ if(renderingOnly){
    if(Number.isInteger(active.pid)&&active.pid>0)try{process.kill(active.pid,0);}catch(error){if(error.code==='ESRCH')alive=false;else throw error;}
    if(alive||producer.status!=='paused')throw Error('Rendering recovery cannot overlap active or unconfirmed processing');
   }
-  const renderer=await import(pathToFileURL(join(here,overlayOnly?'../audiobooks/dist/spoken-overlays.js':'../audiobooks/dist/spoken-redactions.js')).href),voices=await read(join(root,'voices.json'));
+  const notation=notationOnly?await loadNotationMaterials(resolve(process.argv[5]),process.argv[6]):null;
+  const renderer=notationOnly?null:await import(pathToFileURL(join(here,overlayOnly?'../audiobooks/dist/spoken-overlays.js':'../audiobooks/dist/spoken-redactions.js')).href),voices=await read(join(root,'voices.json'));
   for(const [role,voice]of Object.entries(config.originalVoices))if(voices[role]?.voiceId!==voice.voiceId)throw Error('Original voice changed: '+role);
-  const targets=renderingIds.map(id=>{const item=chapter.items.find(value=>value.customId===id);if(!item)throw Error('Unknown rendering recovery passage');return item;});
-  await status({status:'running',chapter:entry.chapterId,passages:renderingIds});
-  for(const item of targets){
-   await recoverVisualRedactionPassage({entry,chapter,item,config,read,save,run,voices,status,policy:overlayOnly?overlayRecoveryPolicy:recoveryPolicy,render:overlayOnly?renderer.renderCombiningOverlays:renderer.renderVisualRedactions,verify:overlayOnly?renderer.verifyCombiningOverlays:renderer.verifyVisualRedactions,
+  const targets=notationOnly?await preflightNotationRecovery({entry,chapter,config,read,voices,notation}):renderingIds.map(id=>{const item=chapter.items.find(value=>value.customId===id);if(!item)throw Error('Unknown rendering recovery passage');return {item,render:overlayOnly?renderer.renderCombiningOverlays:renderer.renderVisualRedactions,verify:overlayOnly?renderer.verifyCombiningOverlays:renderer.verifyVisualRedactions};});
+  if(notationOnly)await chapterNotationManifest(entry.root,notation,read,save);
+  await status({status:'running',chapter:entry.chapterId,passages:targets.map(target=>target.item.customId)});
+  for(const {item,render,verify}of targets){
+   await recoverVisualRedactionPassage({entry,chapter,item,config,read,save,run,voices,status,notation,policy:notationOnly?notationPolicy:overlayOnly?overlayRecoveryPolicy:recoveryPolicy,render,verify,
     synthesize:(recoveryEntry,recoveryChapter,v)=>paid.run(()=>synthesize(recoveryEntry,recoveryChapter,v,false,1))});
   }
   await archive();await status({status:'ready-for-fidelity-review',stage:'recovered'});

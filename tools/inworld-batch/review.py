@@ -34,6 +34,7 @@ Transcriber = Callable[[Path, str], str]
 ContextLoader = Callable[[Path, ReviewItem, str], Optional[dict[str, object]]]
 SPOKEN_PLUS_POLICY = 'spoken-plus-v1'
 COMBINING_OVERLAY_POLICY = 'combining-overlay-v1'
+SOURCE_NOTATION_POLICY = 'source-numeric-notation-v1'
 NOTATION_COMPARISON_POLICY = 'numeric-symbols-v1'
 # Only synthesis markup that we actually emit is non-spoken. In particular,
 # '< 12s ... > 3s' is source content, never an HTML tag.
@@ -124,7 +125,7 @@ def requires_dual_asr(context: dict[str, object] | None) -> bool:
     if context is None:
         return False
     proof = context.get('renderingProof')
-    return bool(context.get('offlinePCMExcision')) or (isinstance(proof, dict) and proof.get('policy') == COMBINING_OVERLAY_POLICY)
+    return bool(context.get('offlinePCMExcision')) or (isinstance(proof, dict) and proof.get('policy') in (COMBINING_OVERLAY_POLICY, SOURCE_NOTATION_POLICY))
 
 
 def cached_attempts(path: Path, digest: str, expected: str, models: list[str], comparison_expected: str, context: dict[str, object] | None) -> list[dict[str, object]]:

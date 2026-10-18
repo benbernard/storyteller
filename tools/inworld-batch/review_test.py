@@ -359,6 +359,33 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
         self.assertFalse((self.root / 'review' / 'first.json').exists())
 
+    def test_notation_recovery_requires_dual_asr_after_all_symbols_are_verbalized(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'A limit <12h.'}
+        context: dict[str, object] = {'comparisonExpected': 'A limit less than twelve hours.',
+                                     'renderingProof': {'policy': 'source-numeric-notation-v1', 'fingerprint': 'bound-source-proof'}}
+
+        def loader(root: Path, current: ReviewItem, digest: str) -> dict[str, object]:
+            return {**context, 'audioSha256': digest}
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            return 'A limit less than twelve hours.'
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-small'), ('first', 'pinned-large')])
+        report = self.read_report('first')
+        self.assertEqual(report['expected'], item['spokenText'])
+        self.assertEqual(report['comparisonExpected'], context['comparisonExpected'])
+        self.assertEqual(report['severity'], 'pass')
+        report['attempts'] = report['attempts'][:1]
+        save_json(self.root / 'review' / 'first.json', report)
+        self.calls.clear()
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [])
+        self.assertEqual(len(self.read_report('first')['attempts']), 2)
+
     def test_overlay_recovery_requires_both_fresh_whole_parent_models_even_when_small_matches(self) -> None:
         item: ReviewItem = {'customId': 'first', 'spokenText': 'S\u0334e\u0337aled E+.'}
         context: dict[str, object] = {'comparisonExpected': 'Sealed E+.',

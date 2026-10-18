@@ -121,6 +121,43 @@ phonemes and subscription AI review of the changed audio. A failed recovery rema
 held. The main worker retains the full proof chain for review and publication.
 Ahead review excludes these chapters.
 
+### Reviewed numeric notation recovery
+
+An unpublished chapter held after its two ordinary retakes can use
+`source-numeric-notation-v1` for a reviewed set of at most three child clips:
+
+```sh
+node tools/inworld-batch/runner.mjs /private/job/queue.json \
+  --recover-notation CHAPTER_ID /private/audit/manifest.json REVIEWED_SHA256
+```
+
+Run this only after a graceful pause reports `paused` and both worker and
+supervisor locks disappear. Prepare and independently review a private manifest
+that binds the original plan, source and queued hashes, exact source ranges,
+selected children, and existing unprompted ASR and phoneme evidence. Use its
+canonical JSON SHA-256 fingerprint as `REVIEWED_SHA256`, rather than the hash of
+the formatted file. Full input replay must reproduce the queued input exactly.
+
+This policy renders numeric `<` as “less than”, literal `°C` as “degrees Celsius”,
+and an explicitly reviewed compound unit as individual English letter names with
+“lowercase” once per side and spoken “slash”. The compound must contain exactly
+four lowercase ASCII letters, a slash and three lowercase ASCII letters, with
+verified token boundaries and numeric source context. It never guesses a unit's
+meaning. Operands and other words are copied unchanged into the request.
+
+One immutable chapter manifest limits all reruns together to the same three
+children. Preflight checks every target before any submission, including retained
+audio and interrupted promotions. Successful clips, saved voices, ordinary
+retake counters, the worker lock, ledger and spending ceiling are preserved.
+Each selected child gets at most one migration submission; uncertain submissions
+cannot be repeated. A prepared promotion resumes without another paid call.
+
+An existing ambiguity elsewhere in a selected clip remains documented; proving a
+notation defect does not approve the audio. Recovery leaves the chapter held.
+Both fresh ASR models, independent unprompted phonemes and subscription review of
+the complete derived passages are required before publication, including every
+reused clip. A failed review does not grant another migration attempt.
+
 Credentials stay on the remote synthesis host. `credentialFile` names its private
 Inworld env file. The fixed-host gateway sends it only to `api.inworld.ai`.
 The Codex executable is selected with `AUDIOBOOK_CODEX_BIN`. Analysis and review
