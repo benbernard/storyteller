@@ -80,13 +80,17 @@ export async function supervise(path) {
   }
  };
  try {
+  if(prior.status==='complete')return;
+  const resumePending=await fs.access(join(root,'resume.requested')).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;});
+  if(!resumePending&&await fs.access(join(root,'pause.requested')).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;})){
+   await status({status:'paused',pausedFrom:prior.status==='paused'?prior.pausedFrom??null:prior.status});return;
+  }
   // Explicit attention stops are durable. A monitoring agent reconciles evidence before resuming.
-  if(['needs-attention','review-backlog'].includes(prior.status)){
+  if(['needs-attention','review-backlog'].includes(prior.status==='paused'?prior.pausedFrom:prior.status)){
    try{await fs.access(join(root,'resume.requested'));}catch(error){if(error.code==='ENOENT')return;throw error;}
   }
-  if(prior.status==='complete')return;
   let resumed=false;try{await fs.unlink(join(root,'resume.requested'));resumed=true;}catch(error){if(error.code!=='ENOENT')throw error;}
-  if(resumed)await fs.rm(join(root,'pause.requested'),{force:true});
+  if(resumed){await fs.rm(join(root,'pause.requested'),{force:true});await status({pausedFrom:null});}
   else try{await fs.access(join(root,'pause.requested'));await status({status:'paused'});return;}catch(error){if(error.code!=='ENOENT')throw error;}
   const dependency=hash({chapterIds:config.chapterIds,voices:config.originalVoices,narrator:config.narratorPolicy});
   if(prior.dependency&&prior.dependency!==dependency)throw Error('Supervised inputs changed');
