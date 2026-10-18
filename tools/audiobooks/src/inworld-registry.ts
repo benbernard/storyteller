@@ -29,6 +29,15 @@ export function historicalCast(cast: Cast, sequence: number): Cast {
   })) };
 }
 const matchesName = (member: Cast['members'][number], name: string): boolean => [member.name, ...member.aliases.map(alias => alias.name)].some(candidate => nameKey(candidate) === nameKey(name));
+function currentAliasLookup(cast: Cast, chapter: Chapter, analysis: Analysis): Cast {
+  const lookup = structuredClone(cast);
+  for (const alias of analysis.aliasUpdates) {
+    if (!chapter.text.includes(alias.evidence) || !alias.evidence.includes(alias.name)) throw Error('Alias update lacks current source evidence');
+    const member = lookup.members.find(item => item.id === alias.characterId);
+    if (member && !member.aliases.some(item => nameKey(item.name) === nameKey(alias.name))) member.aliases.push({ name: alias.name, from: { chapter: chapter.sequence, offset: chapter.text.indexOf(alias.evidence) } });
+  }
+  return lookup;
+}
 function establishedIdentity(cast: Cast, profile: FrontierResult['profiles'][number]): Cast['members'][number] | undefined {
   const knownId = cast.members.find(member => member.id === profile.id);
   // An established ID accompanied by its own established name/alias is stronger
@@ -94,9 +103,10 @@ export async function registerConcealedMarkers(store: Store, chapter: Chapter, a
 export async function reconcileCharacters(store: Store, chapter: Chapter, result: FrontierResult): Promise<{ result: FrontierResult; event: CharacterEvent }> {
   return registryLock(store, async () => {
     const cast = await store.read<Cast>('cast.json') ?? { schemaVersion: 1, members: [] };
-    const historical = historicalCast(cast, chapter.sequence), remap = new Map<string, string>();
+    if (sha(chapter.text) !== chapter.contentHash || result.analysis.source !== chapter.contentHash) throw Error('Character registry source checksum mismatch');
+    const historical = historicalCast(cast, chapter.sequence), lookup = currentAliasLookup(historical, chapter, result.analysis), remap = new Map<string, string>();
     for (const profile of result.profiles) {
-      const existing = establishedIdentity(historical, profile);
+      const existing = establishedIdentity(lookup, profile);
       if (existing) remap.set(profile.id, existing.id);
       else if (cast.members.some(member => member.id === profile.id && nameKey(member.name) !== nameKey(profile.name))) throw Error('Character ID collides with another identity');
     }
@@ -141,8 +151,11 @@ export async function reconcileCharacters(store: Store, chapter: Chapter, result
       if (!chapter.text.includes(alias.evidence)) throw Error('Alias evidence must occur in the current source');
       const member = cast.members.find(item => item.id === alias.characterId);
       if (!member) throw Error('Alias names an unknown character');
-      if (!member.aliases.some(item => nameKey(item.name) === nameKey(alias.name))) {
-        member.aliases.push({ name: alias.name, from: { chapter: chapter.sequence, offset: chapter.text.indexOf(alias.evidence) } });
+      const prior = member.aliases.find(item => nameKey(item.name) === nameKey(alias.name));
+      const from = { chapter: chapter.sequence, offset: chapter.text.indexOf(alias.evidence) };
+      if (!prior || comparePosition(from, prior.from) < 0) {
+        if (prior) prior.from = from;
+        else member.aliases.push({ name: alias.name, from });
         event.aliases.push({ characterId: alias.characterId, name: alias.name });
       }
     }

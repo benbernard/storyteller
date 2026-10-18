@@ -131,3 +131,32 @@ test('an exact established ID survives another canonical short name while unknow
     assert.throws(() => canonicalizeEstablishedProfileNames(cast, returning.chapter, returning.result), /canonical name remains ambiguous/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+test('a source-grounded alias introduced in this chapter is available before matching its known speaker profile', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'inworld-registry-')), store = new Store(root);
+  try {
+    const original = registryFixture('mira', 1, 'Mira'), other = registryFixture('rhea', 1, 'Rhea');
+    await reconcileCharacters(store, original.chapter, original.result); await reconcileCharacters(store, other.chapter, other.result);
+    const cast = (await store.read<Cast>('cast.json'))!, member = cast.members.find(item => item.id === 'mira')!;
+    member.aliases.push({ name: 'Dr Mira', from: { chapter: 3, offset: 0 } });
+    member.voices = [{ voiceId: 'saved-female', settings: { stability: 0.5, similarity_boost: 0.7, style: 0, use_speaker_boost: true, speed: 1 }, version: 'one', from: { chapter: 1, offset: 0 }, reason: 'Saved casting', provenance: 'Owner review' }];
+    await store.write('cast.json', cast);
+    const revealed = registryFixture('mira', 2, 'Dr Mira'); revealed.result.analysis.characters = [];
+    // A profile's own aliases and a future roster entry cannot establish an ID.
+    revealed.result.profiles[0]!.aliases = ['Dr Mira'];
+    await assert.rejects(reconcileCharacters(store, revealed.chapter, revealed.result), /unestablished profile name/);
+    revealed.result.analysis.aliasUpdates = [{ characterId: 'mira', name: 'Dr Mira', evidence: '“Hello,”' }];
+    await assert.rejects(reconcileCharacters(store, revealed.chapter, revealed.result), /Alias update lacks current source evidence/);
+    revealed.result.analysis.aliasUpdates = [{ characterId: 'rhea', name: 'Dr Mira', evidence: revealed.chapter.text }];
+    await assert.rejects(reconcileCharacters(store, revealed.chapter, revealed.result), /unestablished profile name/);
+    assert.deepEqual(await store.read<Cast>('cast.json'), cast);
+    revealed.result.analysis.aliasUpdates = [{ characterId: 'mira', name: 'Dr Mira', evidence: revealed.chapter.text }];
+    const reconciled = await reconcileCharacters(store, revealed.chapter, revealed.result);
+    assert.equal(reconciled.result.analysis.spans[0]!.speaker, 'mira');
+    const saved = (await store.read<Cast>('cast.json'))!;
+    assert.deepEqual(saved.members.find(item => item.id === 'mira')!.voices, member.voices);
+    assert.deepEqual(historicalCast(saved, 1).members.find(item => item.id === 'mira')!.aliases, []);
+    assert.deepEqual(historicalCast(saved, 2).members.find(item => item.id === 'mira')!.aliases, [{ name: 'Dr Mira', from: { chapter: 2, offset: 0 } }]);
+    assert.deepEqual(reconciled.event.aliases, [{ characterId: 'mira', name: 'Dr Mira' }]);
+    assert.equal(saved.members.length, 2);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
