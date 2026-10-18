@@ -10,6 +10,7 @@ import {effectiveReview, processingOnlyEntry} from './owner-review.mjs';
 import {PaidLane,belongsToEntry,evidenceRow,modelReview,needsModelReview,reviewInstructions,reviewSchema,validateReview} from './adjudication.mjs';
 import {repairPassage,recoverRepairs} from './repair.mjs';
 import {validateQueueUpdate,queuePreparationComplete,archiveExcludes} from './queue.mjs';
+import {voiceDesignPrompt} from './voice-design.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
@@ -57,15 +58,18 @@ async function voicesFor(chapter){
   if(draft?.phase==='submitting')throw Error('Uncertain voice design submission requires inspection');
   if(!draft||draft.phase==='rejected'){
    const profile=profiles[role];
-   await save(receipt,{phase:'submitting',at:new Date().toISOString()});
-   const result=await api('/voices/v1/voices:design',{designPrompt:profile.designPrompt,languageCode:'en-US',previewText:profile.previewText,voiceDesignConfig:{numberOfSamples:1}});
-   if(result.status>=300){await save(receipt,{phase:'rejected',response:result});throw Error('Voice design rejected HTTP '+result.status);}
+   const designPrompt=voiceDesignPrompt(profile?.designPrompt);
+   await save(receipt,{phase:'submitting',at:new Date().toISOString(),designPrompt,profile});
+   const result=await api('/voices/v1/voices:design',{designPrompt,languageCode:'en-US',previewText:profile.previewText,voiceDesignConfig:{numberOfSamples:1}});
+   if(result.status>=300){await save(receipt,{phase:'rejected',response:result,designPrompt,profile});throw Error('Voice design rejected HTTP '+result.status);}
    const v=result.body.previewVoices?.[0];if(!v?.voiceId||!v.previewAudio)throw Error('Incomplete voice design');
    await fs.writeFile(join(dir,'preview.wav'),Buffer.from(v.previewAudio,'base64'));delete v.previewAudio;
-   draft={phase:'designed',voice:v,profile};await save(receipt,draft);await sleep(31000);
+   draft={phase:'designed',voice:v,profile,designPrompt};await save(receipt,draft);await sleep(31000);
   }
   // Publishing a designed voice is free. Preserve the stable draft ID before doing so.
-  const result=await api('/voices/v1/voices/'+encodeURIComponent(draft.voice.voiceId)+':publish',{displayName:`${config.fiction} Inworld — ${role}`,description:profiles[role].designPrompt,tags:['storyteller','audiobook']});
+  const description=voiceDesignPrompt(draft.designPrompt??draft.profile?.designPrompt??profiles[role]?.designPrompt);
+  const displayName=voiceDesignPrompt(`${config.fiction} Inworld - ${role}`);
+  const result=await api('/voices/v1/voices/'+encodeURIComponent(draft.voice.voiceId)+':publish',{displayName,description,tags:['storyteller','audiobook']});
   if(result.status>=300||!result.body.voiceId)throw Error('Voice publish rejected HTTP '+result.status);
   voices[role]={...result.body,profile:profiles[role],designedVoiceId:draft.voice.voiceId};await save(join(root,'voices.json'),voices);await archive();
  }

@@ -10,7 +10,7 @@ import {hash} from './core.mjs';
 
 test('supervision retries lost transports and keeps paid uncertainty, budget and content holds distinct',()=>{
  for(const reason of ['ssh exited 255: connection unavailable','Batch poll unavailable; operation retained','ChatGPT subscription analysis stopped (exit 1)','rsync exited 12'])assert.equal(recoveryAction({status:'held',reason}),'retry');
- for(const reason of ['Ambiguous submission: inspect operations','Uncertain voice design submission requires inspection','Batch rejected HTTP 402','Spending ceiling reached','Saved source changed','Previously failed operation needs inspection'])assert.equal(recoveryAction({status:'held',reason}),'attention');
+ for(const reason of ['Ambiguous submission: inspect operations','Uncertain voice design submission requires inspection','Voice design rejected HTTP 400','Batch rejected HTTP 402','Spending ceiling reached','Saved source changed','Previously failed operation needs inspection'])assert.equal(recoveryAction({status:'held',reason}),'attention');
  assert.equal(recoveryAction({status:'complete'}),'complete');
  assert.equal(recoveryAction({status:'complete-with-review-backlog'}),'review');
 });

@@ -13,7 +13,7 @@ export function recoveryAction(status) {
  if(status.status==='complete')return 'complete';
  if(status.status==='complete-with-review-backlog')return 'review';
  const reason=status.reason??'';
- if(/HTTP (?:401|402|403)|ambiguous|uncertain.*submi|submission.*uncertain|credit|quota|access error|spending ceiling|budget|previously failed operation|retry limit|source.*changed|checksum mismatch|queue operational settings|prepared chapter.*(?:changed|deleted)|selected chapter order|preparation completion/i.test(reason))return 'attention';
+ if(/HTTP (?:400|401|402|403)|ambiguous|uncertain.*submi|submission.*uncertain|credit|quota|access error|spending ceiling|budget|previously failed operation|retry limit|source.*changed|checksum mismatch|queue operational settings|prepared chapter.*(?:changed|deleted)|selected chapter order|preparation completion/i.test(reason))return 'attention';
  return 'retry';
 }
 const read=async(path,fallback)=>{try{return JSON.parse(await fs.readFile(path,'utf8'));}catch(e){if(e.code==='ENOENT')return fallback;throw e;}};
