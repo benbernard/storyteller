@@ -22,6 +22,28 @@ test('Inworld preparation preserves every source offset and keeps thoughts with 
   assert.deepEqual(segments.filter(s => s.presentation).map(s => s.role), ['narrator', 'author-note', 'author-note']);
   assert.throws(() => segmentsFor(chapter, { ...analysis, spans: analysis.spans.slice(1) }, { before: '', after: '' }), /coverage/);
 });
+test('a concealed recurring speaker uses anonymous speech without exposing identity or losing source evidence', () => {
+  const text = '“Come closer,” said the figure on the throne.\n“Who are you?”';
+  const pieces = ['“Come closer,”', ' said the figure on the throne.\n', '“Who are you?”'];
+  const chapter: Chapter = { schemaVersion: 1, chapterId: 'chapter-1', fictionId: 'book-1', sequence: 1, title: 'Chapter One', url: 'https://example.org/1', retrievedAt: new Date().toISOString(), text, contentHash: sha(text) };
+  let start = 0;
+  const analysis: Analysis = { schemaVersion: 1, source: chapter.contentHash, fingerprint: '', model: 'fixture', promptVersion: 'test', characters: [], aliasUpdates: [], summary: '', spans: pieces.map((piece, i) => {
+    const span = { uid: `span-${i}`, start, end: start + piece.length, text: piece, kind: i === 1 ? 'prose' as const : 'dialogue' as const,
+      speaker: i === 0 ? 'concealed:warren_throne_occupant' : i === 1 ? 'narrator' : 'anonymous',
+      certainty: i === 0 ? 'concealed' as const : i === 1 ? 'attributed' as const : 'uncertain' as const, confidence: 1, reason: 'Source keeps identity unresolved' };
+    start = span.end; return span;
+  }) };
+  const original = structuredClone(analysis);
+  const body = segmentsFor(chapter, analysis, { before: '', after: '' }).filter(segment => !segment.presentation);
+  assert.deepEqual(body.map(segment => segment.role), ['anonymous', 'narrator', 'anonymous']);
+  assert.equal(body.map(segment => segment.text).join(''), text);
+  assert.deepEqual(body.flatMap(segment => segment.spans), analysis.spans.map(({ start, end, uid }) => ({ start, end, uid })));
+  assert.deepEqual(analysis, original);
+  const attributed = structuredClone(analysis); attributed.spans[0]!.certainty = 'attributed';
+  assert.throws(() => segmentsFor(chapter, attributed, { before: '', after: '' }), /Unsafe speaker ID/);
+  const unsafe = structuredClone(analysis); unsafe.spans[0]!.speaker = '../unsafe';
+  assert.throws(() => segmentsFor(chapter, unsafe, { before: '', after: '' }), /Unsafe speaker ID/);
+});
 test('ordered attribution checkpoints identity once while independent direction workers resume without shared cast writes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'inworld-phases-')), state = new Store(join(root, 'state')), output = new Store(join(root, 'prepared'));
   try {

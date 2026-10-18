@@ -307,19 +307,25 @@ try{
   if(done){if(done.assembly!==(await read(join(entry.root,'assembly.json'))).assembly.id)throw Error('Published receipt mismatch');current.completed.push(entry.chapterId);continue;}
   await status({chapter:entry.chapterId,title:entry.title,stage:'preparing',role:null});
   await recoverRepairs(entry,read,save);
+  const generatedReceipt=await read(join(entry.root,'generated.json'),null);
+  if(generatedReceipt&&(generatedReceipt.chapter!==entry.chapterId||generatedReceipt.inputHash!==entry.inputHash||generatedReceipt.items!==chapter.items.length))throw Error('Generated chapter receipt does not match prepared inputs');
   const generated=await paid.run(async()=>{const voices=await voicesFor(chapter);return await synthesize(entry,chapter,voices,true);});
   if(!generated){paused=true;break;}
-  await save(join(entry.root,'generated.json'),{chapter:entry.chapterId,inputHash:entry.inputHash,items:chapter.items.length,completedAt:new Date().toISOString()});
+  if(!generatedReceipt)await save(join(entry.root,'generated.json'),{chapter:entry.chapterId,inputHash:entry.inputHash,items:chapter.items.length,completedAt:new Date().toISOString()});
   current.completed.push(entry.chapterId);await status({stage:'chapter-generated'});
   processing.enqueue(entry.chapterId,()=>laneContext.run(true,()=>processChapter(entry,chapter)),async error=>{
    await save(join(entry.root,'processing.json'),{status:'needs-attention',reason:String(error.message)});
+  },{
+   shouldStart:async()=>!await exists(join(root,'pause.requested')),
+   onDeferred:async()=>save(join(entry.root,'processing.json'),{status:'queued-for-resume',chapter:entry.chapterId,inputHash:entry.inputHash,updatedAt:new Date().toISOString()}),
   });
  }
  await status({stage:paused?'pausing-processing-remaining':'generation-complete-processing-remaining',operation:null});
  await processing.drain();
+ paused=paused||await exists(join(root,'pause.requested'));
  const pending=[];for(const entry of config.chapters)if(!await exists(join(entry.root,'published.json')))pending.push(entry.chapterId);
  if(paid.error)throw paid.error;
- await status({status:paused?'paused':pending.length?'complete-with-review-backlog':'complete',stage:paused?'paused':'complete',pending,processingErrors:processing.errors,operation:null});await archive();
+ await status({status:paused?'paused':pending.length?'complete-with-review-backlog':'complete',stage:paused?'paused':'complete',pending,deferredProcessing:processing.deferred,processingErrors:processing.errors,operation:null});await archive();
  if(processing.errors.length)process.exitCode=1; // Launchd retries cached work after transient review or publication failures.
 }catch(error){await processing.drain();if(!lock){console.error(error.message);process.exit(0);}await status({status:'held',reason:String(error.message),stage:current.stage});if(error.retryable)process.exitCode=1;try{await archive();}catch{console.error('Archive unavailable; local checkpoints retained');}}
 finally{if(lock)await fs.unlink(join(root,'worker.lock')).catch(()=>{});}

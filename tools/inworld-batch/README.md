@@ -104,9 +104,25 @@ second supervisor for the same job. Pin and record its source commit.
 
 Before upgrading an active job, create `pause.requested` and wait for `status.json`
 to say `paused` and for `worker.lock` to disappear. The worker reconciles accepted
-provider operations and drains review before pausing. Then stop that job's
+provider operations and finishes the active review before pausing. Queued reviews
+wait for resume. Then stop that job's
 LaunchAgent, install the committed runtime, create `resume.requested`, and start
 the LaunchAgent. Never kill an in-flight paid request to speed up an upgrade.
+
+With an active worker, `--stage-only` installs the committed runtime without
+changing the active configuration or LaunchAgent. It records `pending-runtime.json`
+for application at a safe idle point. Older runtimes may drain their whole review
+backlog before pausing; staging lets a validated compatibility repair proceed
+without interrupting paid work.
+
+For an unqueued chapter blocked by an older runtime's concealed-speaker role
+mapping, the staged `tools/audiobooks/dist/inworld-checkpoint-repair.js` accepts
+`JOB_CONFIG CHAPTER_ID EXPECTED_SOURCE EXPECTED_ATTRIBUTION`. The final argument
+is the `fingerprint()` of the parsed attribution checkpoint. Run it only while
+that chapter's preparation is idle. It checks source and checkpoint hashes,
+refuses queued inputs or existing directions, preserves the original evidence,
+and maps concealed dialogue to the existing anonymous voice. Source text, span
+identities, hidden identity evidence and paid reservations remain intact.
 
 ## Recovery and AI follow-up
 

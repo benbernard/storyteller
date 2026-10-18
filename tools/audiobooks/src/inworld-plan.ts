@@ -22,7 +22,11 @@ export function segmentsFor(chapter: Chapter, analysis: Analysis, notes: { befor
   for (const span of analysis.spans) {
     if (span.start !== offset || chapter.text.slice(span.start, span.end) !== span.text) throw Error('Invalid attributed source coverage');
     offset = span.end;
-    const role = span.kind === 'dialogue' ? span.speaker : 'narrator';
+    // Concealed IDs retain narrative continuity in the analysis, but have no
+    // cast identity to expose or provider role to design. Keep their speech in
+    // the existing neutral anonymous voice until the source reveals identity.
+    const role = span.kind !== 'dialogue' ? 'narrator'
+      : span.certainty === 'concealed' && span.speaker.startsWith('concealed:') ? 'anonymous' : span.speaker;
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$/.test(role) || Object.hasOwn(Object.prototype, role)) throw Error('Unsafe speaker ID');
     const previous = segments.at(-1);
     const claim = { start: span.start, end: span.end, uid: span.uid };

@@ -40,6 +40,28 @@ async function registryLock<T>(store: Store, action: () => Promise<T>): Promise<
     }
   }
 }
+function addConcealedMarkers(cast: Cast, chapter: Chapter, analysis: Analysis): string[] {
+  const added: string[] = [];
+  for (const span of analysis.spans) {
+    if (span.kind !== 'dialogue' || span.certainty !== 'concealed' || !span.speaker.startsWith('concealed:')) continue;
+    if (!span.speaker.slice('concealed:'.length) || chapter.text.slice(span.start, span.end) !== span.text) throw Error('Concealed marker requires exact current source evidence');
+    const first = { chapter: chapter.sequence, offset: span.start }, existing = cast.members.find(member => member.id === span.speaker);
+    if (existing) {
+      if (comparePosition(first, existing.first) < 0) { existing.first = first; existing.evidence = span.text; existing.portrayal = span.reason; }
+      continue;
+    }
+    cast.members.push({ id: span.speaker, name: 'Concealed speaker', first, aliases: [], evidence: span.text, portrayal: span.reason, importance: 'unknown', voices: [] });
+    added.push(span.speaker);
+  }
+  return added;
+}
+export async function registerConcealedMarkers(store: Store, chapter: Chapter, analysis: Analysis): Promise<void> {
+  await registryLock(store, async () => {
+    const cast = await store.read<Cast>('cast.json') ?? { schemaVersion: 1, members: [] };
+    addConcealedMarkers(cast, chapter, analysis);
+    await store.write('cast.json', cast);
+  });
+}
 export async function reconcileCharacters(store: Store, chapter: Chapter, result: FrontierResult): Promise<{ result: FrontierResult; event: CharacterEvent }> {
   return registryLock(store, async () => {
     const cast = await store.read<Cast>('cast.json') ?? { schemaVersion: 1, members: [] };
@@ -88,6 +110,7 @@ export async function reconcileCharacters(store: Store, chapter: Chapter, result
         ...(profile.continuityFrom ? { continuityFrom: profile.continuityFrom } : {}) });
       event.added.push(profile.id);
     }
+    event.added.push(...addConcealedMarkers(cast, chapter, analysis));
     for (const alias of analysis.aliasUpdates) {
       if (!chapter.text.includes(alias.evidence)) throw Error('Alias evidence must occur in the current source');
       const member = cast.members.find(item => item.id === alias.characterId);

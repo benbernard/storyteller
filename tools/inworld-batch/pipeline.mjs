@@ -2,8 +2,12 @@
 export class ProcessingLane {
  tail=Promise.resolve();
  errors=[];
- enqueue(id,work,onError){
-  this.tail=this.tail.then(work).catch(async error=>{
+ deferred=[];
+ enqueue(id,work,onError,{shouldStart=async()=>true,onDeferred=async()=>{}}={}){
+  this.tail=this.tail.then(async()=>{
+   if(await shouldStart())await work();
+   else{await onDeferred();this.deferred.push(id);}
+  }).catch(async error=>{
    this.errors.push({chapter:id,reason:String(error.message)});
    await onError(error);
   }).catch(error=>{this.errors.push({chapter:id,reason:'Could not record processing failure: '+error.message});});
