@@ -17,6 +17,10 @@ export const frontierPolicySchema = z.object({
 }).strict();
 export type FrontierPolicy = z.infer<typeof frontierPolicySchema>;
 export type FrontierResult = { analysis: Analysis; profiles: Analysis['characters'] };
+export const FRONTIER_PROMPT_VERSION = 'frontier-source-sections-v3';
+export function isCurrentFrontierAnalysis(analysis: Analysis | undefined, model: string): analysis is Analysis {
+  return analysis?.model === model && analysis.promptVersion === FRONTIER_PROMPT_VERSION;
+}
 const instructions = PROMPT + `
 Use careful reasoning to identify the actual speaker of EVERY spoken line, including short replies, consecutive paragraphs, and dialogue interrupted by narration. A name addressed inside dialogue is usually the addressee, not the speaker. Follow explicit dialogue tags and scene continuity; do not alternate voices mechanically. A character's inner thoughts, epigraphs, quoted article titles and system messages use the narrator. Do not mistake an article or epigraph for an author's note.
 The supplied numbered units preserve source text. Return labels keyed unit_0, unit_1, etc. Label EVERY supplied unit independently with kind, speaker, certainty, confidence, reason and nullable section. Do not copy source text. For a homogeneous unit return parts=null. If a unit mixes speech and narration because punctuation is malformed, return ordered parts with exclusive UTF-16 end offsets relative to that unit; each part has its own kind, speaker, certainty, confidence and reason. Each unit supplies utf16Length and boundaryEnds. Select end offsets from those coordinates instead of counting characters. The last part must end at utf16Length. The parts must cover the entire unit exactly, including whitespace. Parent labels are ignored for split units. Never include a speech attribution tag in the spoken part. Never carry a speaker label across intervening narrator text. Quotation marks are evidence, not a requirement for dialogue. Authors may use single quotes, mixed quotes, missing marks or other nonstandard punctuation. Infer speech and its speaker from explicit tags, scene continuity and meaning. Keep surrounding narration, thoughts and written quotations in narrator voice. Never label explicit spoken dialogue as prose merely because the speaker is uncertain: use dialogue/anonymous/uncertain.
@@ -84,7 +88,7 @@ export function restoreFrontier(value: unknown, chapter: Chapter, cast: Cast, pr
   const characters = profiles.filter(p => !cast.members.some(m => m.id === p.id && m.first.chapter <= chapter.sequence) && rawSpans.some(s => s.speaker === p.id));
   const spans = validateAnalysis({ spans: rawSpans, characters, aliasUpdates: aliases, summary: data.summary }, chapter, cast, previous);
   for (const span of spans) if (span.kind === 'dialogue' && span.certainty === 'attributed' && !profiles.some(p => p.id === span.speaker)) throw new Error(`Missing speaker profile: ${span.speaker}`);
-  const result: FrontierResult = { analysis: { schemaVersion: 1, source: chapter.contentHash, fingerprint: '', model: '', promptVersion: 'frontier-source-sections-v3', spans, characters, aliasUpdates: aliases, summary: data.summary }, profiles };
+  const result: FrontierResult = { analysis: { schemaVersion: 1, source: chapter.contentHash, fingerprint: '', model: '', promptVersion: FRONTIER_PROMPT_VERSION, spans, characters, aliasUpdates: aliases, summary: data.summary }, profiles };
   validateNewAliases(result, aliasSource);
   return result;
 }
@@ -155,7 +159,7 @@ async function analyzeSubscriptionChunks(store: Store, folder: string, chapter: 
   return completed;
 }
 export async function analyzeFrontier(store: Store, chapter: Chapter, cast: Cast, context: string, policy: FrontierPolicy, previous?: Analysis, request: typeof fetch = fetch, subscription: typeof runCodexAnalysis = runCodexAnalysis): Promise<FrontierResult> {
-  const dependency = fingerprint({ source: chapter.contentHash, units: sourceUnits(chapter.text), title: chapter.title, roster: rosterAt(cast, chapter.sequence), context, policy: { model: policy.model, provider: policy.provider, maxOutputTokens: policy.maxOutputTokens }, instructions });
+  const dependency = fingerprint({ source: chapter.contentHash, units: sourceUnits(chapter.text), title: chapter.title, roster: rosterAt(cast, chapter.sequence), context, policy: { model: policy.model, provider: policy.provider, maxOutputTokens: policy.maxOutputTokens }, promptVersion: FRONTIER_PROMPT_VERSION, instructions });
   const folder = `frontier-analysis/${dependency}`;
   let cachedValidationError = '';
   const cached = await store.read<FrontierResult>(`${folder}/validated.json`);

@@ -10,12 +10,28 @@ import { restoreRanges } from './local-analysis.js';
 import { desiredChapters } from './library-worker.js';
 import { type SourceIndex } from './local-ingest.js';
 import { type Analysis, type Chapter } from './schema.js';
+import { isCurrentFrontierAnalysis, restoreFrontier } from './frontier-analysis.js';
+import { sha } from './store.js';
 const voice = (n: string, tags: string[]) => ({ reference_id: randomUUID(), sha256: n.repeat(64), transcript: 'A fixed reference.', provenance: 'Synthetic audition fixture', tags, reserved: false });
 const narrator = voice('a', ['narrator']), anonymous = voice('b', ['neutral']), woman = voice('c', ['adult', 'female']), man = voice('d', ['adult', 'male']);
 const pool: LocalPool = { schemaVersion: 1, model: 'qwen-base', revision: 'a'.repeat(40), narrator, anonymous, voices: [woman, man] };
 const cast: LocalCast = { schemaVersion: 1, model: 'qwen-base', revision: pool.revision, assignments: [] };
 const chapter: Chapter = { schemaVersion: 1, fictionId: 'rr-1', chapterId: 'c1', sequence: 1, title: 'One', url: 'https://www.royalroad.com/fiction/1', retrievedAt: new Date().toISOString(), text: '“Hello,” Alice said.', contentHash: 'e'.repeat(64) };
 const analysis: Analysis = { schemaVersion: 1, source: chapter.contentHash, fingerprint: 'x', model: 'fixture', promptVersion: 'fixture', summary: '', aliasUpdates: [], characters: [{ id: 'alice', name: 'Alice', aliases: [], portrayal: 'Adult woman', importance: 'major', tags: ['adult', 'female'], evidence: chapter.text, continuityFrom: null }], spans: [{ uid: 'span1', start: 0, end: 8, text: '“Hello,”', kind: 'dialogue', speaker: 'alice', certainty: 'attributed', confidence: 1, reason: 'Explicit dialogue tag' }, { uid: 'span2', start: 8, end: chapter.text.length, text: ' Alice said.', kind: 'prose', speaker: 'narrator', certainty: 'attributed', confidence: 1, reason: 'Narration' }] };
+test('library resume reuses current section-aware frontier output and invalidates legacy labels once', () => {
+  const text = 'Author note: Thanks for reading.';
+  const source = { ...chapter, text, contentHash: sha(text) };
+  const result = restoreFrontier({ characters: [], aliasUpdates: [], summary: '', labels: { unit_0: {
+    kind: 'prose', speaker: 'narrator', certainty: 'attributed', confidence: 1,
+    reason: 'Explicit author-to-reader note.', section: 'author-note', parts: null,
+  } } }, source, { schemaVersion: 1, members: [] });
+  const cached = { ...result.analysis, model: 'fixture' };
+  assert.equal(isCurrentFrontierAnalysis(cached, 'fixture'), true);
+  assert.equal(cached.spans[0]?.section, 'author-note');
+  assert.equal(isCurrentFrontierAnalysis({ ...cached, promptVersion: 'frontier-units-v1' }, 'fixture'), false);
+  assert.equal(isCurrentFrontierAnalysis(cached, 'different-model'), false);
+  assert.equal(isCurrentFrontierAnalysis(undefined, 'fixture'), false);
+});
 test('queue survives reopening, isolates owners and cancels without losing an in-flight update', async () => {
   const path = await mkdtemp(join(tmpdir(), 'library-queue-')); let queue = new LibraryQueue(path);
   try {

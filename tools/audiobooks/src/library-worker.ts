@@ -16,7 +16,7 @@ import { Pipeline } from './pipeline.js';
 import { MacClient, MacUnavailable } from './mac-client.js';
 import { chapterPresentation, presentationCast } from './local-presentation.js';
 import { localVoiceAt } from './local-cast.js';
-import { analyzeFrontier, frontierPolicySchema } from './frontier-analysis.js';
+import { analyzeFrontier, frontierPolicySchema, isCurrentFrontierAnalysis } from './frontier-analysis.js';
 import { applyFrontierProfiles } from './local-cast.js';
 export type WorkerPaths = { state: string; fictions: string; archive: string; work: string; pool: string; credential: string; downloader: string; renderer: string; bookorbitSocket?: string; bookorbitOwner?: string };
 export function desiredChapters(index: SourceIndex, book: Book | undefined, job: LibraryJob, completed: Record<string, boolean>) {
@@ -90,7 +90,7 @@ export async function runLibraryJob(paths: WorkerPaths, queue: LibraryQueue, job
       const context = await new Pipeline(root).earlierContext(chapter.sequence);
       if (previous && previous.source !== entry.current) throw new Error('Source revision needs a reviewed analysis repair');
       let analysis = previous && previous.context === context ? await root.read<Analysis>(`analyses/${previous.analysis}.json`) : undefined;
-      if (analysis?.model !== analysisPolicy.model || analysis.promptVersion !== 'frontier-units-v1') analysis = undefined;
+      if (!isCurrentFrontierAnalysis(analysis, analysisPolicy.model)) analysis = undefined;
       if (!analysis) {
         phase(`Assigning speakers with ${analysisPolicy.model} in chapter ${chapter.sequence}`);
         const result = await analyzeFrontier(root, chapter, roster, context, analysisPolicy); analysis = result.analysis;
