@@ -5,7 +5,7 @@ instructions through the signed-in Codex subscription, then generates Inworld
 TTS-2 batches. It preserves saved voices and the reviewed narrator policy.
 New speakers get a saved synthetic voice based on their source-grounded profile.
 
-Generation runs in chapter order. An independent processing lane runs CPU ASR,
+Generation runs in chapter order. An independent processing lane runs ASR,
 unprompted phonemes and structured AI review. Material omissions, wrong numbers,
 repeats and inconclusive evidence receive bounded short retakes. Original audio,
 request reservations and all review evidence remain available. Publication checks
@@ -15,7 +15,7 @@ on an isolated loopback server. It does not change production authentication.
 ## Requirements
 
 Use Node 22+, Python 3.11+, ffmpeg, rsync and SSH. The current ASR adapter uses
-Apple MLX on CPU and the existing pinned Whisper environments. The phoneme
+Apple MLX and the existing pinned Whisper environments, with CPU as its default. The phoneme
 adapter needs the pinned wav2vec2 model and its Python environment. Other hosts
 can supply compatible review adapters in a future change. Build the helper:
 
@@ -23,7 +23,43 @@ can supply compatible review adapters in a future change. Build the helper:
 pnpm -C tools/audiobooks install --frozen-lockfile
 pnpm -C tools/audiobooks build
 node --test tools/inworld-batch/*.test.mjs
+python -m unittest discover -s tools/inworld-batch -p '*_test.py'
 ```
+
+## Faster independent review
+
+ASR checks run in two passes: the small model checks every pending passage,
+then the stronger model checks only passages that need it. This avoids repeatedly
+reloading model weights. Intermediate results are bound to the audio checksum,
+expected text and pinned model paths, so an interruption can resume without
+repeating completed checks. Models, decoding precision and quality thresholds
+stay the same.
+
+The ahead reviewer can check generated chapters while the main worker processes
+another chapter. It never calls Inworld or edits the paid ledger. It snapshots
+inactive chapters into private job scratch and imports only missing reports whose
+input, audio and receipt hashes still match. It skips active or published chapters
+and never replaces an existing review. The main worker retains responsibility for
+phoneme checks, AI adjudication, retakes and publication.
+
+```sh
+node tools/inworld-batch/review-ahead.mjs /private/job/queue.json
+```
+
+For Apple GPU review, use the existing local speech service's credential and lease:
+
+```sh
+node tools/inworld-batch/review-gpu.mjs /private/mac-tts/auth.json -- \
+  node tools/inworld-batch/review-ahead.mjs /private/job/queue.json
+```
+
+The wrapper acquires, renews and releases its own GPU lease. It refuses active or
+queued local speech work, never stops another worker, and stops its review process
+if renewal fails. Run the CPU command if the lease is unavailable. Only this wrapper
+should set `INWORLD_REVIEW_DEVICE=gpu` and `INWORLD_REVIEW_GPU_LEASE=1`. Status is
+saved separately in `review-ahead-status.json`; the main worker's status and locks
+are preserved. Re-running skips completed evidence and discovers newly generated
+chapters.
 
 Credentials stay on the remote synthesis host. `credentialFile` names its private
 Inworld env file. The fixed-host gateway sends it only to `api.inworld.ai`.
