@@ -120,7 +120,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         }); return;
       }
       if (!owner) { json(response, 401, { error: 'Connect your account.' }); return; }
-      const permissions = integrations.permissions?.(owner) ?? ownerPermissions;
+      const permissions = integrations.permissions ? integrations.permissions(owner) : ownerPermissions;
       if (route === '/capabilities' && method === 'GET') {
         json(response, 200, { schemaVersion: 1, accountKey: sha(owner), permissions,
           sources: integrations.capabilities?.sources ?? ['royal-road', 'file'],

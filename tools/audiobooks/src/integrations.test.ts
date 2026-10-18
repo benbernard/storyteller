@@ -24,9 +24,9 @@ test('existing paired devices retain their account and current server permission
   await state.write(`devices/${sha(token)}.json`, {owner, name: 'Existing phone', createdAt: '2026-01-01'});
   const saved = {positions: {}, completed: {'rr-7:rr-8': true}, seen: {}, issues: []};
   await state.write(`users/${sha(owner)}.json`, saved);
-  let permissions: ListenerPermissions = {...ownerPermissions, manageLibrary: false, generate: false};
+  let permissions: ListenerPermissions | undefined = {...ownerPermissions, manageLibrary: false, generate: false};
   const server = createListener(join(root, 'fictions'), state, () => owner, 'http://listener.example.test', join(root, 'archive'), false,
-    {permissions: account => {assert.equal(account, owner); return permissions;}, capabilities: {sources: ['bookorbit'], generation: ['qwen'], updates: 'managed'}, revision: 'test-pin'});
+    {permissions: account => {assert.equal(account, owner); return permissions!;}, capabilities: {sources: ['bookorbit'], generation: ['qwen'], updates: 'managed'}, revision: 'test-pin'});
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const address = server.address(); assert(address && typeof address === 'object');
   const base = 'http://127.0.0.1:' + address.port;
@@ -48,6 +48,8 @@ test('existing paired devices retain their account and current server permission
     // Revoking access applies to an already paired device, without issuing a new token.
     permissions = {...permissions, listen: false};
     assert.equal((await fetch(base + '/api/listener/library', {headers})).status, 403);
+    permissions = undefined; // A broken external adapter must fail closed.
+    assert.equal((await fetch(base + '/api/listener/library', {headers})).status, 500);
     assert.deepEqual(await state.read(`users/${sha(owner)}.json`), saved);
   } finally {server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(root, {recursive: true, force: true});}
 });
