@@ -127,6 +127,9 @@ identities, hidden identity evidence and paid reservations remain intact.
 ## Recovery and AI follow-up
 
 `supervisor-status.json` records stage, heartbeat, retry attempts and final status.
+Its `lanes` object retains each preparation and rendering stage's health, error
+and next retry time. Check these records alongside the overall status: another
+worker's progress must not hide a failed stage.
 `status.json` records generation, and `processing-status.json` records review and
 publication. `supervisor.log` and chapter files contain private diagnostic evidence.
 Transport, subscription and processing failures retry with exponential backoff.

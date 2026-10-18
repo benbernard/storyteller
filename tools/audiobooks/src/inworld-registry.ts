@@ -1,7 +1,7 @@
 /** Source-grounded character exchange between ordered attribution and direction workers. */
 import { setTimeout as delay } from 'node:timers/promises';
 import { mkdir, rm } from 'node:fs/promises';
-import { Store, fingerprint } from './store.js';
+import { Store, fingerprint, sha } from './store.js';
 import { comparePosition, type Cast, type Chapter, type Analysis } from './schema.js';
 import { validateAnalysis } from './analysis.js';
 import type { FrontierResult } from './frontier-analysis.js';
@@ -27,6 +27,35 @@ export function historicalCast(cast: Cast, sequence: number): Cast {
     ...structuredClone(member), aliases: member.aliases.filter(alias => alias.from.chapter <= sequence),
     voices: member.voices.filter(voice => voice.from.chapter <= sequence),
   })) };
+}
+const matchesName = (member: Cast['members'][number], name: string): boolean => [member.name, ...member.aliases.map(alias => alias.name)].some(candidate => nameKey(candidate) === nameKey(name));
+function establishedIdentity(cast: Cast, profile: FrontierResult['profiles'][number]): Cast['members'][number] | undefined {
+  const knownId = cast.members.find(member => member.id === profile.id);
+  // An established ID accompanied by its own established name/alias is stronger
+  // evidence than another character's overlapping short name or generic alias.
+  // A new/unmatched ID still requires an unambiguous historical name match.
+  if (knownId && matchesName(knownId, profile.name)) return knownId;
+  if (knownId) throw Error('Known character ID has an unestablished profile name');
+  const matching = cast.members.filter(member => matchesName(member, profile.name));
+  if (new Set(matching.map(member => member.id)).size > 1) throw Error('Ambiguous established character name; explicit identity review required');
+  return matching[0];
+}
+/** Compatibility for an older registry which checks aliases before known IDs. */
+export function canonicalizeEstablishedProfileNames(cast: Cast, chapter: Chapter, result: FrontierResult): FrontierResult {
+  if (sha(chapter.text) !== chapter.contentHash || result.analysis.source !== chapter.contentHash) throw Error('Profile repair source checksum mismatch');
+  const historical = historicalCast(cast, chapter.sequence), names = new Map<string, string>();
+  for (const profile of result.profiles) {
+    if (!chapter.text.includes(profile.evidence)) throw Error('Profile repair evidence must occur in the current source');
+    const matching = historical.members.filter(member => matchesName(member, profile.name));
+    if (new Set(matching.map(member => member.id)).size <= 1) continue;
+    const known = historical.members.find(member => member.id === profile.id);
+    if (!known || !matchesName(known, profile.name)) throw Error('Ambiguous profile has no established matching ID');
+    const canonical = historical.members.filter(member => matchesName(member, known.name));
+    if (new Set(canonical.map(member => member.id)).size !== 1 || canonical[0]?.id !== known.id) throw Error('Established canonical name remains ambiguous');
+    names.set(profile.id, known.name);
+  }
+  return { ...structuredClone(result), profiles: result.profiles.map(profile => ({ ...profile, name: names.get(profile.id) ?? profile.name })),
+    analysis: { ...structuredClone(result.analysis), characters: result.analysis.characters.map(profile => ({ ...profile, name: names.get(profile.id) ?? profile.name })) } };
 }
 async function registryLock<T>(store: Store, action: () => Promise<T>): Promise<T> {
   const lock = new Store(store.path('inworld-character-registry'));
@@ -67,10 +96,7 @@ export async function reconcileCharacters(store: Store, chapter: Chapter, result
     const cast = await store.read<Cast>('cast.json') ?? { schemaVersion: 1, members: [] };
     const historical = historicalCast(cast, chapter.sequence), remap = new Map<string, string>();
     for (const profile of result.profiles) {
-      const matching = historical.members.filter(member => [member.name, ...member.aliases.map(alias => alias.name)].some(name => nameKey(name) === nameKey(profile.name)));
-      const identities = new Set(matching.map(member => member.id));
-      if (identities.size > 1) throw Error('Ambiguous established character name; explicit identity review required');
-      const existing = matching[0];
+      const existing = establishedIdentity(historical, profile);
       if (existing) remap.set(profile.id, existing.id);
       else if (cast.members.some(member => member.id === profile.id && nameKey(member.name) !== nameKey(profile.name))) throw Error('Character ID collides with another identity');
     }

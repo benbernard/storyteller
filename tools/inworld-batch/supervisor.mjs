@@ -18,6 +18,19 @@ export function recoveryAction(status) {
 }
 const read=async(path,fallback)=>{try{return JSON.parse(await fs.readFile(path,'utf8'));}catch(e){if(e.code==='ENOENT')return fallback;throw e;}};
 async function save(path,value){await fs.mkdir(dirname(path),{recursive:true});const temporary=path+'.'+randomUUID()+'.tmp';await fs.writeFile(temporary,JSON.stringify(value,null,2)+'\n',{mode:0o600});await fs.rename(temporary,path);}
+/** Serialize the whole snapshot while merging stage-local health independently. */
+export function createSupervisorStatusWriter(initial,persist) {
+ let prior=initial,tail=Promise.resolve();
+ return value=>{
+  const task=tail.then(async()=>{
+   const updatedAt=new Date().toISOString(),lanes={...prior.lanes};
+   for(const [stage,update]of Object.entries(value.lanes??{}))lanes[stage]={...lanes[stage],...update,updatedAt};
+   const next={...prior,...value,lanes,pid:process.pid,updatedAt};
+   await persist(next);prior=next;return next;
+  });
+  tail=task.catch(()=>{});return task;
+ };
+}
 export async function supervise(path) {
  process.umask(0o077);
  const config=await read(path),root=config.root;
@@ -29,8 +42,8 @@ export async function supervise(path) {
  try {const pid=Number(await fs.readFile(lockPath,'utf8'));process.kill(pid,0);throw Error('Supervisor already active');}
  catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;}
  await fs.writeFile(lockPath,String(process.pid),{flag:'w',mode:0o600});
- const children=new Map(),stopping=new AbortController();let interrupted=false,statusTail=Promise.resolve();
- const status=value=>{const task=statusTail.then(async()=>{prior={...prior,...value,pid:process.pid,updatedAt:new Date().toISOString()};await save(statusPath,prior);});statusTail=task.catch(()=>{});return task;};
+ const children=new Map(),stopping=new AbortController();let interrupted=false;
+ const status=createSupervisorStatusWriter(prior,async next=>{await save(statusPath,next);prior=next;});
  const terminatePreparation=()=>{for(const [pid,lane]of children)if(lane!=='render')try{process.kill(-pid,'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}};
  const stop=()=>{interrupted=true;stopping.abort();void save(join(root,'pause.requested'),{at:new Date().toISOString()});terminatePreparation();};process.on('SIGTERM',stop);process.on('SIGINT',stop);
  const heartbeat=setInterval(()=>{void status({childPid:children.keys().next().value??null,children:[...children].map(([pid,lane])=>({pid,lane}))}).catch(()=>{});},15000);
@@ -44,14 +57,16 @@ export async function supervise(path) {
  });
  const retry=async(stage,work,lane='prepare')=>{
   for(let attempt=0;;attempt++){
-   try{if(stopping.signal.aborted)throw Error('Supervision stopped');await status({status:'running',stage,attempt:attempt+1,reason:null,nextAttemptAt:null,[lane+'Stage']:stage});return await work();}
+   try{if(stopping.signal.aborted)throw Error('Supervision stopped');await status({status:'running',stage,attempt:attempt+1,reason:null,nextAttemptAt:null,[lane+'Stage']:stage,lanes:{[stage]:{status:'running',attempt:attempt+1,reason:null,nextAttemptAt:null}}});const result=await work();await status({lanes:{[stage]:{status:stopping.signal.aborted?'interrupted':'complete',attempt:attempt+1,reason:stopping.signal.aborted?'Supervision stopped':null,nextAttemptAt:null}}});return result;}
    catch(error){
-    if(stopping.signal.aborted)throw error;
+    if(stopping.signal.aborted){await status({lanes:{[stage]:{status:'interrupted',attempt:attempt+1,reason:String(error.message),nextAttemptAt:null}}});throw error;}
     const reason=String(error.message);
-    if(attempt>=(config.maxRecoveryAttempts??8)-1||recoveryAction({reason})==='attention')throw error;
+    if(attempt>=(config.maxRecoveryAttempts??8)-1||recoveryAction({reason})==='attention'){await status({lanes:{[stage]:{status:'needs-attention',attempt:attempt+1,reason,nextAttemptAt:null}}});throw error;}
     const seconds=Math.min(config.maxRetrySeconds??1800,(config.retrySeconds??30)*2**attempt);
-    await status({status:'recovering',stage,attempt:attempt+1,reason,nextAttemptAt:new Date(Date.now()+seconds*1000).toISOString()});
-    await wait(seconds*1000,undefined,{signal:stopping.signal});
+    const nextAttemptAt=new Date(Date.now()+seconds*1000).toISOString();
+    await status({status:'recovering',stage,attempt:attempt+1,reason,nextAttemptAt,lanes:{[stage]:{status:'recovering',attempt:attempt+1,reason,nextAttemptAt}}});
+    try{await wait(seconds*1000,undefined,{signal:stopping.signal});}
+    catch(error){await status({lanes:{[stage]:{status:'interrupted',attempt:attempt+1,reason:String(error.message),nextAttemptAt:null}}});throw error;}
    }
   }
  };
