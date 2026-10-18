@@ -89,6 +89,7 @@ class ListenerUiTest {
         audio.prefs.edit().clear().commit()
         screen(ListenerUiState(connected = true, books = listOf(book)))
         compose.onNodeWithText(book.title).performClick()
+        compose.onNodeWithTag("story-chapters").performScrollToNode(hasText("Download audio"))
         compose.onNodeWithText("Download audio").performScrollTo().performClick()
         compose.runOnIdle { assertTrue(OfflineAudio(context).selected(book, "v3")); assertFalse(audio.selected(book, "flash")) }
         compose.onNodeWithContentDescription("Keep Cruel Violet, v3, offline").performScrollTo().performClick()
