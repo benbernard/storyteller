@@ -37,6 +37,19 @@ node --test tools/inworld-batch/*.test.mjs
 python -m unittest discover -s tools/inworld-batch -p '*_test.py'
 ```
 
+Set up the public phoneme model once with the configured `phonemePython`:
+
+```sh
+/configured/phoneme/python tools/inworld-batch/phonemes.py --bootstrap-model
+/configured/phoneme/python tools/inworld-batch/phonemes.py --check-model
+```
+
+Setup downloads only the pinned revision and verifies every model file against
+its saved SHA256. Normal review stays offline and loads that exact snapshot.
+The installer checks model availability before changing staged or active runtime
+configuration. If the cache is missing or corrupt, restore it with the setup
+command before resuming failed reviews; existing audio and reports remain valid.
+
 ## Faster independent review
 
 ASR checks run in two passes: the small model checks every pending passage,

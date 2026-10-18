@@ -4,6 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {join,dirname,resolve} from 'node:path';
 import {homedir} from 'node:os';
 import {fileURLToPath} from 'node:url';
+import {afterPhonemePreflight} from './install-preflight.mjs';
 const [configuration,label,codexBinary,mode]=process.argv.slice(2);
 if(!configuration||!codexBinary||!/^[-a-zA-Z0-9.]+$/.test(label??'')||![undefined,'--stage-only'].includes(mode)||process.argv.length>6)throw Error('Usage: install-macos.mjs CONFIG LABEL CODEX_BINARY [--stage-only]');
 if(process.platform!=='darwin')throw Error('This installer requires macOS');
@@ -32,6 +33,7 @@ try{await fs.access(receipt);}catch(error){
  await fs.writeFile(receipt,source+'\n',{mode:0o600});
 }
 if((await fs.readFile(receipt,'utf8')).trim()!==source)throw Error('Runtime source receipt differs');
+await afterPhonemePreflight(config,runtime,command,async()=>{
 if(mode==='--stage-only'){
  await fs.writeFile(join(config.root,'pending-runtime.json'),JSON.stringify({source,runtime,configuration:resolve(configuration),label,stagedAt:new Date().toISOString(),activeConfigurationChanged:false},null,2)+'\n',{mode:0o600});
  console.log(JSON.stringify({source,runtime,label,started:false,staged:true,configuration:resolve(configuration)}));
@@ -54,3 +56,4 @@ await fs.mkdir(dirname(plistPath),{recursive:true});await fs.writeFile(plistPath
 command('/bin/launchctl',['bootstrap',`gui/${process.getuid()}`,plistPath]);
 await fs.rm(join(config.root,'pending-runtime.json'),{force:true});
 console.log(JSON.stringify({source,runtime,label,started:true,configuration:resolve(configuration)}));
+});
