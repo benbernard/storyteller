@@ -12,6 +12,17 @@ request reservations and all review evidence remain available. Publication check
 text, audio checksums and byte-range requests using the deployed listener code
 on an isolated loopback server. It does not change production authentication.
 
+The paid worker can keep three batch operations in flight within a chapter.
+It reserves and submits each group in sequence, then reconciles accepted operations
+in sequence while Inworld generates them concurrently. Pending reservations count
+against the same speech ceiling. A pause stops new submissions and drains known
+accepted operations. Any uncertain submission stops further paid work and retains
+its reservation. This keeps one ledger writer and one worker lock.
+
+The default window is below Inworld's documented five concurrent batch jobs for
+On-Demand accounts. The 9,500-character packing cap remains below that plan's
+10,000-character per-job limit. See [job concurrency limits](https://docs.inworld.ai/resources/job-concurrency-limits).
+
 ## Requirements
 
 Use Node 22+, Python 3.11+, ffmpeg, rsync and SSH. The current ASR adapter uses

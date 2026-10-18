@@ -11,9 +11,11 @@ import {PaidLane,belongsToEntry,evidenceRow,modelReview,needsModelReview,reviewI
 import {repairPassage,recoverRepairs} from './repair.mjs';
 import {validateQueueUpdate,queuePreparationComplete,archiveExcludes} from './queue.mjs';
 import {voiceDesignPrompt} from './voice-design.mjs';
+import {batchWindowSize,explicitProviderRejection,classifyBatchResponse,providerBlockingCodes,runBatchWindow,reconcileBatchJobs} from './batch-window.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
+batchWindowSize(config.maxInFlightBatches); // Reject invalid limits before any paid voice previews.
 if(process.argv.length>3&&(!processOnly||process.argv.length!==5))throw Error('Usage: runner.mjs QUEUE [--process-only CHAPTER_ID]');
 const reviewEntry=processOnly?config.chapters.find(c=>c.chapterId===processOnly):null;
 if(processOnly&&!reviewEntry)throw Error('Unknown chapter');
@@ -47,6 +49,7 @@ async function download(url,file){
  const bytes=Buffer.from(await response.arrayBuffer());if(bytes.length<50)throw Error('Empty result');await fs.mkdir(dirname(file),{recursive:true});const temp=file+'.tmp';await fs.writeFile(temp,bytes);await fs.rename(temp,file);return bytes;
 }
 async function voicesFor(chapter){
+ await reconcileKnownBatches();
  let voices=await read(join(root,'voices.json'));
  for(const [role,voice]of Object.entries(config.originalVoices))if(voices[role]?.voiceId!==voice.voiceId)throw Error('Original voice changed: '+role);
  const profiles=await read(join(root,'voice-profiles.json'));
@@ -56,12 +59,15 @@ async function voicesFor(chapter){
   const dir=join(root,'voice-designs',role);await fs.mkdir(dir,{recursive:true});
   const receipt=join(dir,'design.json');let draft=await read(receipt,null);
   if(draft?.phase==='submitting')throw Error('Uncertain voice design submission requires inspection');
+  if(draft?.phase==='rejected'&&!explicitProviderRejection(draft.response))throw Error('Uncertain historical voice design rejection; submission requires inspection');
   if(!draft||draft.phase==='rejected'){
    const profile=profiles[role];
    const designPrompt=voiceDesignPrompt(profile?.designPrompt);
    await save(receipt,{phase:'submitting',at:new Date().toISOString(),designPrompt,profile});
    const result=await api('/voices/v1/voices:design',{designPrompt,languageCode:'en-US',previewText:profile.previewText,voiceDesignConfig:{numberOfSamples:1}});
-   if(result.status>=300){await save(receipt,{phase:'rejected',response:result,designPrompt,profile});throw Error('Voice design rejected HTTP '+result.status);}
+   const rejected=explicitProviderRejection(result);
+   await save(receipt,{phase:rejected?'rejected':'submitting',response:result,designPrompt,profile});
+   if(!(result.status>=200&&result.status<300))throw Error(rejected?'Voice design rejected HTTP '+result.status:'Uncertain voice design response HTTP '+result.status+'; submission preserved');
    const v=result.body.previewVoices?.[0];if(!v?.voiceId||!v.previewAudio)throw Error('Incomplete voice design');
    await fs.writeFile(join(dir,'preview.wav'),Buffer.from(v.previewAudio,'base64'));delete v.previewAudio;
    draft={phase:'designed',voice:v,profile,designPrompt};await save(receipt,draft);await sleep(31000);
@@ -80,10 +86,10 @@ async function writeJob(job){const all=await jobs();const at=all.findIndex(j=>j.
 async function poll(job){
  while(!job.operation.done){
   await status({stage:'waiting-for-batch',operation:job.operation.name,progress:job.operation.metadata??{}});
-  await sleep(config.pollSeconds*1000);
   let result;for(let n=0;n<4;n++){try{result=await api('/lro/v1alpha/'+job.operation.name,undefined,'GET');if(result.status<500)break;}catch(e){if(n===3)throw e;}await sleep(10000*(n+1));}
   if(!result||result.status>=300){const error=Error('Batch poll unavailable; operation retained');error.retryable=!result||result.status>=500;throw error;}
   job.operation=result.body;await writeJob(job);
+  if(!job.operation.done)await sleep((config.pollSeconds??30)*1000);
  }
  if(job.operation.error){job.phase='failed';await writeJob(job);throw Error('Batch operation failed; inspect retained operation');}
 }
@@ -102,16 +108,21 @@ async function finishJob(job,chapter){
   const duration=Number(metadata.format.duration);if(!(duration>0)||metadata.streams[0].channels!==1||metadata.streams[0].sample_rate!=='48000')throw Error('Invalid generated audio');
   await save(receipt,{sha256:sha(bytes),duration,requestHash:hash(item.request),voiceId:item.request.voiceId,job:job.id});
  }
+ const codes=providerBlockingCodes(job);
+ if(codes.length)job.terminalBlockingError={kind:'provider-credit-quota-access',codes,operation:job.operation.name};
  job.phase='complete';await writeJob(job);await archive();
- if(results.some(r=>r.error&&[7,8,16].includes(Number(r.error.code))))throw Error('Batch item credit/quota/access error; saved completed items');
+ if(codes.length)throw Error('Batch item credit/quota/access error; saved completed items');
+}
+async function reconcileKnownBatches(){
+ await reconcileBatchJobs(await jobs(),async job=>{
+  const outputRoot=job.outputRoot??config.chapters.find(chapter=>chapter.chapterId===job.chapter)?.root;
+  if(!outputRoot)throw Error('Batch operation output root requires inspection');
+  await finishJob(job,{root:outputRoot});
+ });
 }
 async function synthesize(entry,chapter,voices,pauseBetweenGroups=false){
  const items=chapter.items.map(i=>({...i,request:{...i.request,voiceId:voices[i.role].voiceId}}));
- for(const job of (await jobs()).filter(j=>belongsToEntry(j,entry,config)&&!['complete','rejected'].includes(j.phase))){
-  if(job.phase==='submitting')throw Error('Ambiguous submission: inspect batch operations before resuming');
-  if(job.phase==='failed')throw Error('Previously failed operation needs inspection');
-  await finishJob(job,entry);
- }
+ await reconcileKnownBatches();
  while(true){
   const missing=[];
   for(const item of items){const r=await read(join(entry.root,'receipts',item.customId+'.json'),null);if(!r)missing.push(item);else if(r.requestHash!==hash(item.request)||sha(await fs.readFile(join(entry.root,'audio',item.customId+'.wav')))!==r.sha256)throw Error('Saved speech no longer matches the request');}
@@ -119,15 +130,28 @@ async function synthesize(entry,chapter,voices,pauseBetweenGroups=false){
   // Finish and checkpoint accepted work before honoring an upgrade pause. Retakes
   // already queued in the processing lane can finish while generation is paused.
   if(pauseBetweenGroups&&await exists(join(root,'pause.requested')))return false;
-  const group=pack(missing,config.maxBatchCharacters)[0],all=await jobs();
+  const groups=pack(missing,config.maxBatchCharacters).slice(0,batchWindowSize(config.maxInFlightBatches));
+  const finished=await runBatchWindow(groups,{
+   shouldPause:async()=>pauseBetweenGroups&&await exists(join(root,'pause.requested')),
+   checkpoint:async()=>archive(),finish:async job=>finishJob(job,entry),
+   submit:async group=>{
+  const all=await jobs();
   for(const item of group)if(all.filter(j=>belongsToEntry(j,entry,config)&&j.phase!=='rejected'&&j.items.some(i=>i.customId===item.customId)).length>=1+config.maxRetakes)throw Error('Passage retry limit reached');
   const characters=group.reduce((n,i)=>n+i.request.text.length,0);assertBudget(all,characters,config.ceilingUSD,config.usdPerMillion??20);
   const job={id:randomUUID(),chapter:entry.chapterId,outputRoot:entry.root,phase:'submitting',items:group.map(({customId,request})=>({customId,request})),characters,reservedUSD:characters*(config.usdPerMillion??20)/1e6,createdAt:new Date().toISOString()};
   await writeJob(job);await status({stage:'submitting-batch',items:group.length,characters,completedItems:items.length-missing.length,totalItems:items.length});
   const result=await api('/tts/v1/voice:synthesizeBatch',{items:job.items});
-  if(result.status>=300){job.phase='rejected';job.rejection=result;await writeJob(job);throw Error('Batch rejected HTTP '+result.status+'; no next chapter started');}
-  if(!result.body.name)throw Error('Ambiguous batch response; submission preserved');
-  job.phase='accepted';job.operation=result.body;await writeJob(job);await archive();await finishJob(job,entry);
+  const disposition=classifyBatchResponse(result);job.submissionResponse=result;
+  if(disposition.state==='rejected'){job.phase='rejected';job.rejection=result;await writeJob(job);throw Error('Batch rejected HTTP '+result.status+'; no next chapter started');}
+  if(disposition.state==='uncertain'){await writeJob(job);throw Error('Ambiguous batch response HTTP '+result.status+'; submission preserved');}
+  job.phase='accepted';job.operation=disposition.operation;
+  if(disposition.hold)job.submissionBlockingError={status:result.status,operation:job.operation.name};
+  await writeJob(job);
+  if(disposition.hold){const error=Error('Ambiguous batch response HTTP '+result.status+'; provider operation retained');error.acceptedJob=job;throw error;}
+  return job;
+   },
+  });
+  if(!finished)return false;
  }
 }
 async function adjudicate(entry,chapter,reports){

@@ -20,7 +20,7 @@ test('voice descriptions normalize whitespace and controls, and reject unusable 
 });
 
 const write=async(path,value)=>fs.writeFile(path,JSON.stringify(value));
-for(const mode of ['design','publish','invalid'])test(`runner ${mode} validates only voice descriptions before provider requests`,async()=>{
+for(const mode of ['design','publish','invalid','server-error','timeout-response','server-error-voice','legacy-rejected'])test(`runner ${mode} validates only voice descriptions before provider requests`,async()=>{
  const root=await fs.mkdtemp(join(tmpdir(),'inworld-voice-prompt-')),bin=join(root,'bin'),folder=join(root,'chapter');
  await fs.mkdir(bin);await fs.mkdir(folder);
  const originalVoices={narrator:{voiceId:'saved-female'}};
@@ -34,23 +34,35 @@ for(const mode of ['design','publish','invalid'])test(`runner ${mode} validates 
  if(mode==='publish'){
   await fs.mkdir(designDirectory,{recursive:true});await write(join(designDirectory,'design.json'),{phase:'designed',voice:{voiceId:'retained-preview'},profile});
  }
- const ssh=`#!/usr/bin/env node\nconst fs=require('fs');let input='';process.stdin.on('data',data=>input+=data);process.stdin.on('end',()=>{if(!input)return;const request=JSON.parse(input);fs.appendFileSync(process.env.CALLS,JSON.stringify(request)+'\\n');console.log(JSON.stringify({status:400,body:{code:3,message:'Fixture rejection'}}));});`;
+ if(mode==='legacy-rejected'){
+  await fs.mkdir(designDirectory,{recursive:true});await write(join(designDirectory,'design.json'),{phase:'rejected',response:{status:503,body:{previewVoices:[{voiceId:'historical-preview'}]}},profile});
+ }
+ const ssh=`#!/usr/bin/env node\nconst fs=require('fs');let input='';process.stdin.on('data',data=>input+=data);process.stdin.on('end',()=>{if(!input)return;const request=JSON.parse(input);fs.appendFileSync(process.env.CALLS,JSON.stringify(request)+'\\n');const mode=process.env.MODE;console.log(JSON.stringify({status:mode.startsWith('server-error')?500:mode==='timeout-response'?408:400,body:mode==='server-error-voice'?{previewVoices:[{voiceId:'retain-provider-evidence',previewAudio:'retained-preview-evidence'}]}:{code:3,message:'Fixture rejection'}}));});`;
  await fs.writeFile(join(bin,'ssh'),ssh,{mode:0o755});await fs.writeFile(join(bin,'rsync'),'#!/bin/sh\nexit 0\n',{mode:0o755});
  try{
-  const run=spawnSync(process.execPath,[resolve('tools/inworld-batch/runner.mjs'),join(root,'queue.json')],{env:{...process.env,PATH:bin+':'+process.env.PATH,CALLS:join(root,'calls')},encoding:'utf8',timeout:10000});
+  const launch=()=>spawnSync(process.execPath,[resolve('tools/inworld-batch/runner.mjs'),join(root,'queue.json')],{env:{...process.env,PATH:bin+':'+process.env.PATH,CALLS:join(root,'calls'),MODE:mode},encoding:'utf8',timeout:10000});
+  const run=launch();
   assert.equal(run.status,0,run.stderr);
   assert.deepEqual(JSON.parse(await fs.readFile(join(root,'voices.json'),'utf8')),originalVoices);
   assert.deepEqual(JSON.parse(await fs.readFile(join(folder,'input.json'),'utf8')),input);
-  if(mode==='invalid'){
+  if(mode==='invalid'||mode==='legacy-rejected'){
    assert.equal(await fs.access(join(root,'calls')).then(()=>true,()=>false),false);
-   assert.equal(await fs.access(join(designDirectory,'design.json')).then(()=>true,()=>false),false);
+   if(mode==='invalid')assert.equal(await fs.access(join(designDirectory,'design.json')).then(()=>true,()=>false),false);
+   else assert.equal(JSON.parse(await fs.readFile(join(designDirectory,'design.json'),'utf8')).phase,'rejected');
   }else{
    const calls=(await fs.readFile(join(root,'calls'),'utf8')).trim().split('\n').map(JSON.parse);
-   assert.equal(calls.length,1);assert.equal(calls[0].body[mode==='design'?'designPrompt':'description'],ascii);
-   assert.equal(calls[0].path,mode==='design'?'/voices/v1/voices:design':'/voices/v1/voices/retained-preview:publish');
+   assert.equal(calls.length,1);assert.equal(calls[0].body[mode==='publish'?'description':'designPrompt'],ascii);
+   assert.equal(calls[0].path,mode==='publish'?'/voices/v1/voices/retained-preview:publish':'/voices/v1/voices:design');
    if(mode==='publish'){
     assert.equal(calls[0].body.displayName,'fixture Inworld - new-character');
     assert.equal(JSON.parse(await fs.readFile(join(designDirectory,'design.json'),'utf8')).voice.voiceId,'retained-preview');
+   }
+   if(['server-error','timeout-response','server-error-voice'].includes(mode)){
+    const receipt=JSON.parse(await fs.readFile(join(designDirectory,'design.json'),'utf8'));assert.equal(receipt.phase,'submitting');
+    assert.equal(receipt.response.status,mode==='timeout-response'?408:500);
+    if(mode==='server-error-voice')assert.equal(receipt.response.body.previewVoices[0].voiceId,'retain-provider-evidence');
+    assert.equal(launch().status,0);assert.equal((await fs.readFile(join(root,'calls'),'utf8')).trim().split('\n').length,1);
+    assert.match(JSON.parse(await fs.readFile(join(root,'status.json'),'utf8')).reason,/Uncertain voice design submission/);
    }
   }
  }finally{await fs.rm(root,{recursive:true,force:true});}
