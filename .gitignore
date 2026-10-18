@@ -16,3 +16,5 @@ local.properties
 *.keystore
 playwright-report/
 test-results/
+
+.site-output/

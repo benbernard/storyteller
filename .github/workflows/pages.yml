@@ -1,0 +1,48 @@
+name: Website
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'samples/maltese-falcon/**', 'docs/images/**', 'tools/audiobooks/listener-web/storyteller-mark.png', 'scripts/build-site.mjs', 'scripts/test-site.mjs', 'tools/audiobooks/package.json', 'tools/audiobooks/pnpm-lock.yaml', '.github/workflows/pages.yml']
+  pull_request:
+    paths: ['site/**', 'samples/maltese-falcon/**', 'docs/images/**', 'tools/audiobooks/listener-web/storyteller-mark.png', 'scripts/build-site.mjs', 'scripts/test-site.mjs', 'tools/audiobooks/package.json', 'tools/audiobooks/pnpm-lock.yaml', '.github/workflows/pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - run: pnpm -C tools/audiobooks install --frozen-lockfile
+      - run: pnpm -C tools/audiobooks exec playwright install --with-deps chromium
+      - run: node scripts/build-site.mjs
+      - run: node scripts/test-site.mjs
+      - name: Configure Pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: .site-output
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4

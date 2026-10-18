@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Storyteller — your books, brought to life</title>
+  <meta name="description" content="Make multi-voice audiobooks and listen your way. Compare Breeze, Qwen, and Inworld recordings, then set up your own Storyteller.">
+  <meta name="theme-color" content="#f8f6ee">
+  <link rel="icon" type="image/png" href="assets/storyteller-mark.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="shell site-header">
+  <a class="brand" href="./"><img src="assets/storyteller-mark.png" width="46" height="46" alt=""><span>Storyteller</span></a>
+  <nav aria-label="Main navigation"><a href="#listen">Listen</a><a href="#start">Get started</a><a href="https://github.com/benbernard/storyteller">GitHub <span aria-hidden="true">↗</span></a></nav>
+</header>
+<main id="main">
+  <section class="shell hero">
+    <p class="eyebrow">A little more life in every chapter</p>
+    <h1>Your books.<br>A whole cast of <em>voices.</em></h1>
+    <div class="hero-bottom"><p>Turn stories into audiobooks with a voice for every character. Create on your own hardware or use a speech API, then pick up where you left off on the web or Android.</p><a class="button" href="#listen">Hear the difference <span aria-hidden="true">↓</span></a></div>
+    <p class="engine-line">Breeze <span>·</span> Qwen <span>·</span> Inworld <span>·</span> ElevenLabs</p>
+  </section>
+
+  <section class="shell listening section" id="listen" aria-labelledby="listen-title">
+    <div class="section-heading"><p class="eyebrow">01 / Press play</p><h2 id="listen-title">Same scene.<br>Three ways to tell it.</h2></div>
+    <div class="listen-layout">
+      <aside class="scene-note">
+        <p class="book-label">The Maltese Falcon</p>
+        <p class="byline">Dashiell Hammett · 1930</p>
+        <p>A visitor, two detectives, and a story that doesn't quite add up. Hear a narrator and three characters in the same short scene.</p>
+        <p>Breeze is our favorite for local generation. Try each edition and find the voices you like.</p>
+        <a href="https://github.com/benbernard/storyteller/tree/main/samples/maltese-falcon">Transcript &amp; recording notes <span aria-hidden="true">↗</span></a>
+      </aside>
+      <div class="sample">
+        <div class="edition-picker" role="group" aria-label="Choose a sample edition">
+          <button type="button" data-edition="breeze" aria-pressed="true">Breeze <span>Local</span></button>
+          <button type="button" data-edition="qwen" aria-pressed="false">Qwen <span>Local</span></button>
+          <button type="button" data-edition="inworld" aria-pressed="false">Inworld <span>API</span></button>
+        </div>
+        <div class="recording-heading"><h3 id="edition-title">Breeze edition</h3><span id="duration">1:16</span></div>
+        <p class="voice-note" id="voice-note">Original synthetic voices designed with Breeze.</p>
+        <audio id="sample-audio" controls preload="none" aria-label="Breeze edition of The Maltese Falcon sample" src="samples/breeze.mp3">Your browser does not support audio. <a href="samples/breeze.mp3">Download the Breeze MP3</a>.</audio>
+        <div class="recording-links"><a id="download" href="samples/breeze.mp3" download="storyteller-breeze.mp3">Download MP3</a><span>About a minute · no account needed</span></div>
+        <p id="sample-status" class="status" role="status"></p>
+        <details class="transcript" open><summary>Read along <span>Choose a passage to seek</span></summary><div id="passages" class="passages" aria-label="Sample passages"><p>The scene is loading. You can still play the recording above.</p></div></details>
+        <noscript><p>The audio player works without JavaScript. Read the <a href="samples/excerpt.txt">transcript</a>, or play the <a href="samples/qwen.mp3">Qwen</a> and <a href="samples/inworld.mp3">Inworld</a> editions directly.</p></noscript>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell section app-section" aria-labelledby="app-title">
+    <div class="section-heading"><p class="eyebrow">02 / Settle into the story</p><h2 id="app-title">Listen. Read along.<br>Come back to your place.</h2><p>Passage highlighting, saved progress, playback speed, and separate editions, in a reader that gives the book room to breathe.</p></div>
+    <figure class="desktop-shot"><img src="assets/reader.png" width="1200" height="800" loading="lazy" alt="Storyteller web reader showing The Maltese Falcon, with the spoken passage highlighted and playback controls below."><figcaption>The web reader. Choose a passage to jump to that part of the recording.</figcaption></figure>
+    <div class="app-detail"><div><h3>One book, your choice of voice.</h3><p>Switch between recordings from the book's edition picker. Each keeps its own passage timings.</p><figure><img src="assets/editions.png" width="1200" height="620" loading="lazy" alt="The Storyteller chapter screen with Breeze, Qwen local, and Inworld edition buttons."><figcaption>The included sample has all three editions ready to play.</figcaption></figure></div><figure class="mobile-shot"><img src="assets/reader-mobile.png" width="390" height="844" loading="lazy" alt="The same read-along scene in a mobile browser, with large text and the current passage highlighted."><figcaption>Read along in a mobile browser, or use the <a href="https://github.com/benbernard/storyteller/blob/main/docs/android.md">Android app</a> for offline downloads.</figcaption></figure></div>
+  </section>
+
+  <section class="start section" id="start" aria-labelledby="start-title">
+    <div class="shell start-layout">
+      <div><p class="eyebrow">03 / Make it yours</p><h2 id="start-title">Your next<br>chapter starts here.</h2><p>Run Storyteller on your computer or server. The bundled sample gets you listening before you set up a voice engine.</p><p class="requirements">Have Git, Node.js 22.13+, and Docker Compose ready. On Windows, use WSL2 for these commands.</p><a href="https://github.com/benbernard/storyteller#start-here-run-storyteller">Full setup guide <span aria-hidden="true">↗</span></a></div>
+      <div class="setup"><div class="code-heading"><span>Start with the sample</span><button id="copy-setup" type="button" hidden>Copy commands</button></div><pre><code id="setup-commands">git clone https://github.com/benbernard/storyteller.git
+cd storyteller
+node scripts/setup.mjs
+docker compose build listener
+docker compose run --rm sample
+docker compose up -d --wait listener</code></pre><p id="copy-status" class="status" role="status"></p><p>Open <a href="http://localhost:8080/listen/">localhost:8080/listen/</a>. Sign in as <code>listener</code> with the password in <code>data/credentials/listener-password</code>.</p></div>
+    </div>
+  </section>
+
+  <section class="shell section paths" aria-labelledby="paths-title">
+    <div class="section-heading"><p class="eyebrow">When you're ready to create</p><h2 id="paths-title">Pick your voice engine.</h2></div>
+    <div class="guide-list">
+      <a href="https://github.com/benbernard/storyteller/blob/main/docs/breeze.md"><span><strong>Breeze</strong><small>Our recommended local renderer</small></span><p>Synthetic voice design, acting directions, and passage review on an Apple Silicon Mac.</p><span aria-hidden="true">↗</span></a>
+      <a href="https://github.com/benbernard/storyteller/blob/main/docs/local-generation.md"><span><strong>Qwen</strong><small>Local speech &amp; automatic follows</small></span><p>A second Mac speech option, with automatic chapter follows and listening buffers.</p><span aria-hidden="true">↗</span></a>
+      <a href="https://github.com/benbernard/storyteller/blob/main/docs/inworld.md"><span><strong>Inworld</strong><small>Speech API</small></span><p>Use your Inworld account and voices, with spending ceilings and resumable batches.</p><span aria-hidden="true">↗</span></a>
+      <a href="https://github.com/benbernard/storyteller/blob/main/docs/paid-generation.md"><span><strong>ElevenLabs</strong><small>Speech API</small></span><p>Generate with v3, Flash, or Multilingual, with persistent casting and selective repairs.</p><span aria-hidden="true">↗</span></a>
+    </div>
+    <p class="more-guides"><a href="https://github.com/benbernard/storyteller/blob/main/docs/importing.md">Import your books</a><a href="https://github.com/benbernard/storyteller/blob/main/docs/android.md">Set up Android</a><a href="https://github.com/benbernard/storyteller/blob/main/docs/operations.md">Host your library</a></p>
+  </section>
+</main>
+<footer class="shell footer"><a class="brand" href="./"><img src="assets/storyteller-mark.png" width="36" height="36" alt=""><span>Storyteller</span></a><div><p>Made for stories, shared for noncommercial use.</p><p><a href="https://github.com/benbernard/storyteller/blob/main/LICENSE">PolyForm Noncommercial</a> · <a href="https://github.com/benbernard/storyteller/blob/main/THIRD_PARTY.md">Model &amp; provider terms</a> · <a href="https://github.com/benbernard/storyteller/tree/main/samples/maltese-falcon#source-and-rights">Sample credits</a></p></div></footer>
+</body>
+</html>
