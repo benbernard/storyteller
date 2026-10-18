@@ -18,6 +18,7 @@ import {loadDecimalManifest,preflightDecimalRecovery,recoverDecimalPassage} from
 import {renderingContext} from './rendering-review.mjs';
 import {withChapterProcessingLock} from './chapter-processing-lock.mjs';
 import {asrReviewCommand} from './review-command.mjs';
+import {loadReviewWitness,claimWitnessReview,verifyWitnessReviewResult,reusableReviewDecision} from './review-witness.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
@@ -174,7 +175,7 @@ async function adjudicate(entry,chapter,reports){
  const rows=[];
  for(const item of disputed){
   const at=chapter.items.indexOf(item),phoneme=await read(join(entry.root,'phoneme-review',item.customId+'.json'));
-  const evidence=adjudicationEvidence(item,reports[item.customId],phoneme,{before:chapter.items[at-1]?.spokenText??'',after:chapter.items[at+1]?.spokenText??''},await renderingContext(entry.root,item));
+  const evidence=adjudicationEvidence(item,reports[item.customId],phoneme,{before:chapter.items[at-1]?.spokenText??'',after:chapter.items[at+1]?.spokenText??''},await renderingContext(entry.root,item),await loadReviewWitness(entry.root,item));
   if(evidence.row)rows.push(evidence.row);
   else{
    const value=evidence.unavailableEvidence,path=join(entry.root,'unavailable-review-evidence',hash(value)+'.json'),prior=await read(path,null);
@@ -183,21 +184,35 @@ async function adjudicate(entry,chapter,reports){
    reports[item.customId]=evidence.report;
   }
  }
- const runCodexAnalysis=rows.length?(await import(pathToFileURL(config.analysisModule??join(here,'../audiobooks/dist/codex-analysis.js')).href)).runCodexAnalysis:null;
  const decisions={};
- for(let offset=0;offset<rows.length;offset+=6){
-  const batch=rows.slice(offset,offset+6),key=hash({instructions:reviewInstructions,model:config.reviewModel??'gpt-6.1-sol',rows:batch}),path=join(entry.root,'llm-review',key+'.json');
+ const hasWitness=rows.some(row=>row.supplementalAcousticWitness),reviewRows=[];
+ if(hasWitness){
+  const previous=await read(join(entry.root,'llm-decisions.json'),{});
+  for(const row of rows){
+   if(row.supplementalAcousticWitness){reviewRows.push(row);continue;}
+   const saved=await reusableReviewDecision(entry.root,row,previous[row.passage],reviewInstructions,config.reviewModel??'gpt-6.1-sol');
+   if(!saved)throw Error('Contested review requires unchanged verified decisions for other passages');
+   decisions[row.passage]=saved;reports[row.passage]=modelReview(reports[row.passage],saved,row);
+  }
+ }else reviewRows.push(...rows);
+ const runCodexAnalysis=reviewRows.length?(await import(pathToFileURL(config.analysisModule??join(here,'../audiobooks/dist/codex-analysis.js')).href)).runCodexAnalysis:null;
+ for(let offset=0;offset<reviewRows.length;offset+=6){
+  const batch=reviewRows.slice(offset,offset+6),witness=batch.some(row=>row.supplementalAcousticWitness),key=hash({instructions:reviewInstructions,model:config.reviewModel??'gpt-6.1-sol',rows:batch}),path=join(entry.root,'llm-review',key+'.json');
+  if(witness&&batch.length!==1)throw Error('Contested review must contain exactly one passage');
   let result=await read(path,null);
+  if(witness&&result)await verifyWitnessReviewResult(entry.root,batch[0],key,result);
   if(!result){
-   for(let attempt=0;attempt<3;attempt++){
+   if(witness)await claimWitnessReview(entry.root,batch[0],key);
+   for(let attempt=0;attempt<(witness?1:3);attempt++){
     await status({stage:'llm-review',passages:batch.map(r=>r.passage),attempt:attempt+1});
     const heartbeat=setInterval(()=>{void status({stage:'llm-review',attempt:attempt+1,heartbeat:new Date().toISOString()}).catch(()=>{});},20000);
     try{
      result=await runCodexAnalysis({model:config.reviewModel??'gpt-6.1-sol',instructions:reviewInstructions,input:JSON.stringify({rows:batch}),schema:reviewSchema});
-     validateReview(result.value,batch);await save(path,{...result,rows:batch});break;
-    }catch(error){if(attempt===2)throw error;await sleep(5000*(attempt+1));}finally{clearInterval(heartbeat);}
+     validateReview(result.value,batch);result={...result,rows:batch};await save(path,result);break;
+    }catch(error){if(witness||attempt===2)throw error;await sleep(5000*(attempt+1));}finally{clearInterval(heartbeat);}
    }
   }
+  if(witness)await verifyWitnessReviewResult(entry.root,batch[0],key,result);
   if(result.authentication!=='chatgpt')throw Error('Expected subscription review; no API fallback');
   const verified=validateReview(result.value,batch);
   for(const [i,decision]of verified.entries()){

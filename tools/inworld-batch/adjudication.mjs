@@ -34,16 +34,16 @@ function assertEvidenceBinding(item,report,phoneme,renderingContext){
  }else if(report.renderingContext||report.comparisonExpected!==undefined)throw Error('Visual-redaction review requires verified recovery evidence');
 }
 
-export function evidenceRow(item, report, phoneme, neighbors, renderingContext=null) {
+export function evidenceRow(item, report, phoneme, neighbors, renderingContext=null, supplementalAcousticWitness=null) {
  assertEvidenceBinding(item,report,phoneme,renderingContext);
  if(!phoneme.phonemes.trim())throw Error('Empty unprompted phoneme evidence');
- return {...(renderingContext?{comparisonExpected:renderingContext.comparisonExpected,renderingContext}:{}),passage:item.customId,role:item.role,expected:item.spokenText,audioSha256:report.sha256,reportHash:hash(report),phonemeHash:hash(phoneme),attempts:report.attempts,phonemes:phoneme.phonemes,neighbors};
+ return {...(renderingContext?{comparisonExpected:renderingContext.comparisonExpected,renderingContext}:{}),passage:item.customId,role:item.role,expected:item.spokenText,audioSha256:report.sha256,reportHash:hash(report),phonemeHash:hash(phoneme),attempts:report.attempts,phonemes:phoneme.phonemes,neighbors,...(supplementalAcousticWitness?{supplementalAcousticWitness}:{})};
 }
 
 /** Empty acoustic evidence cannot authorize publication or subscription adjudication. */
-export function adjudicationEvidence(item,report,phoneme,neighbors,renderingContext=null){
+export function adjudicationEvidence(item,report,phoneme,neighbors,renderingContext=null,supplementalAcousticWitness=null){
  assertEvidenceBinding(item,report,phoneme,renderingContext);
- if(phoneme.phonemes.trim())return {row:evidenceRow(item,report,phoneme,neighbors,renderingContext),report};
+ if(phoneme.phonemes.trim())return {row:evidenceRow(item,report,phoneme,neighbors,renderingContext,supplementalAcousticWitness),report};
  const unavailableEvidence={schemaVersion:1,kind:'empty-unprompted-phonemes',passage:item.customId,report,phoneme,...(renderingContext?{renderingContext}:{})};
  const uncertain={...report,automatedSeverity:report.severity,severity:'uncertain',fidelityUncertainty:{kind:unavailableEvidence.kind,reason:'Independent unprompted phonemes are empty; fidelity is unresolved.',audioSha256:report.sha256,reportHash:hash(report),phonemeHash:hash(phoneme),evidenceHash:hash(unavailableEvidence)}};
  delete uncertain.modelReview;delete uncertain.ownerReview;

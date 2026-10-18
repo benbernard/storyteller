@@ -190,6 +190,37 @@ It preserves the numeric value, fractional digits and literal unit. Publication
 still requires fresh whole-passage ASR from both pinned models, independent
 unprompted phonemes and subscription review. A failed review remains held.
 
+### Review with new acoustic evidence
+
+A held passage with a verified historical decimal and notation recovery can
+receive one independent review when newly collected local acoustic evidence
+directly addresses the disputed finding. The evidence must come from existing
+current recordings, use the pinned unprompted models, and match the current
+source, audio, receipts, transcript reports and earlier decision.
+This path does not generate audio or grant another retake.
+
+Validate the private manifest without attaching it:
+
+```sh
+node tools/inworld-batch/review-witness.mjs /private/job/queue.json \
+  CHAPTER_ID /private/audit/witness.json REVIEWED_SHA256
+```
+
+Use `--attach` only after independent manifest review and the pause checks below.
+
+The witness is separate from the rendering proof and spoken comparison. It cannot
+change either, alter a quality decision directly, or approve a disputed reading.
+A private immutable manifest binds the new evidence to the exact held recording
+and earlier decision. Changed evidence, prompted recognition, stale reports and
+unrelated clips fail validation. Retain the earlier failed review and its proof.
+
+Attach a reviewed witness only after status reports `paused` and its worker
+and supervisor have released their locks. Normal provider-disabled processing
+then checks the witness and requests one subscription adjudication. Other
+passages may reuse only decisions whose complete evidence, model and instructions
+still match. A major or uncertain result remains held; it does not permit another
+witness variant or another synthesis attempt.
+
 Credentials stay on the remote synthesis host. `credentialFile` names its private
 Inworld env file. The fixed-host gateway sends it only to `api.inworld.ai`.
 The Codex executable is selected with `AUDIOBOOK_CODEX_BIN`. Analysis and review
