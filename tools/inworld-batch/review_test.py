@@ -15,6 +15,81 @@ from review import ReviewItem, compare, review_device, review_items, save_json, 
 
 
 class ReviewTests(unittest.TestCase):
+    def test_numeric_comparison_symbols_survive_tags_and_direction_changes(self) -> None:
+        self.assertEqual(words('<break time="900ms" /> <12s and >3s'),
+                         words('less than twelve s and greater than three s'))
+        self.assertNotEqual(words('<12s'), words('>12s'))
+        self.assertNotEqual(words('value <12s and >3s'), words('value three s'))
+        # Unsupported source markup is never silently consumed as synthesis.
+        self.assertIn('unknown', words('<unknown>keep this</unknown>'))
+        self.assertIn('break', words('<break time="erase words"/> keep'))
+        self.assertEqual(words('<17%'), words('less than seventeen percent'))
+        for symbol, spoken in [('<=', 'less than or equal to'), ('≤', 'less than or equal to'),
+                               ('>=', 'greater than or equal to'), ('≥', 'greater than or equal to'), ('=', 'equals')]:
+            self.assertEqual(words(symbol + '12'), words(spoken + ' twelve'))
+        self.assertNotEqual(words('≤12'), words('<12'))
+        self.assertNotEqual(words('≥12'), words('12'))
+
+    def test_temperature_symbols_preserve_unit_and_decimal_semantics(self) -> None:
+        self.assertEqual(words('13.25°C'), words('thirteen point two five degrees Celsius'))
+        self.assertEqual(words('13.25° C'), words('thirteen point two five degree Celsius'))
+        self.assertEqual(words('32°F'), words('thirty two degrees Fahrenheit'))
+        self.assertEqual(words('45°'), words('forty five degrees'))
+        self.assertEqual(words('12°K'), words('twelve degrees k'))
+        for sign in ['-', '−']:
+            self.assertEqual(words(sign + '13.25°C'), words('minus thirteen point two five degrees Celsius'))
+            self.assertNotEqual(words(sign + '13.25°C'), words('13.25°C'))
+            self.assertEqual(words('(<'+sign+'13)'), words('less than minus thirteen'))
+        self.assertNotIn('minus', words('level-1 and range 12-13'))
+        prefix = ' '.join(['ordinary surrounding words'] * 30)
+        for expected, actual in [
+            ('<12s', 'twelve s'), ('<12s', 'greater than twelve s'),
+            ('<12s', 'less when twelve s'),
+            ('13.25°C', 'thirteen two five degrees Celsius'),
+            ('13.25°C', 'thirteen point two five'),
+            ('<12 and >3', 'greater than twelve and less than three'),
+            ('<12s', 'less than thirteen s'), ('<17%', 'less than seventeen'),
+            ('≤12', 'less than twelve'), ('>=3', 'three'),
+            ('45°', 'forty five'), ('32°F', 'thirty two'),
+            ('-13.25°C', 'thirteen point two five degrees Celsius'),
+            ('−13.25', 'thirteen point two five'),
+        ]:
+            result = compare(prefix + ' ' + expected, prefix + ' ' + actual)
+            self.assertGreater(result['wordRecall'], .9)
+            self.assertTrue(result['needsStronger'])
+            self.assertTrue(result['changes'])
+        self.assertTrue(compare('<12s <13s <14s <15s',
+                                'less than twelve s less than thirteen s fourteen s less than fifteen s')['needsStronger'])
+
+    def test_symbol_report_cache_is_recompared_from_existing_raw_checkpoint(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'limit <12s and 13.25°C'}
+        digest = hashlib.sha256((self.root / 'audio' / 'first.wav').read_bytes()).hexdigest()
+        attempts = [{'model': self.models[0], 'transcript': 'limit twelve s and thirteen two five degrees Celsius',
+                     'wordRecall': 1, 'changes': [], 'major': False, 'needsStronger': False}]
+        (self.root / 'review').mkdir()
+        (self.root / 'review-checkpoints').mkdir()
+        save_json(self.root / 'review' / 'first.json', {'sha256': digest, 'expected': item['spokenText'],
+                                                      'attempts': attempts, 'severity': 'pass'})
+        save_json(self.root / 'review-checkpoints' / 'first.json', {'sha256': digest, 'expected': item['spokenText'],
+                  'models': self.models, 'attempts': attempts, 'renderingContext': None})
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            return 'limit less than twelve s and thirteen point two five degrees Celsius'
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe)
+        self.assertEqual(self.calls, [('first', self.models[1])])
+        report = self.read_report('first')
+        self.assertEqual(report['notationComparisonPolicy'], 'numeric-symbols-v1')
+        self.assertEqual(report['expected'], item['spokenText'])
+        self.assertTrue(report['attempts'][0]['needsStronger'])
+        self.assertEqual(report['severity'], 'pass')
+        self.calls.clear()
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe)
+        self.assertEqual(self.calls, [])
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

@@ -34,6 +34,27 @@ Transcriber = Callable[[Path, str], str]
 ContextLoader = Callable[[Path, ReviewItem, str], Optional[dict[str, object]]]
 SPOKEN_PLUS_POLICY = 'spoken-plus-v1'
 COMBINING_OVERLAY_POLICY = 'combining-overlay-v1'
+NOTATION_COMPARISON_POLICY = 'numeric-symbols-v1'
+# Only synthesis markup that we actually emit is non-spoken. In particular,
+# '< 12s ... > 3s' is source content, never an HTML tag.
+SYNTHESIS_TAG = re.compile(r'''<break\s+time=(["'])\+?(?:\d+(?:\.\d+)?|\.\d+)(?:ms|s)\1\s*/>''', re.IGNORECASE)
+UNARY_MINUS = re.compile(r'(^|[\s<>=≤≥(\[{:])[-−](?=\d)')
+
+
+def has_numeric_symbols(text: str) -> bool:
+    visible = SYNTHESIS_TAG.sub(' ', text)
+    return bool(re.search(r'[<>=≤≥°%]|\d[A-Za-z]|[A-Za-z]\d', visible) or UNARY_MINUS.search(visible))
+
+
+def symbol_text(text: str) -> str:
+    text = SYNTHESIS_TAG.sub(' ', text)
+    text = UNARY_MINUS.sub(r'\1 minus ', text)
+    text = re.sub(r'°\s*C\b', ' degrees Celsius ', text)
+    text = re.sub(r'°\s*F\b', ' degrees Fahrenheit ', text)
+    text = re.sub(r'\bdegree\s+(celsius|fahrenheit)\b', r'degrees \1', text, flags=re.IGNORECASE)
+    text = text.replace('<=', ' less than or equal to ').replace('>=', ' greater than or equal to ')
+    text = text.replace('≤', ' less than or equal to ').replace('≥', ' greater than or equal to ')
+    return text.replace('<', ' less than ').replace('>', ' greater than ').replace('=', ' equals ').replace('%', ' percent ').replace('°', ' degrees ')
 
 
 def visible_base_text(text: str) -> str:
@@ -42,12 +63,14 @@ def visible_base_text(text: str) -> str:
 
 
 def words(text: str) -> list[str]:
-    text = visible_base_text(re.sub(r'<[^>]*>', ' ', text)).lower().replace('’', "'")
+    text = visible_base_text(symbol_text(text)).lower().replace('’', "'")
     # A grade qualifier and an arithmetic operator are audible source content.
     # Keep each symbol, including repeated operators, rather than treating it
     # as punctuation and accidentally approving an omitted qualifier.
     text = text.replace('+', ' plus ')
-    text = re.sub(r'\d[\d,]*(?:\.\d+)?', lambda m: number(m[0]), text)
+    # Adjacent units remain their literal letters; do not glue the number's
+    # final word to the unit or invent an abbreviation expansion.
+    text = re.sub(r'\d[\d,]*(?:\.\d+)?', lambda m: ' ' + number(m[0]) + ' ', text)
     text = re.sub(r'\b(?:[a-z]\s+){1,}[a-z]\b', lambda m: m[0].replace(' ', ''), text)
     return re.findall(r'[a-z]+', text)
 
@@ -72,8 +95,12 @@ def compare(expected: str, actual: str) -> dict[str, object]:
         (c['kind'] in ('delete', 'insert') and max(int(c['missingWords']), int(c['extraWords'])) >= 5)
         or (c['kind'] == 'replace' and max(int(c['missingWords']), int(c['extraWords'])) >= 7)
         for c in changes)
+    # Aggregate recall cannot excuse one missing comparator, decimal point or
+    # temperature unit. These checks only escalate; independent full-content
+    # review still decides fidelity from the bound ASR/phoneme evidence.
+    semantic_mismatch = has_numeric_symbols(expected) and a != b
     return {'wordRecall': recall, 'changes': changes, 'major': major,
-            'needsStronger': recall < 0.90 or any(c['kind'] != 'replace' for c in changes)}
+            'needsStronger': semantic_mismatch or recall < 0.90 or any(c['kind'] != 'replace' for c in changes)}
 
 
 def review_device(environ: Mapping[str, str]) -> str:
@@ -149,6 +176,8 @@ def matching_report(report: object, digest: str, expected: str, context: dict[st
         return False
     comparison_expected = str(context['comparisonExpected']) if context is not None else expected
     if '+' in comparison_expected and report.get('comparisonPolicy') != SPOKEN_PLUS_POLICY:
+        return False
+    if has_numeric_symbols(comparison_expected) and report.get('notationComparisonPolicy') != NOTATION_COMPARISON_POLICY:
         return False
     if visible_base_text(comparison_expected) != comparison_expected and report.get('overlayComparisonPolicy') != COMBINING_OVERLAY_POLICY:
         return False
@@ -230,6 +259,8 @@ def finish_review(out: Path, entry: PendingReview) -> None:
               'limitation': 'Automated ASR is fallible; it does not verify subjective acting or voice identity.'}
     if '+' in entry['comparisonExpected']:
         report['comparisonPolicy'] = SPOKEN_PLUS_POLICY
+    if has_numeric_symbols(entry['comparisonExpected']):
+        report['notationComparisonPolicy'] = NOTATION_COMPARISON_POLICY
     if visible_base_text(entry['comparisonExpected']) != entry['comparisonExpected']:
         report['overlayComparisonPolicy'] = COMBINING_OVERLAY_POLICY
     if entry['renderingContext'] is not None:
