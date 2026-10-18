@@ -74,6 +74,11 @@ preparation. The speech ceiling covers generation and retakes together; voice
 design previews are separate provider charges. Confirm the current account price
 and limits before setting the ceiling. Signed result URLs stay in private files.
 
+Long chapter attribution uses bounded subscription requests with the full chapter
+as context. Validated windows are checkpointed and reused after interruptions.
+The merged result must cover the exact source and preserve speaker identities;
+speech tags are checked across window boundaries before preparation continues.
+
 Install a clean committed runtime on macOS with:
 
 ```sh

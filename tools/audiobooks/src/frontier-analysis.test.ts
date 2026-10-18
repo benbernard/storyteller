@@ -75,7 +75,7 @@ test('production defaults to Sol on the subscription and never falls back to the
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-import { subscriptionArguments, subscriptionEnvironment } from './codex-analysis.js';
+import { subscriptionArguments, subscriptionEnvironment, subscriptionFailureReason, type CodexAnalysisRequest } from './codex-analysis.js';
 test('subscription invocation removes API credentials and forces ChatGPT authentication', () => {
   const source = { OPENAI_API_KEY: 'secret', CODEX_API_KEY: 'secret', OPENAI_BASE_URL: 'https://other.invalid', CODEX_HOME: '/auth' };
   const env = subscriptionEnvironment(source);
@@ -134,4 +134,74 @@ test('semantic coordinates expose actual UTF-16 boundaries and constrain each un
   assert(ends.includes(text.indexOf(' Thea')));
   const schema = JSON.stringify(unitResponseSchema(1, true, [text]));
   assert(schema.includes(`"maximum":${text.length}`));
+});
+
+test('long subscription analysis resumes validated windows and preserves identities and complete source coverage', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'frontier-windows-')), store = new Store(root);
+  const text = Array.from({ length: 75 }, (_, i) => `“Reply ${i}.” Alex said.\n`).join('');
+  const longChapter = { ...chapter, text, contentHash: sha(text) };
+  const starts: number[] = [];
+  let fail = true, apiCalls = 0;
+  const request: typeof fetch = async () => { apiCalls++; throw new Error('No API fallback'); };
+  const subscription = async (input: CodexAnalysisRequest) => {
+    const data = JSON.parse(input.input) as { fullChapterContext: string; unitStart: number; roster: { id: string }[]; units: { text: string }[] };
+    assert.equal(data.fullChapterContext, text);
+    assert(data.units.length <= 61);
+    starts.push(data.unitStart);
+    if (data.unitStart > 0 && fail) throw new Error('Interrupted subscription');
+    // A changed proposed ID for the same named character must resolve back to
+    // the identity established in the first window, including after restart.
+    const id = 'alex_' + data.unitStart;
+    if (data.unitStart > 0) assert.equal(data.roster[0]!.id, 'alex_0');
+    return { authentication: 'chatgpt' as const, usage: {}, value: {
+      characters: [{ ...profile(id, 1), name: 'Alex' }], aliasUpdates: [], summary: 'Alex replies.',
+      labels: Object.fromEntries(data.units.map((unit, i) => [`unit_${i}`, unit.text.startsWith('“') ? { ...label, kind: 'dialogue', speaker: id, parts: null } : { ...label, parts: null }])),
+    } };
+  };
+  try {
+    const policy = frontierPolicySchema.parse({});
+    await assert.rejects(analyzeFrontier(store, longChapter, cast, '', policy, undefined, request, subscription), /Interrupted/);
+    assert.deepEqual(starts, [0, 60]);
+    fail = false;
+    const result = await analyzeFrontier(store, longChapter, cast, '', policy, undefined, request, subscription);
+    assert.deepEqual(starts, [0, 60, 60, 120]);
+    assert.equal(result.analysis.spans.map(span => span.text).join(''), text);
+    assert(result.analysis.spans.filter(span => span.kind === 'dialogue').every(span => span.speaker === 'alex_0'));
+    assert.deepEqual(result.analysis.characters.map(p => p.id), ['alex_0']);
+    assert.equal(result.analysis.source, sha(text));
+    assert.equal(result.analysis.spans.at(-1)!.end, text.length);
+    const cached = await analyzeFrontier(store, longChapter, cast, '', policy, undefined, request, async () => { throw new Error('Must reuse final cache'); });
+    assert.deepEqual(cached, result); assert.equal(apiCalls, 0);
+    assert.deepEqual(await store.list('frontier-budgets'), []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('subscription windows retain following speech tags and retry validation failures before checkpointing', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'frontier-boundary-')), store = new Store(root);
+  const text = 'Narration.\n'.repeat(59) + '“Reply.” Alex said.\nMore narration.\n';
+  const longChapter = { ...chapter, text, contentHash: sha(text) };
+  let attempts = 0;
+  try {
+    const result = await analyzeFrontier(store, longChapter, cast, '', frontierPolicySchema.parse({}), undefined, fetch, async input => {
+      const data = JSON.parse(input.input) as { unitStart: number; units: { text: string }[]; validationError: string };
+      if (data.unitStart === 0) { assert.equal(data.units.length, 61); assert.match(data.units.at(-1)!.text, /Alex said/); }
+      attempts++;
+      if (attempts === 2) assert.match(data.validationError, /Explicit speech tag/);
+      return { authentication: 'chatgpt', usage: {}, value: {
+        characters: data.unitStart === 0 ? [{ ...profile('alex', 60), name: 'Alex' }] : [], aliasUpdates: [], summary: '',
+        labels: Object.fromEntries(data.units.map((unit, i) => [`unit_${i}`, unit.text.startsWith('“')
+          ? { ...label, kind: 'dialogue', speaker: attempts === 1 ? 'anonymous' : 'alex', certainty: attempts === 1 ? 'uncertain' : 'attributed', parts: null }
+          : { ...label, parts: null }])),
+      } };
+    });
+    assert.equal(attempts, 3);
+    assert.equal(result.analysis.spans.map(span => span.text).join(''), text);
+    assert.equal(result.analysis.spans[59]!.speaker, 'alex');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('subscription failures expose only a recognized safe diagnostic code', () => {
+  assert.equal(subscriptionFailureReason('{broken}\n' + JSON.stringify({ type: 'turn.failed', error: { message: 'private detail max_output_tokens private token' } })), 'response token limit');
+  assert.equal(subscriptionFailureReason(JSON.stringify({ type: 'error', message: 'private auth detail' })), undefined);
+  assert.equal(subscriptionFailureReason(JSON.stringify({ type: 'other', message: 'max_output_tokens' })), undefined);
 });
