@@ -69,7 +69,7 @@ export function plan(chapter: Chapter, analysis: Analysis, cast: Cast, config: C
   }
   flush();
   const segments: Segment[] = groups.map(turns => {
-    const request: Record<string, unknown> = {
+    let request: Record<string, unknown> = {
       model_id: policy.model, apply_text_normalization: policy.normalization,
       pronunciation_dictionary_locators: config.providerDictionaries,
       ...(policy.seed === null ? {} : { seed: policy.seed }),
@@ -80,6 +80,13 @@ export function plan(chapter: Chapter, analysis: Analysis, cast: Cast, config: C
     } else {
       request.text = turns.map(t => t.text).join('');
       request.voice_settings = turns[0]!.voice.settings;
+    }
+    if (policy.model.startsWith('inworld-')) {
+      if (config.providerDictionaries.length) throw new Error('Inworld does not support ElevenLabs pronunciation dictionaries; use the local dictionary');
+      request = { modelId: policy.model, voiceId: turns[0]!.voice.voiceId, text: turns.map(t => t.text).join(''),
+        audioConfig: { audioEncoding: 'MP3', bitRate: 128000, sampleRateHertz: 44100, speakingRate: turns[0]!.voice.settings.speed },
+        applyTextNormalization: policy.normalization === 'on' ? 'ON' : policy.normalization === 'off' ? 'OFF' : 'APPLY_TEXT_NORMALIZATION_UNSPECIFIED',
+        ...(policy.model === 'inworld-tts-2' ? { deliveryMode: 'BALANCED' } : {}) };
     }
     return { uid: 'segment_' + fingerprint(turns.map(t => ({ spanId: t.spanId, start: t.start, end: t.end, text: t.text }))).slice(0, 32),
       turns, model: policy.model, request, fingerprint: '',
@@ -92,6 +99,10 @@ export function plan(chapter: Chapter, analysis: Analysis, cast: Cast, config: C
       if (after) segment.request.next_text = after.turns.map(t => t.text).join('').slice(0, 1000);
       if (policy.continuity === 'requests' && before && before.turns[0]!.voice.voiceId === segment.turns[0]!.voice.voiceId)
         segment.previousSegment = before.uid;
+    }
+    if (policy.model.startsWith('inworld-') && policy.continuity === 'text') {
+      delete segment.request.previous_text; delete segment.request.next_text;
+      if (before) segment.request.synthesisContext = { previousRequests: [{ text: before.turns.map(t => t.text).join('').slice(-2000) }] };
     }
     // Source locations and arbitrary UIDs do not affect audio. Versions, tags and all actual dependencies do.
     segment.fingerprint = fingerprint({ format: 'mp3_44100_128', adapter: 1, request: segment.request,

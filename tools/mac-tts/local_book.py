@@ -127,7 +127,14 @@ def plan_chapter(
             "seed": segment.pop("seed"),
             "max_tokens": 1024,
         }
-        if cast["model"] == "qwen-base":
+        if cast["model"] == "breeze-tts-2":
+            segment["request"] = {
+                **common,
+                "ref_text": voice["transcript"],
+                "cfg_scale": 4.0,
+                "max_tokens": 1500,
+            }
+        elif cast["model"] == "qwen-base":
             segment["request"] = {
                 **common,
                 "ref_text": voice["transcript"],
@@ -268,7 +275,7 @@ def prepare(
 ) -> None:
     cast = read(cast_path)
     presentation = read(presentation_path) if presentation_path else {}
-    assert cast["model"] in {"qwen-base", "chatterbox"}
+    assert cast["model"] in {"qwen-base", "chatterbox", "breeze-tts-2"}
     index = read(state / "index.json")
     chapters = []
     entries = sorted(index["chapters"], key=lambda e: e["sequence"])

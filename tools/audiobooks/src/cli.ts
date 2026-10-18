@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Pipeline } from './pipeline.js';
 import { prepareBook, publishBook, editionSchema } from './book.js';
 import { Store, sha } from './store.js';
-import { ElevenLabs, Budget, renderSegment, type Ledger } from './audio.js';
+import { SpeechProviders, Budget, renderSegment, type Ledger } from './audio.js';
 import { auditionSegment } from './audition.js';
 import { chapterSchema, configSchema, analysisSchema, voiceSchema, position, id,
   type Assembly } from './schema.js';
@@ -34,7 +34,7 @@ All commands: --state DIR (one private directory per fiction).
   audition --batch ID --file sample.json      Render an audition with a bounded budget
   unlock                                     Remove a stale lock after verifying no worker
 
-Paid calls read ELEVENLABS_API_KEY and OPENAI_API_KEY from the environment.
+Paid calls read ELEVENLABS_API_KEY, INWORLD_API_KEY and OPENAI_API_KEY from the environment.
 Production batches require a policy selected after the listening pilot.
 Do not remove a writer lock while a batch is running.
 `;
@@ -75,9 +75,9 @@ async function main() {
       case 'analyze-import': output({ analysis: await pipeline.importAnalysis(id.parse(required('chapter')), analysisSchema.parse(await file())) }); break;
       case 'prepare': output(await prepareBook(pipeline, id.parse(required('batch')), values.chapters?.split(',').map(c => id.parse(c)))); break;
       case 'publish': output(await publishBook(pipeline, id.parse(required('batch')), editionSchema.parse(required('edition')), required('title'), values.author ?? '')); break;
-      case 'run': output(await pipeline.run(id.parse(required('batch')), new ElevenLabs(),
+      case 'run': output(await pipeline.run(id.parse(required('batch')), new SpeechProviders(),
         z.enum(['pilot', 'batch', 'repair']).parse(values.purpose), values.chapters?.split(',').map(c => id.parse(c)))); break;
-      case 'experiments': output(await pipeline.experiments(id.parse(required('batch')), new ElevenLabs(),
+      case 'experiments': output(await pipeline.experiments(id.parse(required('batch')), new SpeechProviders(),
         values.chapters?.split(',').map(c => id.parse(c)))); break;
       case 'progress': await pipeline.progress(position.parse({ chapter: Number(required('through')), offset: 0 })); output({ saved: true }); break;
       case 'reviews': output(await pipeline.reviews()); break;
@@ -112,7 +112,7 @@ async function main() {
         const config = await pipeline.config(), batch = id.parse(required('batch'));
         const segment = auditionSegment(await file(), config);
         const budget = new Budget(store, batch, config, await store.read<Ledger>(`jobs/${batch}/ledger.json`) ?? { charges: [] });
-        const asset = await renderSegment(store, segment, config, budget, new ElevenLabs(), 0, undefined, 'audition');
+        const asset = await renderSegment(store, segment, config, budget, new SpeechProviders(), 0, undefined, 'audition');
         output({ sampleAsset: asset.fingerprint, audio: store.path(`assets/${asset.fingerprint}/audio.mp3`) }); break;
       }
       case 'export': {

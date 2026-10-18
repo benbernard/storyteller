@@ -190,6 +190,7 @@ export class Pipeline {
   }
   async experiments(batchId: string, renderer: Renderer, only?: string[]) {
     const config = await this.config();
+    if (config.policy.model.startsWith('inworld-')) throw new Error('Experiments compare ElevenLabs models; audition Inworld models separately');
     const variants = [
       { name: 'v3-scenes', model: 'eleven_v3', grouping: 'scene', maxCharacters: 1800, continuity: 'none' },
       { name: 'v3-turns', model: 'eleven_v3', grouping: 'turn', maxCharacters: 600, continuity: 'none' },

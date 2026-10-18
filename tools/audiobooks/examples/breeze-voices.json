@@ -1,0 +1,28 @@
+{
+  "voices": [
+    {
+      "role": "narrator",
+      "text": "The lantern flickered beside the quiet road. Beyond the old bridge, a single window shone through the evening rain.",
+      "instruction": "An adult female audiobook narrator with a warm, clear voice, natural English pronunciation, and measured pacing. Calm narration, no music or sound effects.",
+      "seed": 101
+    },
+    {
+      "role": "anonymous",
+      "text": "Keep the light close. We have a long road ahead, and the last bridge is still hidden somewhere beyond those trees.",
+      "instruction": "A distinct, neutral English speaking voice with clear diction and conversational pacing. Do not imply a particular gender or age. No music or sound effects.",
+      "seed": 202
+    },
+    {
+      "role": "woman",
+      "text": "I left the map beside your lantern. If the rain stops before morning, we can reach the bridge before the others arrive.",
+      "instruction": "An adult woman speaking clear English in a bright, conversational voice, distinct from the narrator. Natural restrained delivery, no music or sound effects.",
+      "seed": 303
+    },
+    {
+      "role": "man",
+      "text": "The path follows the river until the stone bridge. Take your time on the last turn; the old steps are slippery after rain.",
+      "instruction": "An adult man with a low, clear English speaking voice and relaxed conversational pacing. Natural restrained delivery, no music or sound effects.",
+      "seed": 404
+    }
+  ]
+}

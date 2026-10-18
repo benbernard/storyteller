@@ -1,4 +1,8 @@
-# Local speech on an Apple Silicon Mac
+# Qwen speech on Apple Silicon
+
+For the recommended local renderer, start with [Breeze setup](breeze.md). This
+guide covers Qwen and its automatic follow worker.
+
 
 Qwen speech generation runs on your Mac. Chapter speaker analysis uses your own
 Codex subscription by default; API analysis is a separate opt-in with a dollar

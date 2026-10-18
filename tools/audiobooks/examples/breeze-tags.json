@@ -1,0 +1,6 @@
+{
+  "narrator": {"tags": ["female", "adult"], "identities": ["narrator"]},
+  "anonymous": {"tags": ["neutral"], "identities": ["*"]},
+  "woman": {"tags": ["female", "adult"], "identities": ["*"]},
+  "man": {"tags": ["male", "adult"], "identities": ["*"]}
+}

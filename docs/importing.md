@@ -33,7 +33,8 @@ docker compose run --rm downloader epub 12345
 The JSON result names the saved edition beneath the story's archive directory.
 Downloading and EPUB export do not call an AI provider.
 
-For the paid engine, use a configuration with `fictionId: "rr-12345"` and import:
+For [Breeze](breeze.md#import-chapters-and-initialize-one-job), import the saved
+JSON with `scripts/breeze.mjs import`. For the paid engine, use a configuration with `fictionId: "rr-12345"` and import:
 
 ```sh
 export FICTION_ID=rr-12345

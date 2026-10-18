@@ -1,0 +1,5 @@
+# Tested CPU evidence runtime on Apple Silicon Python 3.12.
+torch==2.14.0
+scipy==1.18.1
+transformers==5.17.0
+soundfile==0.14.0

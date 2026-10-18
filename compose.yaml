@@ -43,6 +43,7 @@ services:
       AUDIOBOOK_STATE: /fictions/${FICTION_ID:-lantern-pilot}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      INWORLD_API_KEY: ${INWORLD_API_KEY:-}
     volumes:
       - ./data/fictions:/fictions
       - ./data/archive:/archive

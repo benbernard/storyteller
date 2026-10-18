@@ -73,6 +73,18 @@ class LocalBookTests(unittest.TestCase):
         self.assertTrue(all(a["end"] == b["start"] for a, b in zip(spans, spans[1:])))
         self.assertTrue(all(len(s["text"]) <= 90 for s in segments))
 
+    def test_breeze_plan_records_its_actual_controls_and_preserves_source(self) -> None:
+        chapter, analysis, cast = self.fixture()
+        cast["model"] = "breeze-tts-2"
+        segments = plan_chapter(chapter, analysis, cast)
+        self.assertEqual("".join(segment["text"] for segment in segments), chapter["text"])
+        for segment in segments:
+            request = segment["request"]
+            self.assertEqual(request["cfg_scale"], 4.0)
+            self.assertEqual(request["max_tokens"], 1500)
+            self.assertNotIn("repetition_penalty", request)
+            self.assertEqual(request["ref_text"], "A sample.")
+
     def test_titles_and_author_notes_keep_body_assets_and_offsets(self) -> None:
         chapter, analysis, cast = self.fixture()
         body = plan_chapter(chapter, analysis, cast)

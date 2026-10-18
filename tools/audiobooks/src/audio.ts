@@ -24,7 +24,7 @@ export async function encode(pcm: string, output: string) {
 export type RenderResult = { audio: Buffer; requestId: string | null; billedCredits: number | null };
 export interface Renderer { render(segment: Segment, request: Record<string, unknown>): Promise<RenderResult> }
 export class ProviderError extends Error {
-  constructor(readonly status: number, readonly code?: string) { super(`ElevenLabs HTTP ${status}${code ? ` (${code})` : ''}`); }
+  constructor(readonly status: number, readonly code?: string, provider = 'ElevenLabs') { super(`${provider} HTTP ${status}${code ? ` (${code})` : ''}`); }
 }
 const SAFE_PROVIDER_ERRORS = new Set(['invalid_api_key', 'missing_permissions', 'quota_exceeded',
   'detected_unusual_activity', 'voice_not_found', 'paid_plan_required', 'subscription_required',
@@ -164,4 +164,47 @@ export async function concatenate(store: Store, keys: string[], pauseMs: number,
     if (Math.abs(actual.frames - frames) > SAMPLE_RATE / 10) throw new Error('Assembly duration mismatch');
     return { parts, duration: frames / SAMPLE_RATE, pause: pause / SAMPLE_RATE, checksum: sha(await readFile(destination)) };
   } finally { await rm(pcm, { force: true }); }
+}
+
+/** Inworld's unary API returns JSON containing base64 audio, not an audio stream. */
+export class Inworld implements Renderer {
+  constructor(private readonly request: typeof fetch = fetch) {}
+  async render(segment: Segment, request: Record<string, unknown>): Promise<RenderResult> {
+    if (!segment.model.startsWith('inworld-')) throw new Error('Inworld renderer requires an Inworld plan');
+    const key = process.env.INWORLD_API_KEY;
+    if (!key || /\s/.test(key)) throw new Error('INWORLD_API_KEY is not configured');
+    if (typeof request.text !== 'string' || request.text.length > 2000 || request.modelId !== segment.model ||
+        request.voiceId !== segment.turns[0]?.voice.voiceId) throw new Error('Invalid Inworld request');
+    const response = await this.request('https://api.inworld.ai/tts/v1/voice', {
+      method: 'POST', headers: { Authorization: 'Basic ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(request), redirect: 'error', signal: AbortSignal.timeout(180000),
+    });
+    // Error bodies may echo credentials or source text; never expose them.
+    if (!response.ok) { await response.body?.cancel(); throw new ProviderError(response.status, undefined, 'Inworld'); }
+    const length = Number(response.headers.get('content-length'));
+    if (length > 24 * 1024 * 1024) { await response.body?.cancel(); throw new Error('Inworld response exceeds limit'); }
+    const reader = response.body?.getReader(); if (!reader) throw new Error('Inworld returned empty response');
+    const chunks: Uint8Array[] = []; let size = 0;
+    try { while (true) { const part = await reader.read(); if (part.done) break; size += part.value.length;
+      if (size > 24 * 1024 * 1024) throw new Error('Inworld response exceeds limit'); chunks.push(part.value); }
+    } finally { await reader.cancel(); }
+    let payload: { audioContent?: unknown; usage?: { modelId?: unknown; processedCharactersCount?: unknown } };
+    try { payload = JSON.parse(Buffer.concat(chunks).toString('utf8')) as typeof payload; }
+    catch { throw new Error('Inworld returned invalid JSON'); }
+    if (!payload || typeof payload.audioContent !== 'string' || !payload.audioContent.length ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(payload.audioContent) || payload.audioContent.length % 4 !== 0)
+      throw new Error('Inworld returned invalid base64 audio');
+    if (payload.usage?.modelId && payload.usage.modelId !== segment.model) throw new Error('Inworld response model differs from request');
+    const reported = payload.usage?.processedCharactersCount;
+    if (reported !== undefined && (typeof reported !== 'number' || !Number.isSafeInteger(reported) || reported < 0)) throw new Error('Invalid Inworld usage');
+    const audio = Buffer.from(payload.audioContent, 'base64');
+    if (!audio.length || audio.length > 16 * 1024 * 1024) throw new Error('Inworld audio exceeds limit');
+    return { audio, billedCredits: typeof reported === 'number' ? reported : null, requestId: response.headers.get('x-request-id') ?? response.headers.get('request-id') };
+  }
+}
+export class SpeechProviders implements Renderer {
+  constructor(private readonly eleven: Renderer = new ElevenLabs(), private readonly inworld: Renderer = new Inworld()) {}
+  render(segment: Segment, request: Record<string, unknown>): Promise<RenderResult> {
+    return (segment.model.startsWith('inworld-') ? this.inworld : this.eleven).render(segment, request);
+  }
 }

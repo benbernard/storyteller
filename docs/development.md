@@ -31,6 +31,8 @@ The standard-library Python tests run without downloading speech models:
 ```sh
 cd tools/mac-tts
 python3 -m unittest test_local_book test_review_local_book test_retake_local_book test_audition_cache
+cd acting-auditions
+python3 -m unittest test_generate test_sequence_gate test_speech_parts test_assembly_quality test_design_breeze
 ```
 
 `test_fish_prompt.py` needs the Fish/MLX runtime, so it is not part
@@ -99,3 +101,35 @@ On the validation Mac, `avdmanager` could not load missing `devices.xml` files i
 the existing SDK. A separate task-owned AVD using the installed Android 36 ARM64
 image booted and ran the fixtures. Existing AVDs were left unchanged. The large-text
 fixture scrolls to the edition picker before checking its controls.
+
+## Breeze and Inworld validation
+
+The Breeze tests cover exact source coverage, voice identity and stage changes,
+immutable resumed inputs, lease contention, transcript/phoneme decision binding,
+bounded retakes, and publication checks. The optional numerical regression test
+uses small real MLX layers without downloading the Breeze model:
+
+```sh
+data/mac-tts/venv/bin/python -m unittest discover \
+  -s tools/mac-tts/acting-auditions -p test_breeze_fast.py
+```
+
+It compares cached and stock decoding, checks deterministic replay and frame
+isolation, and rejects an intentionally broken cached decoder. It is a Mac check;
+Linux CI runs the portable tests. A numerical check does not establish full-model
+speech quality.
+
+Inworld tests inject unary JSON responses containing synthetic WAV audio. They
+check unchanged Portal credentials, canonical request fields, UTF-16 boundaries,
+base64/size/usage validation, hidden error bodies, pre-request budgets, resume and
+cache reuse, provider selection, and edition model checks. They make no paid
+calls. A fresh model download, full Breeze voice/chapter generation, live Inworld
+access, and another user's subscription remain installation checks for the
+operator.
+
+For the Breeze/Inworld addition, local checks also exercised the Breeze import and
+job-initialization commands with synthetic references. A synthetic Breeze chapter
+passed the actual Python plan/assembly path, TypeScript publication, and live
+loopback Listener checks for reading text, audio checksums, and HTTP ranges. The
+small-layer MLX numerical test passed on Apple Silicon with MLX 0.32.3 and
+mlx-audio 0.5.7. These checks generated no speech and made no provider requests.

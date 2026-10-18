@@ -1,6 +1,7 @@
-# Paid audio generation
+# ElevenLabs audio generation
 
-The CLI uses ElevenLabs for speech and OpenAI for chapter analysis. You need your
+This guide covers ElevenLabs speech and OpenAI chapter analysis. For Inworld,
+use [Inworld API setup](inworld.md). You need your
 own keys and current prices for the models and voices you choose. The example
 configuration has zero spending ceilings and cannot generate paid audio until
 you configure it. Never copy the demo's synthetic voice ratings into a real book.

@@ -20,3 +20,18 @@ Model weights are not included. Review the applicable model repository and its
 license before download or use, especially when changing deployment or sharing
 recordings. The first-party noncommercial license grants no extra rights to
 third-party models, books, reference voices, or service accounts.
+
+The cached Breeze depth-decoder adapter
+(`tools/mac-tts/acting-auditions/breeze_fast.py`) adapts the algorithm from
+[xzf-thu/BreezeTTS2_Mac_Streaming](https://github.com/xzf-thu/BreezeTTS2_Mac_Streaming)
+under Apache 2.0. Its attribution and full upstream license are retained beside
+it in `breeze-fast-NOTICE.txt`. The adapter remains under Apache 2.0; the
+repository's first-party license does not replace that notice.
+
+Breeze code and model weights have different terms. The
+[Breeze TTS 2 model repository](https://huggingface.co/BreezeBlue/Breeze-TTS-2)
+describes the research/noncommercial model license, including terms for
+derivatives and self-hosted output. Review those terms separately. Neither this
+package nor its PolyForm license grants permission to use model weights outside
+their own license. Inworld and ElevenLabs access and output also remain subject
+to the provider terms.

@@ -27,6 +27,8 @@ jobs:
           python -m ruff check tools/mac-tts
           cd tools/mac-tts
           python -m unittest test_local_book test_review_local_book test_retake_local_book test_audition_cache
+          cd acting-auditions
+          python -m unittest test_generate test_sequence_gate test_speech_parts test_assembly_quality test_design_breeze
       - run: |
           pnpm -C tools/audiobooks exec playwright install --with-deps chromium
           pnpm -C tools/audiobooks test:browser

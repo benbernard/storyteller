@@ -1,0 +1,10 @@
+{
+  "breeze": {
+    "name": "Breeze TTS 2",
+    "repo": "mlx-community/Breeze-TTS-2-mlx",
+    "revision": "3c8829fb7fd335818f085cd2ef49b4100c0e46c8",
+    "precision": "BF16",
+    "control": "Prose direction with CFG 4; shared synthetic reference",
+    "source": "https://huggingface.co/BreezeBlue/Breeze-TTS-2"
+  }
+}

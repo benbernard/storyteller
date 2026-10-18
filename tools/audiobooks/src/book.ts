@@ -10,6 +10,7 @@ import { id, type Analysis, type Assembly, type Cast, type Config, type Correcti
 // Editions are publication identifiers, independent of the available generators.
 export const editionSchema = id.refine(value => !Object.hasOwn(Object.prototype, value) && value !== 'prototype', 'Reserved edition name');
 const knownEditionModels: Readonly<Record<string, string>> = {
+  inworld: 'inworld-tts-2', 'inworld-flash': 'inworld-tts-2-flash',
   v3: 'eleven_v3', flash: 'eleven_flash_v2_5', qwen: 'qwen-base', chatterbox: 'chatterbox',
   breeze: 'breeze-tts-2', 'breeze-hybrid': 'breeze-qwen-hybrid',
 };

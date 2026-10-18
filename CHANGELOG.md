@@ -1,5 +1,16 @@
 # Changes
 
+## 0.2.0
+
+Adds the standalone Breeze renderer, synthetic voice design, pinned Mac/review
+setup, acting directions, transcript/phoneme evidence, bounded retakes, and
+verified Listener publication. Breeze is the recommended local path; Qwen remains
+available for automatic follows.
+
+Adds Inworld TTS 2 and Flash API generation with explicit budgets, usage records,
+cache/resume support, model-checked editions, setup examples, and mocked API tests.
+No model weights, private recordings, or provider credentials are included.
+
 ## 0.1.0
 
 Initial standalone package of chapter downloads, the audiobook engine, local Mac

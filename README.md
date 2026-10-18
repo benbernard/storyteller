@@ -4,8 +4,8 @@ Turn chapter text into a cast of persistent voices, generate chapter audio, and
 listen on the web or Android with reading text and synced progress.
 
 This is a standalone edition of a personal audiobook system. It includes story
-downloads, paid ElevenLabs generation, local Qwen speech on Apple Silicon, a web
-listener, and an Android app. You bring your own books, accounts, and hardware.
+downloads, local Breeze and Qwen speech on Apple Silicon, paid Inworld and
+ElevenLabs generation, a web listener, and an Android app. You bring your own books, accounts, and hardware.
 
 **License: [PolyForm Noncommercial 1.0.0](LICENSE).** Source is available for
 permitted noncommercial use, modification, and redistribution. Commercial rights
@@ -18,10 +18,12 @@ noncommercial organizations. Dependencies and model weights have separate terms.
   exports EPUBs. Also imports EPUB, selectable-text PDF, TXT, or chapter JSON.
 - Preserves the exact source text and tracks dialogue, narration, character
   identities, casting decisions, and recording timelines.
-- Generates paid audio with ElevenLabs v3, Flash, or Multilingual v2, with explicit
+- Generates paid audio with Inworld TTS 2/Flash or ElevenLabs v3/Flash/Multilingual
+  v2, with explicit
   spending ceilings, cached requests, resumable batches, and selective repairs.
-- Generates speech locally with Qwen on an Apple Silicon Mac. Automatic follows
-  check for chapters and keep a listening buffer or generate the available book.
+- Recommends Breeze for local speech, with synthetic voice design, acting
+  directions, transcript/phoneme review, bounded retakes, and checked publication.
+  Qwen is an alternative with automatic chapter follows and listening buffers.
 - Plays published editions in a browser or the Android app, with passage seeking,
   playback speed, progress history, issue reports, and Android offline downloads.
 
@@ -62,8 +64,10 @@ No login service, private registry, NAS, or original homelab is required.
 | Goal | Next guide | What you need |
 | --- | --- | --- |
 | Import chapters or your own book | [Importing](docs/importing.md) | Source text you may use |
-| Generate audio with provider voices | [Paid generation](docs/paid-generation.md) | ElevenLabs and OpenAI API keys, explicit budgets |
-| Generate speech on your Mac | [Local generation](docs/local-generation.md) | Apple Silicon Mac, model storage, analysis account |
+| Generate speech on your Mac (recommended) | [Breeze setup](docs/breeze.md) | Apple Silicon Mac, model storage, Codex subscription |
+| Use the Inworld API | [Inworld setup](docs/inworld.md) | Inworld voices/key, analysis, explicit budgets |
+| Use ElevenLabs | [Paid generation](docs/paid-generation.md) | ElevenLabs and OpenAI API keys, explicit budgets |
+| Use Qwen and automatic follows | [Qwen setup](docs/local-generation.md) | Apple Silicon Mac, model storage, analysis account |
 | Listen on a phone | [Android](docs/android.md) | Android 13+, your server over HTTPS |
 | Run a persistent server or restore a backup | [Operations](docs/operations.md) | Docker host and your own HTTPS endpoint |
 | Develop or contribute | [Development](docs/development.md) | Pinned pnpm, FFmpeg, optional Android tools |
@@ -95,9 +99,9 @@ edition has one household browser account, with separately paired devices.
 It does not include the original BookOrbit deployment, private browser-account
 scraper, NAS release pipeline, signing keys, or automatic Android updater.
 BookOrbit import helpers remain in the engine, but that external integration is
-optional and is not provisioned by Compose. Experimental Breeze production
-scripts tied to the original host are excluded. Qwen is the automated speech path;
-other retained Mac adapters are advanced, separately configured tools.
+optional and is not provisioned by Compose. Breeze runs selected chapters as
+explicit jobs. Qwen provides automatic follows. Other retained Mac adapters are
+advanced, separately configured tools.
 
 No chapter archives, generated books, personal listening history, voice samples,
 model weights, or credentials are distributed here. The software license does not

@@ -17,7 +17,7 @@ export const voiceSchema = z.object({
 }).strict();
 export type Voice = z.infer<typeof voiceSchema>;
 export const policySchema = z.object({
-  version: id, model: z.enum(['eleven_v3', 'eleven_flash_v2_5', 'eleven_multilingual_v2']).default('eleven_v3'),
+  version: id, model: z.enum(['eleven_v3', 'eleven_flash_v2_5', 'eleven_multilingual_v2', 'inworld-tts-2', 'inworld-tts-2-flash']).default('eleven_v3'),
   maxCharacters: z.number().int().min(80).max(10_000), grouping: z.enum(['scene', 'turn']),
   continuity: z.enum(['none', 'text', 'requests']),
   dialogueSettings: z.object({ stability: z.number().min(0).max(1), similarity: z.number().min(0).max(1) }).strict(),
@@ -27,6 +27,8 @@ export const policySchema = z.object({
 }).strict().superRefine((p, ctx) => {
   if (p.model === 'eleven_v3' && (p.maxCharacters > 2000 || p.continuity !== 'none'))
     ctx.addIssue({ code: 'custom', message: 'v3 requires <=2000 characters and continuity=none' });
+  if (p.model.startsWith('inworld-') && (p.maxCharacters > 2000 || p.continuity === 'requests'))
+    ctx.addIssue({ code: 'custom', message: 'Inworld requires <=2000 UTF-16 code units and none/text continuity' });
   if (p.selectedAfterListening && !p.listeningEvidence.trim())
     ctx.addIssue({ code: 'custom', message: 'Selected policy needs listening evidence' });
 });
