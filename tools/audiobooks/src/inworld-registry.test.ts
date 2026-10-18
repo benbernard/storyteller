@@ -103,31 +103,31 @@ test('reconciling an earlier occurrence replaces future description facts while 
 test('an exact established ID survives another canonical short name while unknown IDs stay ambiguous', async () => {
   const root = await mkdtemp(join(tmpdir(), 'inworld-registry-')), store = new Store(root);
   try {
-    const established = registryFixture('zephyr_quinn', 1, 'Zephyr Quinn'), duplicate = registryFixture('quinn', 2, 'Quinn');
+    const established = registryFixture('mira_stone', 1, 'Mira Stone'), duplicate = registryFixture('stone', 2, 'Stone');
     await reconcileCharacters(store, established.chapter, established.result);
     // The historical import had a duplicate short-name entry before retaining
     // the already voiced full identity. Keep both records and their provenance.
     await reconcileCharacters(store, duplicate.chapter, duplicate.result);
     const cast = (await store.read<Cast>('cast.json'))!;
-    const original = cast.members.find(member => member.id === 'zephyr_quinn')!;
-    original.aliases.push({ name: 'Quinn', from: { chapter: 1, offset: 0 } });
+    const original = cast.members.find(member => member.id === 'mira_stone')!;
+    original.aliases.push({ name: 'Stone', from: { chapter: 1, offset: 0 } });
     original.voices = [{ voiceId: 'saved-known-voice', settings: { stability: 0.5, similarity_boost: 0.7, style: 0, use_speaker_boost: true, speed: 1 }, version: 'one', from: { chapter: 1, offset: 0 }, reason: 'Saved casting', provenance: 'Owner review' }];
     await store.write('cast.json', cast);
-    const returning = registryFixture('zephyr_quinn', 3, 'Quinn'); returning.result.analysis.characters = [];
+    const returning = registryFixture('mira_stone', 3, 'Stone'); returning.result.analysis.characters = [];
     const reconciled = await reconcileCharacters(store, returning.chapter, returning.result);
-    assert.equal(reconciled.result.analysis.spans[0]!.speaker, 'zephyr_quinn');
+    assert.equal(reconciled.result.analysis.spans[0]!.speaker, 'mira_stone');
     assert.deepEqual((await store.read<Cast>('cast.json'))!.members, cast.members);
     const compatible = canonicalizeEstablishedProfileNames(cast, returning.chapter, returning.result);
-    assert.equal(compatible.profiles[0]!.id, 'zephyr_quinn'); assert.equal(compatible.profiles[0]!.name, 'Zephyr Quinn');
+    assert.equal(compatible.profiles[0]!.id, 'mira_stone'); assert.equal(compatible.profiles[0]!.name, 'Mira Stone');
     assert.deepEqual(compatible.analysis, returning.result.analysis);
-    assert.equal(returning.result.profiles[0]!.name, 'Quinn'); // Pure repair, original evidence retained.
-    const unknown = registryFixture('unestablished_quinn', 3, 'Quinn');
+    assert.equal(returning.result.profiles[0]!.name, 'Stone'); // Pure repair, original evidence retained.
+    const unknown = registryFixture('unestablished_stone', 3, 'Stone');
     await assert.rejects(reconcileCharacters(store, unknown.chapter, unknown.result), /Ambiguous established/);
     assert.throws(() => canonicalizeEstablishedProfileNames(cast, unknown.chapter, unknown.result), /no established matching ID/);
     // A generic label matching multiple canonical names remains unresolved even
     // for the compatibility helper; it cannot manufacture a unique full name.
-    cast.members.find(member => member.id === 'quinn')!.name = 'Zephyr Quinn';
-    cast.members.find(member => member.id === 'quinn')!.aliases.push({ name: 'Quinn', from: { chapter: 2, offset: 0 } });
+    cast.members.find(member => member.id === 'stone')!.name = 'Mira Stone';
+    cast.members.find(member => member.id === 'stone')!.aliases.push({ name: 'Stone', from: { chapter: 2, offset: 0 } });
     assert.throws(() => canonicalizeEstablishedProfileNames(cast, returning.chapter, returning.result), /canonical name remains ambiguous/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

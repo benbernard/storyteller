@@ -23,13 +23,13 @@ test('Inworld preparation preserves every source offset and keeps thoughts with 
   assert.throws(() => segmentsFor(chapter, { ...analysis, spans: analysis.spans.slice(1) }, { before: '', after: '' }), /coverage/);
 });
 test('a concealed recurring speaker uses anonymous speech without exposing identity or losing source evidence', () => {
-  const text = '“Come closer,” said the figure on the throne.\n“Who are you?”';
-  const pieces = ['“Come closer,”', ' said the figure on the throne.\n', '“Who are you?”'];
+  const text = '“Come closer,” said the visitor at the doorway.\n“Who are you?”';
+  const pieces = ['“Come closer,”', ' said the visitor at the doorway.\n', '“Who are you?”'];
   const chapter: Chapter = { schemaVersion: 1, chapterId: 'chapter-1', fictionId: 'book-1', sequence: 1, title: 'Chapter One', url: 'https://example.org/1', retrievedAt: new Date().toISOString(), text, contentHash: sha(text) };
   let start = 0;
   const analysis: Analysis = { schemaVersion: 1, source: chapter.contentHash, fingerprint: '', model: 'fixture', promptVersion: 'test', characters: [], aliasUpdates: [], summary: '', spans: pieces.map((piece, i) => {
     const span = { uid: `span-${i}`, start, end: start + piece.length, text: piece, kind: i === 1 ? 'prose' as const : 'dialogue' as const,
-      speaker: i === 0 ? 'concealed:warren_throne_occupant' : i === 1 ? 'narrator' : 'anonymous',
+      speaker: i === 0 ? 'concealed:masked_visitor' : i === 1 ? 'narrator' : 'anonymous',
       certainty: i === 0 ? 'concealed' as const : i === 1 ? 'attributed' as const : 'uncertain' as const, confidence: 1, reason: 'Source keeps identity unresolved' };
     start = span.end; return span;
   }) };

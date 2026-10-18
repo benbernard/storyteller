@@ -14,7 +14,7 @@ test('concealed compatibility repair preserves complete evidence and paid inputs
     const text = '“Approach.”', chapterId = 'chapter-2';
     const chapter: Chapter = { schemaVersion: 1, fictionId: 'book', chapterId, sequence: 2, title: 'Chapter Two', url: 'https://example.org/2', retrievedAt: new Date().toISOString(), text, contentHash: sha(text) };
     const attribution: FrontierResult = { profiles: [], analysis: { schemaVersion: 1, source: chapter.contentHash, fingerprint: 'progenitor', promptVersion: 'test', model: 'fixture', characters: [], aliasUpdates: [], summary: 'Identity remains hidden.', spans: [
-      { uid: 'span-hidden', start: 0, end: text.length, text, kind: 'dialogue', speaker: 'concealed:warren_throne_occupant', certainty: 'concealed', confidence: 1, reason: 'Source conceals the speaker' },
+      { uid: 'span-hidden', start: 0, end: text.length, text, kind: 'dialogue', speaker: 'concealed:masked_visitor', certainty: 'concealed', confidence: 1, reason: 'Source conceals the speaker' },
     ] } };
     await state.write('index.json', { chapters: [{ id: chapterId, current: chapter.contentHash }] });
     await state.write(`sources/${chapter.contentHash}.json`, chapter);
@@ -37,7 +37,7 @@ test('concealed compatibility repair preserves complete evidence and paid inputs
     assert.notEqual(corrected.analysis.fingerprint, attribution.analysis.fingerprint);
     const backup = new Store(repaired.receipt.substring(0, repaired.receipt.lastIndexOf('/')));
     assert.deepEqual(await backup.read('attribution.original.json'), attribution);
-    assert.equal((await state.read<Cast>('cast.json'))!.members[0]!.id, 'concealed:warren_throne_occupant');
+    assert.equal((await state.read<Cast>('cast.json'))!.members[0]!.id, 'concealed:masked_visitor');
     assert.equal((await state.read<Cast>('cast.json'))!.members[0]!.first.chapter, 2);
     assert.deepEqual(await job.read('queue.json'), paidQueue); assert.deepEqual(await job.read('reservations.json'), reservations);
     assert.deepEqual(await invoke(), repaired);
