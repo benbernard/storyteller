@@ -1,0 +1,16 @@
+/* Shared narrow-window and large-text safeguards, after each concept's layout. */
+.brand{font-size:clamp(1rem,6vw,1.3rem)}
+.dock-header,.split-header,.stage-header,.journey-header{flex-wrap:wrap;gap:12px}
+.player-extras{flex-wrap:wrap}
+.queue-row>div,.chapter-line>div{min-width:0}
+.stage-controls h1,.stage-next strong,.dialog-head h2{overflow-wrap:anywhere}
+@media(max-width:340px){
+ .transport,.split-player .transport,.journey-player .transport,.stage-controls .transport{gap:8px}
+ .stage-header,.journey-header{padding-left:18px;padding-right:18px}
+ .stage-main{padding-left:18px;padding-right:18px}
+ .player-extras button{flex:1 1 auto}
+ .stage-session-title{flex-wrap:wrap;gap:8px}
+}
+
+.dock-expand>span:not(.icon){min-width:0}.dock-expand strong,.dock-expand small{overflow-wrap:anywhere}.dock-layout{padding-bottom:10rem}
+.stage-upnext>.row{flex-wrap:wrap}.stage-next small{overflow-wrap:anywhere}
