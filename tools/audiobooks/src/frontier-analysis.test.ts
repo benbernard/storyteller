@@ -4,14 +4,15 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { analyzeFrontier, frontierPolicySchema, restoreFrontier } from './frontier-analysis.js';
-import { Store, sha } from './store.js';
+import { Store, sha, fingerprint } from './store.js';
+import { type FrontierResult } from './frontier-analysis.js';
 import { type Chapter, type Cast } from './schema.js';
 import { noteText, chapterPresentation } from './local-presentation.js';
 const text = '“Yes,” Lucas said.\n\nCorvus nodded. “Proceed.”';
 const chapter: Chapter = { schemaVersion: 1, fictionId: 'rr-1', chapterId: 'c1', sequence: 1, title: 'Chapter 1: Arrival', url: 'https://www.royalroad.com/fiction/1', text, contentHash: sha(text), retrievedAt: new Date().toISOString() };
 const cast: Cast = { schemaVersion: 1, members: [] };
 const label = { kind: 'prose', speaker: 'narrator', certainty: 'attributed', confidence: 1, reason: 'Narration' };
-const profile = (id: string, evidenceUnit: number) => ({ id, name: id, aliases: [], portrayal: 'An adult man speaking in the scene.', importance: 'supporting', tags: ['male', 'adult'], evidenceUnit, continuityFrom: null });
+const profile = (id: string, evidenceUnit: number) => ({ id, name: id, aliases: [] as string[], portrayal: 'An adult man speaking in the scene.', importance: 'supporting', tags: ['male', 'adult'], evidenceUnit, continuityFrom: null });
 const raw = { characters: [profile('lucas', 1), profile('corvus', 2)], aliasUpdates: [], summary: 'Lucas and Corvus spoke.', labels: {
   unit_0: { ...label, kind: 'dialogue', speaker: 'lucas' }, unit_1: label, unit_2: label, unit_3: { ...label, kind: 'dialogue', speaker: 'corvus' },
 } };
@@ -204,4 +205,88 @@ test('subscription failures expose only a recognized safe diagnostic code', () =
   assert.equal(subscriptionFailureReason('{broken}\n' + JSON.stringify({ type: 'turn.failed', error: { message: 'private detail max_output_tokens private token' } })), 'response token limit');
   assert.equal(subscriptionFailureReason(JSON.stringify({ type: 'error', message: 'private auth detail' })), undefined);
   assert.equal(subscriptionFailureReason(JSON.stringify({ type: 'other', message: 'max_output_tokens' })), undefined);
+});
+test('invalid legacy validated aliases retain evidence and correct only the affected cached window through subscription feedback', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'frontier-alias-cache-')), store = new Store(root);
+  const text = Array.from({ length: 75 }, (_, i) => `“Reply ${i}.” Alex said.\n`).join(''), longChapter = { ...chapter, text, contentHash: sha(text) };
+  const starts: number[] = []; let correction = false, apiCalls = 0, evidenceFolder = '';
+  const request: typeof fetch = async () => { apiCalls++; throw Error('No API fallback'); };
+  const subscription = async (input: CodexAnalysisRequest) => {
+    const data = JSON.parse(input.input) as { unitStart: number; units: { text: string }[]; validationError: string };
+    starts.push(data.unitStart);
+    if (correction) {
+      assert.equal(data.unitStart, 120); assert.match(data.validationError, /aliases require explicit current source text/);
+      assert.equal((await store.list(`${evidenceFolder}/rejections`)).length, 1);
+      assert.equal((await store.list(`${evidenceFolder}/bounded-v1/rejections`)).length, 1);
+    }
+    return { authentication: 'chatgpt' as const, usage: {}, value: {
+      characters: [{ ...profile('alex', 1), name: 'Alex' }], aliasUpdates: [], summary: 'Alex replies.',
+      labels: Object.fromEntries(data.units.map((unit, i) => [`unit_${i}`, unit.text.startsWith('“') ? { ...label, kind: 'dialogue', speaker: 'alex', parts: null } : { ...label, parts: null }])),
+    } };
+  };
+  try {
+    const policy = frontierPolicySchema.parse({ maxAttempts: 3 });
+    const valid = await analyzeFrontier(store, longChapter, cast, '', policy, undefined, request, subscription);
+    const folder = `frontier-analysis/${valid.analysis.fingerprint}`, chunkRoot = `${folder}/bounded-v1/chunks`;
+    evidenceFolder = folder;
+    const chunks = await store.list(chunkRoot), firstName = chunks.find(name => name.startsWith('0-'))!, lastName = chunks.find(name => name.startsWith('120-'))!;
+    const first = await store.read(`${chunkRoot}/${firstName}`);
+    const bad = structuredClone(valid); bad.profiles[0]!.aliases = ['Invented secret name']; bad.analysis.characters[0]!.aliases = ['Invented secret name'];
+    const last = (await store.read<{ characters: { aliases: string[] }[] }>(`${chunkRoot}/${lastName}`))!; last.characters[0]!.aliases = ['Invented secret name'];
+    await store.write(`${folder}/validated.json`, bad); await store.write(`${chunkRoot}/${lastName}`, last);
+    starts.length = 0; correction = true;
+    const corrected = await analyzeFrontier(store, longChapter, cast, '', policy, undefined, request, subscription);
+    assert.deepEqual(starts, [120]); assert.equal(apiCalls, 0);
+    assert.deepEqual(corrected.profiles[0]!.aliases, []);
+    assert.equal(corrected.analysis.spans.map(span => span.text).join(''), text);
+    assert.deepEqual(await store.read(`${chunkRoot}/${firstName}`), first);
+    const globalRejections = await store.list(`${folder}/rejections`), windowRejections = await store.list(`${folder}/bounded-v1/rejections`);
+    assert.equal(globalRejections.length, 1); assert.equal(windowRejections.length, 1);
+    const globalEvidence = (await store.read<{ evidenceHash: string; value: FrontierResult }>(`${folder}/rejections/${globalRejections[0]}`))!;
+    assert.equal(globalEvidence.evidenceHash, fingerprint(bad)); assert.deepEqual(globalEvidence.value, bad);
+    const windowEvidence = (await store.read<{ evidenceHash: string; value: unknown }>(`${folder}/bounded-v1/rejections/${windowRejections[0]}`))!;
+    assert.equal(windowEvidence.evidenceHash, fingerprint(last)); assert.deepEqual(windowEvidence.value, last);
+    assert.deepEqual(await store.list('frontier-budgets'), []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+test('invalid cached aliases exhaust the original subscription correction bound without modifying the cache or billing an API', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'frontier-alias-bound-')), store = new Store(root), policy = frontierPolicySchema.parse({ maxAttempts: 3 });
+  let calls = 0, apiCalls = 0;
+  const request: typeof fetch = async () => { apiCalls++; throw Error('No API fallback'); };
+  try {
+    const valid = await analyzeFrontier(store, chapter, cast, '', policy, undefined, request, async () => ({ value: raw, usage: {}, authentication: 'chatgpt' }));
+    const folder = `frontier-analysis/${valid.analysis.fingerprint}`, invalidCache = structuredClone(valid);
+    invalidCache.profiles[0]!.aliases = ['Unwritten identity']; invalidCache.analysis.characters[0]!.aliases = ['Unwritten identity'];
+    await store.write(`${folder}/validated.json`, invalidCache);
+    const invalidResponse = structuredClone(raw); invalidResponse.characters[0]!.aliases = ['Unwritten identity'];
+    await assert.rejects(analyzeFrontier(store, chapter, cast, '', policy, undefined, request, async input => {
+      calls++; assert.match((JSON.parse(input.input) as { validationError: string }).validationError, /aliases require explicit current source text/);
+      return { value: invalidResponse, usage: {}, authentication: 'chatgpt' };
+    }), /needs review/);
+    assert.equal(calls, 3); assert.equal(apiCalls, 0);
+    assert.deepEqual(await store.read(`${folder}/validated.json`), invalidCache);
+    const evidence = (await store.read<{ value: unknown; evidenceHash: string }>(`${folder}/rejections/validated-${fingerprint(invalidCache)}.json`))!;
+    assert.deepEqual(evidence.value, invalidCache); assert.equal(evidence.evidenceHash, fingerprint(invalidCache));
+    assert.deepEqual(await store.list('frontier-budgets'), []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+test('new aliases may occur later in the full current chapter while historical known aliases need not recur', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'frontier-alias-context-')), store = new Store(root);
+  const text = '“Hello.” Alex said.\n' + 'Narration.\n'.repeat(70) + 'The Guide appeared.\n', longChapter = { ...chapter, text, contentHash: sha(text) };
+  try {
+    const result = await analyzeFrontier(store, longChapter, cast, '', frontierPolicySchema.parse({}), undefined, fetch, async input => {
+      const data = JSON.parse(input.input) as { unitStart: number; units: { text: string }[] };
+      if (data.unitStart === 0) assert.ok(!data.units.map(unit => unit.text).join('').includes('The Guide'));
+      return { authentication: 'chatgpt', usage: {}, value: {
+        characters: data.unitStart === 0 ? [{ ...profile('alex', 1), name: 'Alex', aliases: ['The Guide'] }] : [], aliasUpdates: [], summary: '',
+        labels: Object.fromEntries(data.units.map((unit, i) => [`unit_${i}`, unit.text.startsWith('“') ? { ...label, kind: 'dialogue', speaker: 'alex', parts: null } : { ...label, parts: null }])),
+      } };
+    });
+    assert.deepEqual(result.analysis.characters[0]!.aliases, ['The Guide']);
+    const known: Cast = { schemaVersion: 1, members: [{ id: 'lucas', name: 'Lucas', aliases: [{ name: 'Historical Ranger', from: { chapter: 1, offset: 0 } }], first: { chapter: 1, offset: 0 }, evidence: 'Earlier source', portrayal: 'Known speaker', importance: 'supporting', voices: [] }] };
+    const historic = structuredClone(raw); historic.characters[0]!.aliases = ['Historical Ranger'];
+    assert.deepEqual(restoreFrontier(historic, chapter, known).profiles[0]!.aliases, ['Historical Ranger']);
+    const invalid = structuredClone(raw); invalid.characters[0]!.aliases = ['Unwritten future identity'];
+    assert.throws(() => restoreFrontier(invalid, chapter, cast), /aliases require explicit current source text/);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
