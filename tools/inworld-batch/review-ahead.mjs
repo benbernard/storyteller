@@ -19,11 +19,12 @@ export function planAheadEntries(entries,facts,requested=[]){
  if(requested.some(id=>!entries.some(entry=>entry.chapterId===id)))throw Error('Requested chapter is not in the prepared queue');
  return entries.filter(entry=>{
   const fact=facts[entry.chapterId];
-  return (!requested.length||requested.includes(entry.chapterId))&&fact?.generated&&fact.inputHash===entry.inputHash&&!fact.active&&!fact.published&&!fact.reviewsComplete;
+  return (!requested.length||requested.includes(entry.chapterId))&&fact?.generated&&fact.inputHash===entry.inputHash&&!fact.active&&!fact.published&&!fact.reviewsComplete&&!fact.requiresProofReview;
  });
 }
 export function validateAheadMerge(snapshot,current,reports){
  if(current.active||current.published)throw Error('Chapter became active or published');
+ if(current.requiresProofReview)throw Error('Rendering recovery requires the full live proof chain');
  if(snapshot.inputHash!==current.inputHash||snapshot.generatedHash!==current.generatedHash||hash(snapshot.items)!==hash(current.items))throw Error('Chapter evidence changed during ahead review');
  if(Object.keys(reports).length!==snapshot.items.length||snapshot.items.some(item=>!validAheadReport(reports[item.customId],item)))throw Error('Ahead review reports do not match immutable evidence');
  return snapshot.items.map(item=>item.customId);
@@ -37,7 +38,7 @@ async function itemEvidence(entry,item){
  const receipt=await read(join(entry.root,'receipts',item.customId+'.json'));
  const audioSha256=sha(await fs.readFile(join(entry.root,'audio',item.customId+'.wav')));
  if(!receipt||receipt.sha256!==audioSha256)throw Error('Generated audio receipt does not match audio');
- return {customId:item.customId,expected:item.spokenText,audioSha256,receiptHash:hash(receipt)};
+ return {customId:item.customId,expected:item.spokenText,audioSha256,receiptHash:hash(receipt),renderingRecovery:Boolean(receipt.renderingRecovery)};
 }
 async function evidence(config,entry){
  const busy=await activity(config,entry);
@@ -47,7 +48,7 @@ async function evidence(config,entry){
  const complete=generated?.chapter===entry.chapterId&&generated.inputHash===entry.inputHash&&generated.items===chapter.items.length;
  const items=[];if(complete)for(const item of chapter.items)items.push(await itemEvidence(entry,item));
  const reviews=await Promise.all(items.map(item=>read(join(entry.root,'review',item.customId+'.json'),null)));
- return {chapter,generated:complete,generatedHash:hash(generated??null),inputHash:hash(chapter),items,...await activity(config,entry),reviewsComplete:complete&&items.every((item,index)=>validAheadReport(reviews[index],item))};
+ return {chapter,generated:complete,generatedHash:hash(generated??null),inputHash:hash(chapter),items,...await activity(config,entry),requiresProofReview:items.some(item=>item.renderingRecovery),reviewsComplete:complete&&items.every((item,index)=>validAheadReport(reviews[index],item))};
 }
 async function snapshotEntry(config,entry,proof){
  const directory=await fs.mkdtemp(join(config.root,'tmp','review-ahead-'));
@@ -102,7 +103,7 @@ export async function reviewAhead(path,requested=[],reviewer=runReview){
   if(!owns)throw Error('Could not acquire ahead-review lock');
   const facts={};for(const entry of config.chapters)facts[entry.chapterId]=await evidence(config,entry);
   const entries=planAheadEntries(config.chapters,facts,requested),completed=[],skipped=[];
-  const excluded=config.chapters.filter(entry=>!entries.includes(entry)).map(entry=>({chapter:entry.chapterId,reason:facts[entry.chapterId].active?'active':facts[entry.chapterId].published?'published':facts[entry.chapterId].reviewsComplete?'reports-complete':!facts[entry.chapterId].generated?'not-generated':'not-requested'}));
+  const excluded=config.chapters.filter(entry=>!entries.includes(entry)).map(entry=>({chapter:entry.chapterId,reason:facts[entry.chapterId].active?'active':facts[entry.chapterId].published?'published':facts[entry.chapterId].requiresProofReview?'rendering-proof-review':facts[entry.chapterId].reviewsComplete?'reports-complete':!facts[entry.chapterId].generated?'not-generated':'not-requested'}));
   await status({status:'running',selected:entries.map(entry=>entry.chapterId),excluded,completed,skipped});
   for(const entry of entries){
    let directory;

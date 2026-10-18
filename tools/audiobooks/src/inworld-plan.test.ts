@@ -6,6 +6,7 @@ import { sha, Store } from './store.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { visualRedactionPolicy } from './spoken-redactions.js';
 test('Inworld preparation preserves every source offset and keeps thoughts with the narrator', () => {
   const text = 'Mira waited. “Go!” she thought. “Stay,” she said.';
   const chapter: Chapter = { schemaVersion: 1, chapterId: 'chapter-1', fictionId: 'book-1', sequence: 1, title: 'Chapter One', url: 'https://example.org/1', retrievedAt: new Date().toISOString(), text, contentHash: sha(text) };
@@ -79,8 +80,13 @@ test('ordered attribution checkpoints identity once while independent direction 
     await prepareChapter(output.path('config.json'), chapter.chapterId, 'directions', { direct, analyze: async () => { throw Error('Directions cannot reattribute'); } });
     assert.equal(directionCalls, 4); // The first twelve directions survive interruption.
     assert.deepEqual(await state.read('cast.json'), originalCast);
-    const plan = (await output.read<{ segments: { text: string; presentation?: string }[]; directions: unknown[] }>(`plans/${chapter.chapterId}/plan.json`))!;
+    const plan = (await output.read<{ segments: { text: string; presentation?: string }[]; directions: unknown[]; spokenRendering?: { policy: string } }>(`plans/${chapter.chapterId}/plan.json`))!;
     assert.equal(plan.segments.filter(segment => !segment.presentation).map(segment => segment.text).join(''), text);
     assert.equal(plan.directions.length, 27); // Title plus every source segment.
+    assert.deepEqual(plan.spokenRendering, { policy: visualRedactionPolicy });
+    const legacy = { ...plan }; delete legacy.spokenRendering;
+    await output.write(`plans/${chapter.chapterId}/plan.json`, legacy);
+    await prepareChapter(output.path('config.json'), chapter.chapterId, 'directions', { direct: async () => { throw Error('Ready legacy plans cannot be regenerated'); } });
+    assert.deepEqual(await output.read(`plans/${chapter.chapterId}/plan.json`), legacy);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

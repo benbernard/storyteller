@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from typing import Optional
 from unittest.mock import patch
 
 from review import ReviewItem, compare, review_device, review_items, save_json
@@ -134,6 +135,60 @@ class ReviewTests(unittest.TestCase):
             review_items(self.root, self.items, self.models, changing)
         self.assertFalse((self.root / 'review' / 'first.json').exists())
         self.assertFalse((self.root / 'review-checkpoints' / 'first.json').exists())
+
+    def test_rendering_context_preserves_expected_and_invalidates_prior_reports(self) -> None:
+        self.items[0]['spokenText'] = 'Before ██ after.'
+        item = self.items[0]
+        digest = hashlib.sha256(b'first').hexdigest()
+        context: dict[str, object] = {'comparisonExpected': 'Before redacted after.', 'audioSha256': digest, 'proof': 'bound-v1'}
+
+        def loader(root: Path, current: ReviewItem, audio_hash: str) -> Optional[dict[str, object]]:
+            self.assertEqual(root, self.root)
+            self.assertEqual(current, item)
+            self.assertEqual(audio_hash, digest)
+            return context
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            return str(context['comparisonExpected'])
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        report = self.read_report('first')
+        self.assertEqual(report['expected'], 'Before ██ after.')
+        self.assertEqual(report['comparisonExpected'], 'Before redacted after.')
+        self.assertEqual(report['severity'], 'pass')
+        self.assertEqual(report['renderingContext'], context)
+        self.calls.clear()
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [])
+        context['proof'] = 'new-bound-proof'
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-small')])
+        self.assertEqual(self.read_report('first')['renderingContext']['proof'], 'new-bound-proof')
+
+    def test_missing_rendering_proof_never_reuses_policy_comparison(self) -> None:
+        item = self.items[0]
+        (self.root / 'review').mkdir()
+        save_json(self.root / 'review' / 'first.json', {
+            'sha256': hashlib.sha256(b'first').hexdigest(), 'expected': item['spokenText'],
+            'attempts': [], 'severity': 'pass', 'comparisonExpected': 'waived text', 'renderingContext': {'forged': True},
+        })
+        self.run_review()
+        self.assertIn(('first', 'pinned-small'), self.calls)
+        self.assertNotIn('comparisonExpected', self.read_report('first'))
+
+    def test_invalid_receipt_rendering_proof_holds_before_inference(self) -> None:
+        (self.root / 'receipts').mkdir()
+        save_json(self.root / 'receipts' / 'first.json', {'renderingRecovery': {'forged': True}})
+        with patch('review.subprocess.run') as verifier:
+            verifier.return_value.returncode = 1
+            with redirect_stdout(StringIO()), self.assertRaisesRegex(ValueError, 'proof failed'):
+                self.run_review()
+        self.assertEqual(self.calls, [])
+        self.assertFalse((self.root / 'review' / 'first.json').exists())
 
     def test_device_defaults_to_cpu_and_requires_gpu_lease_wrapper(self) -> None:
         self.assertEqual(review_device({}), 'cpu')

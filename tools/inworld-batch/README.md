@@ -72,6 +72,35 @@ saved separately in `review-ahead-status.json`; the main worker's status and loc
 are preserved. Re-running skips completed evidence and discovers newly generated
 chapters.
 
+## Visual redactions
+
+New chapter inputs speak runs of two or more FULL BLOCK characters (`█`) as
+“redacted.” The versioned `visual-full-block-redactions-v1` policy records exact
+UTF-16 source and spoken ranges with checksums. It never guesses a hidden name.
+Canonical book text and source spans are unchanged. Existing inputs retain their
+historical normalization and hashes.
+
+Older generated audio may already be held because raw blocks produced unwanted
+speech. After the job has safely paused and released its worker and supervisor
+locks, an explicit rendering recovery can replace only affected child clips:
+
+```sh
+node tools/inworld-batch/runner.mjs /private/job/queue.json \
+  --recover-rendering CHAPTER_ID PASSAGE_ID [PASSAGE_ID ...]
+```
+
+This recovery requires verified exhausted attempt-two evidence and canonical
+source mappings. It reuses unaffected child recordings and allows one migration
+submission per affected child under the same ledger and spending ceiling.
+The ordinary retake counter retains its prior value. Uncertain submissions cannot be repeated,
+and interrupted promotions resume from their saved evidence.
+
+Recovery leaves the chapter held for fidelity review. The next normal run verifies
+the original source against the derived rendering proof and requires independent
+phonemes and subscription AI review of the changed audio. A failed recovery remains
+held. The main worker retains the full proof chain for review and publication.
+Ahead review excludes these chapters.
+
 Credentials stay on the remote synthesis host. `credentialFile` names its private
 Inworld env file. The fixed-host gateway sends it only to `api.inworld.ai`.
 The Codex executable is selected with `AUDIOBOOK_CODEX_BIN`. Analysis and review

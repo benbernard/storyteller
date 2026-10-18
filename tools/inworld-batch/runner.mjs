@@ -12,11 +12,14 @@ import {repairPassage,recoverRepairs} from './repair.mjs';
 import {validateQueueUpdate,queuePreparationComplete,archiveExcludes} from './queue.mjs';
 import {voiceDesignPrompt} from './voice-design.mjs';
 import {batchWindowSize,explicitProviderRejection,classifyBatchResponse,providerBlockingCodes,runBatchWindow,reconcileBatchJobs} from './batch-window.mjs';
+import {recoverVisualRedactionPassage} from './rendering-recovery.mjs';
+import {renderingContext} from './rendering-review.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
+const renderingOnly=process.argv[3]==='--recover-rendering'?process.argv[4]:null,renderingIds=renderingOnly?process.argv.slice(5):[];
 batchWindowSize(config.maxInFlightBatches); // Reject invalid limits before any paid voice previews.
-if(process.argv.length>3&&(!processOnly||process.argv.length!==5))throw Error('Usage: runner.mjs QUEUE [--process-only CHAPTER_ID]');
+if(process.argv.length>3&&!(processOnly&&process.argv.length===5)&&!(renderingOnly&&renderingIds.length&&new Set(renderingIds).size===renderingIds.length))throw Error('Usage: runner.mjs QUEUE [--process-only CHAPTER_ID | --recover-rendering CHAPTER_ID PASSAGE_ID ...]');
 const reviewEntry=processOnly?config.chapters.find(c=>c.chapterId===processOnly):null;
 if(processOnly&&!reviewEntry)throw Error('Unknown chapter');
 process.umask(0o077);
@@ -40,7 +43,7 @@ async function api(path,body,method='POST'){
 }
 let current={status:'starting'};
 const laneContext=new AsyncLocalStorage(), processing=new ProcessingLane(), paid=new PaidLane();
-async function status(value){if(processOnly){current={...current,...value,updatedAt:new Date().toISOString(),pid:process.pid};await save(join(reviewEntry.root,'owner-processing-status.json'),current);return;}if(laneContext.getStore()){const prior=await read(join(root,'processing-status.json'),{});await save(join(root,'processing-status.json'),{...prior,...value,updatedAt:new Date().toISOString(),pid:process.pid});return;}current={...current,...value,updatedAt:new Date().toISOString(),pid:process.pid};await save(join(root,'status.json'),current);console.log(JSON.stringify(current));}
+async function status(value){if(renderingOnly){current={...current,...value,updatedAt:new Date().toISOString(),pid:process.pid};await save(join(root,'rendering-recovery-status.json'),current);return;}if(processOnly){current={...current,...value,updatedAt:new Date().toISOString(),pid:process.pid};await save(join(reviewEntry.root,'owner-processing-status.json'),current);return;}if(laneContext.getStore()){const prior=await read(join(root,'processing-status.json'),{});await save(join(root,'processing-status.json'),{...prior,...value,updatedAt:new Date().toISOString(),pid:process.pid});return;}current={...current,...value,updatedAt:new Date().toISOString(),pid:process.pid};await save(join(root,'status.json'),current);console.log(JSON.stringify(current));}
 let archiveTail=Promise.resolve();
 async function archive(){const from=processOnly?reviewEntry.root:root,to=processOnly?config.archive+'/chapters/'+reviewEntry.sequence:config.archive;const task=archiveTail.catch(()=>{}).then(()=>run('rsync',['-a','--chmod=Du=rwx,Dgo=,Fu=rw,Fgo=',...archiveExcludes.map(pattern=>'--exclude='+pattern),from+'/',config.host+':'+to+'/'],{timeout:600000}));archiveTail=task;await task;}
 async function download(url,file){
@@ -120,7 +123,7 @@ async function reconcileKnownBatches(){
   await finishJob(job,{root:outputRoot});
  });
 }
-async function synthesize(entry,chapter,voices,pauseBetweenGroups=false){
+async function synthesize(entry,chapter,voices,pauseBetweenGroups=false,maxSubmissionsPerItem=null){
  const items=chapter.items.map(i=>({...i,request:{...i.request,voiceId:voices[i.role].voiceId}}));
  await reconcileKnownBatches();
  while(true){
@@ -136,7 +139,7 @@ async function synthesize(entry,chapter,voices,pauseBetweenGroups=false){
    checkpoint:async()=>archive(),finish:async job=>finishJob(job,entry),
    submit:async group=>{
   const all=await jobs();
-  for(const item of group)if(all.filter(j=>belongsToEntry(j,entry,config)&&j.phase!=='rejected'&&j.items.some(i=>i.customId===item.customId)).length>=1+config.maxRetakes)throw Error('Passage retry limit reached');
+  for(const item of group)if(all.filter(j=>belongsToEntry(j,entry,config)&&(j.phase!=='rejected'||maxSubmissionsPerItem===1)&&j.items.some(i=>i.customId===item.customId)).length>=(maxSubmissionsPerItem??1+config.maxRetakes))throw Error('Passage retry limit reached');
   const characters=group.reduce((n,i)=>n+i.request.text.length,0);assertBudget(all,characters,config.ceilingUSD,config.usdPerMillion??20);
   const job={id:randomUUID(),chapter:entry.chapterId,outputRoot:entry.root,phase:'submitting',items:group.map(({customId,request})=>({customId,request})),characters,reservedUSD:characters*(config.usdPerMillion??20)/1e6,createdAt:new Date().toISOString()};
   await writeJob(job);await status({stage:'submitting-batch',items:group.length,characters,completedItems:items.length-missing.length,totalItems:items.length});
@@ -165,7 +168,7 @@ async function adjudicate(entry,chapter,reports){
  const rows=[];
  for(const item of disputed){
   const at=chapter.items.indexOf(item),phoneme=await read(join(entry.root,'phoneme-review',item.customId+'.json'));
-  rows.push(evidenceRow(item,reports[item.customId],phoneme,{before:chapter.items[at-1]?.spokenText??'',after:chapter.items[at+1]?.spokenText??''}));
+  rows.push(evidenceRow(item,reports[item.customId],phoneme,{before:chapter.items[at-1]?.spokenText??'',after:chapter.items[at+1]?.spokenText??''},await renderingContext(entry.root,item)));
  }
  const {runCodexAnalysis}=await import(pathToFileURL(config.analysisModule??join(here,'../audiobooks/dist/codex-analysis.js')).href);
  const decisions={};
@@ -197,14 +200,15 @@ async function quality(entry,chapter){
  await status({stage:'checking-transcripts',operation:null});
  const heartbeat=setInterval(()=>{void fs.readdir(join(entry.root,'review')).then(files=>status({reviewedItems:files.filter(f=>f.endsWith('.json')).length,totalItems:chapter.items.length})).catch(()=>{});},15000);
  try{await run('/usr/bin/nice',['-n','15',config.python,join(here,'review.py'),entry.root],{timeout:7200000});}finally{clearInterval(heartbeat);}
- const major=[];let minor=0;const reports={};
+ const major=[];let minor=0,hasRenderingRecovery=false;const reports={};
  const decisions=await read(join(entry.root,'owner-reviews.json'),{});
  for(const item of chapter.items){const report=await read(join(entry.root,'review',item.customId+'.json')),receipt=await read(join(entry.root,'receipts',item.customId+'.json'));
   if(report.sha256!==receipt.sha256||report.expected!==item.spokenText)throw Error('Stale transcript review');
+  if(receipt.renderingRecovery){await renderingContext(entry.root,item);hasRenderingRecovery=true;}
   const decision=decisions[item.customId];
   reports[item.customId]=effectiveReview(report,decision?.audioSha256===report.sha256?decision:undefined);
  }
- if(config.automaticRepair)await adjudicate(entry,chapter,reports);
+ if(config.automaticRepair||hasRenderingRecovery)await adjudicate(entry,chapter,reports);
  for(const [id,report]of Object.entries(reports)){if(['major','uncertain'].includes(report.severity))major.push(id);if(report.severity==='minor')minor++;}
  await save(join(entry.root,'effective-reviews.json'),reports);
  await save(join(entry.root,'quality.json'),{major,minor,status:major.length?'needs-review':minor?'provisional':'reviewed'});return major;
@@ -267,7 +271,9 @@ async function assemble(entry,chapter){
  await run('ffmpeg',['-v','error','-i',audio,'-f','null','-'],{timeout:600000});
  const duration=Number((await run('ffprobe',['-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',audio])).trim());
  if(Math.abs(duration-offset)>.2)throw Error('Final duration differs from passage timeline');
- const plan={policy:{model:'inworld-tts-2'},quality:await read(join(entry.root,'quality.json')),inputHash:entry.inputHash,voiceIds:Object.fromEntries(Object.entries(await read(join(root,'voices.json'))).map(([k,v])=>[k,v.voiceId]))};
+ const renderingRecoveries=[];
+ for(const item of chapter.items){const receipt=await read(join(entry.root,'receipts',item.customId+'.json'));if(receipt.renderingRecovery){const recovery=receipt.renderingRecovery;renderingRecoveries.push({passage:item.customId,rendererVersion:recovery.rendererVersion,planHash:recovery.planHash,renderingFingerprint:recovery.renderingProof.fingerprint,audioSha256:receipt.sha256});}}
+ const plan={policy:{model:'inworld-tts-2'},quality:await read(join(entry.root,'quality.json')),inputHash:entry.inputHash,voiceIds:Object.fromEntries(Object.entries(await read(join(root,'voices.json'))).map(([k,v])=>[k,v.voiceId])),...(renderingRecoveries.length?{renderingRecoveries}:{})};
  const planId=hash(plan), data={schemaVersion:1,chapterId:chapter.chapterId,sequence:chapter.sequence,source:chapter.source,analysis:chapter.analysis,plan:planId,checksum:sha(await fs.readFile(audio)),duration,timeline};const assembly={...data,id:hash(data)};
  const bundle=join(entry.root,'publication');await save(join(bundle,'plans',planId+'.json'),plan);await save(join(bundle,'assemblies',assembly.id,'metadata.json'),assembly);await fs.copyFile(audio,join(bundle,'assemblies',assembly.id,'chapter.mp3'));
  // Reader state is immutable and content addressed; install only missing, byte-identical objects.
@@ -294,8 +300,33 @@ async function publish(entry){
  const proof=JSON.parse(verified.trim());if(proof.assembly!==assembly.id||!proof.audioVerified||!proof.textVerified)throw Error('Publication unverified');
  await save(join(entry.root,'published.json'),proof);await archive();await fs.rm(join(entry.root,'assembly-temp'),{recursive:true,force:true});
 }
-let lock;
-if(processOnly){
+let lock,renderingOwnerLock;
+if(renderingOnly){
+ try{
+  const entry=config.chapters.find(value=>value.chapterId===renderingOnly);if(!entry)throw Error('Unknown rendering recovery chapter');
+  if(await exists(join(root,'supervisor.lock'))||await exists(join(entry.root,'owner-review.lock')))throw Error('Rendering recovery requires an idle stopped supervisor and chapter');
+  lock=await fs.open(join(root,'worker.lock'),'wx');await lock.writeFile(String(process.pid));await lock.close();
+  const ownerPath=join(entry.root,'owner-review.lock'),owner=await fs.open(ownerPath,'wx');renderingOwnerLock=ownerPath;await owner.writeFile(String(process.pid));await owner.close();
+  if(await exists(join(root,'supervisor.lock')))throw Error('Supervisor started before recovery acquired its worker lock');
+  const chapter=await read(join(entry.root,'input.json'));if(hash(chapter)!==entry.inputHash)throw Error('Rendering recovery input changed');
+  const active=await read(join(root,'processing-status.json'),{});
+  if(active.status==='running'){
+   const producer=await read(join(root,'status.json'),{});let alive=true;
+   if(Number.isInteger(active.pid)&&active.pid>0)try{process.kill(active.pid,0);}catch(error){if(error.code==='ESRCH')alive=false;else throw error;}
+   if(alive||producer.status!=='paused')throw Error('Rendering recovery cannot overlap active or unconfirmed processing');
+  }
+  const renderer=await import(pathToFileURL(join(here,'../audiobooks/dist/spoken-redactions.js')).href),voices=await read(join(root,'voices.json'));
+  for(const [role,voice]of Object.entries(config.originalVoices))if(voices[role]?.voiceId!==voice.voiceId)throw Error('Original voice changed: '+role);
+  const targets=renderingIds.map(id=>{const item=chapter.items.find(value=>value.customId===id);if(!item)throw Error('Unknown rendering recovery passage');return item;});
+  await status({status:'running',chapter:entry.chapterId,passages:renderingIds});
+  for(const item of targets){
+   await recoverVisualRedactionPassage({entry,chapter,item,config,read,save,run,voices,status,render:renderer.renderVisualRedactions,verify:renderer.verifyVisualRedactions,
+    synthesize:(recoveryEntry,recoveryChapter,v)=>paid.run(()=>synthesize(recoveryEntry,recoveryChapter,v,false,1))});
+  }
+  await archive();await status({status:'ready-for-fidelity-review',stage:'recovered'});
+ }catch(error){await status({status:'held',reason:String(error.message)});process.exitCode=1;}
+ finally{if(renderingOwnerLock)await fs.unlink(renderingOwnerLock).catch(()=>{});if(lock)await fs.unlink(join(root,'worker.lock')).catch(()=>{});}
+}else if(processOnly){
  const lockPath=join(reviewEntry.root,'owner-review.lock');
  let ownLock=false;
  try{

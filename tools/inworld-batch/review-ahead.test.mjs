@@ -9,9 +9,9 @@ import {planAheadEntries,validAheadReport,validateAheadMerge,reviewAhead} from '
 const write=async(path,value)=>{await fs.mkdir(dirname(path),{recursive:true});await fs.writeFile(path,JSON.stringify(value));};
 const report=(audio,expected)=>({sha256:sha(audio),expected,attempts:[{model:'test',transcript:expected,changes:[],wordRecall:1,major:false}],severity:'pass'});
 test('ahead planning selects only fully generated inactive queued chapters needing reports',()=>{
- const entries=['ready','future','active','published','complete'].map(chapterId=>({chapterId,inputHash:'input'}));
+ const entries=['ready','future','active','published','complete','recovered'].map(chapterId=>({chapterId,inputHash:'input'}));
  const facts=Object.fromEntries(entries.map(entry=>[entry.chapterId,{generated:true,inputHash:'input'}]));
- facts.future.generated=false;facts.active.active=true;facts.published.published=true;facts.complete.reviewsComplete=true;
+ facts.future.generated=false;facts.active.active=true;facts.published.published=true;facts.complete.reviewsComplete=true;facts.recovered.requiresProofReview=true;
  assert.deepEqual(planAheadEntries(entries,facts).map(entry=>entry.chapterId),['ready']);
  assert.deepEqual(planAheadEntries(entries,facts,['future']),[]);
  assert.throws(()=>planAheadEntries(entries,facts,['unknown']),/not in the prepared queue/);
@@ -22,6 +22,7 @@ test('ahead merge requires exact audio, receipt, source and generated evidence p
  assert.deepEqual(validateAheadMerge(snapshot,snapshot,reports),['p0']);
  for(const current of [{...snapshot,active:true},{...snapshot,published:true},{...snapshot,inputHash:'changed'},{...snapshot,generatedHash:'changed'},{...snapshot,items:[{...item,receiptHash:'changed'}]},{...snapshot,items:[{...item,audioSha256:'changed'}]}])assert.throws(()=>validateAheadMerge(snapshot,current,reports));
  assert.throws(()=>validateAheadMerge(snapshot,snapshot,{}));
+ assert.throws(()=>validateAheadMerge(snapshot,{...snapshot,requiresProofReview:true},reports),/full live proof chain/);
  assert.equal(validAheadReport({...reports.p0,expected:'changed'},item),false);
  assert.equal(validAheadReport({...reports.p0,attempts:[]},item),false);
 });

@@ -9,6 +9,7 @@ import { analyzeFrontier, frontierPolicySchema } from './frontier-analysis.js';
 import { runCodexAnalysis } from './codex-analysis.js';
 import { chapterPresentation } from './local-presentation.js';
 import { historicalCast, reconcileCharacters } from './inworld-registry.js';
+import { visualRedactionPolicy } from './spoken-redactions.js';
 
 export type Segment = { uid: string; role: string; text: string; spans: { start: number; end: number; uid: string }[]; presentation?: string };
 export function segmentsFor(chapter: Chapter, analysis: Analysis, notes: { before: string; after: string }): Segment[] {
@@ -53,6 +54,8 @@ export async function prepareChapter(configPath: string, chapterId: string, phas
   const chapter = chapterSchema.parse(await store.read('sources/' + indexed.current + '.json'));
   if (sha(chapter.text) !== chapter.contentHash) throw Error('Source checksum mismatch');
   const planStore = new Store(root);
+  const existingPlan = await planStore.read<{ chapterId: string; sequence: number; source: string }>('plan.json');
+  if (existingPlan && (existingPlan.chapterId !== chapterId || existingPlan.sequence !== chapter.sequence || existingPlan.source !== indexed.current)) throw Error('Prepared plan identity or source changed');
   const cachedResult = await planStore.read<Awaited<ReturnType<typeof analyzeFrontier>>>('attribution.json');
   if (phase === 'directions' && !cachedResult) throw Error('Directions require completed source attribution');
   if (phase !== 'directions' && config.chapterIds) {
@@ -76,6 +79,10 @@ export async function prepareChapter(configPath: string, chapterId: string, phas
   if (cachedResult && savedInput) context = savedInput.context;
   const planInput = { source: indexed.current, chapter: chapter.chapterId, model: config.model, context };
   if (savedInput && JSON.stringify(savedInput) !== JSON.stringify(planInput)) throw Error('Prepared source or context changed');
+  if (existingPlan) {
+    console.log(JSON.stringify({ chapter: chapterId, stage: 'prepared', reused: true, directory: root }));
+    return;
+  }
   await save(join(root, 'dependencies.json'), planInput);
   let result = cachedResult;
   if (phase !== 'directions') {
@@ -120,7 +127,8 @@ export async function prepareChapter(configPath: string, chapterId: string, phas
     if (response.authentication !== 'chatgpt' || parsed.directions.length !== selected.length || parsed.directions.some((d, i) => d.uid !== selected[i]!.uid)) throw Error('Stale or incomplete directions');
     directions.push(...parsed.directions);
   }
-  await save(join(root, 'plan.json'), { chapterId, sequence: chapter.sequence, title: chapter.title, source: indexed.current, analysis: analysisId, segments, profiles: result.profiles, directions });
+  await save(join(root, 'plan.json'), { chapterId, sequence: chapter.sequence, title: chapter.title, source: indexed.current, analysis: analysisId, segments, profiles: result.profiles, directions,
+    spokenRendering: { policy: visualRedactionPolicy } });
   console.log(JSON.stringify({ chapter: chapterId, stage: 'prepared', segments: segments.length, directory: root }));
 }
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

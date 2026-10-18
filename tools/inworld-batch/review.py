@@ -9,7 +9,8 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import TypedDict
+import subprocess
+from typing import Optional, TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'mac-tts' / 'acting-auditions'))
 from speech_parts import integer_words  # noqa: E402
@@ -25,9 +26,12 @@ class PendingReview(TypedDict):
     audio: Path
     sha256: str
     attempts: list[dict[str, object]]
+    renderingContext: dict[str, object] | None
+    comparisonExpected: str
 
 
 Transcriber = Callable[[Path, str], str]
+ContextLoader = Callable[[Path, ReviewItem, str], Optional[dict[str, object]]]
 
 
 def words(text: str) -> list[str]:
@@ -78,11 +82,11 @@ def save_json(path: Path, value: object) -> None:
     temporary.replace(path)
 
 
-def cached_attempts(path: Path, digest: str, expected: str, models: list[str]) -> list[dict[str, object]]:
+def cached_attempts(path: Path, digest: str, expected: str, models: list[str], comparison_expected: str, context: dict[str, object] | None) -> list[dict[str, object]]:
     if not path.exists():
         return []
     state = json.loads(path.read_text())
-    if not isinstance(state, dict) or state.get('sha256') != digest or state.get('expected') != expected or state.get('models') != models:
+    if not isinstance(state, dict) or state.get('sha256') != digest or state.get('expected') != expected or state.get('models') != models or state.get('renderingContext') != context:
         return []
     saved = state.get('attempts')
     if not isinstance(saved, list) or not 1 <= len(saved) <= len(models):
@@ -94,11 +98,38 @@ def cached_attempts(path: Path, digest: str, expected: str, models: list[str]) -
         if attempts and not attempts[-1]['needsStronger']:
             return []
         transcript = attempt['transcript']
-        attempts.append({'model': models[index], 'transcript': transcript, **compare(expected, transcript)})
+        attempts.append({'model': models[index], 'transcript': transcript, **compare(comparison_expected, transcript)})
     return attempts
 
 
-def review_items(root: Path, items: list[ReviewItem], models: list[str], transcribe: Transcriber) -> None:
+def rendering_context(root: Path, item: ReviewItem, digest: str) -> dict[str, object] | None:
+    receipt_path = root / 'receipts' / (item['customId'] + '.json')
+    if not receipt_path.exists():
+        return None
+    receipt = json.loads(receipt_path.read_text())
+    if not isinstance(receipt, dict) or not receipt.get('renderingRecovery'):
+        return None
+    # One verifier shares the exact TypeScript rendering policy and validates all
+    # retained plan/source/receipt/audio evidence. No caller-supplied comparison.
+    result = subprocess.run(['node', str(Path(__file__).with_name('rendering-review.mjs')), str(root), item['customId']],
+                            capture_output=True, text=True, check=False, timeout=30)
+    if result.returncode != 0:
+        raise ValueError('Visual-redaction rendering proof failed validation')
+    value = json.loads(result.stdout)
+    if not isinstance(value, dict) or value.get('audioSha256') != digest or not isinstance(value.get('comparisonExpected'), str):
+        raise ValueError('Invalid visual-redaction comparison context')
+    return value
+
+
+def matching_report(report: object, digest: str, expected: str, context: dict[str, object] | None) -> bool:
+    if not isinstance(report, dict) or report.get('sha256') != digest or report.get('expected') != expected:
+        return False
+    if context is None:
+        return 'renderingContext' not in report and 'comparisonExpected' not in report
+    return report.get('renderingContext') == context and report.get('comparisonExpected') == context['comparisonExpected']
+
+
+def review_items(root: Path, items: list[ReviewItem], models: list[str], transcribe: Transcriber, context_loader: ContextLoader = rendering_context) -> None:
     if len(models) != 2:
         raise ValueError('Expected pinned small and stronger ASR models')
     out = root / 'review'
@@ -112,13 +143,16 @@ def review_items(root: Path, items: list[ReviewItem], models: list[str], transcr
             raise ValueError('Invalid passage ID')
         audio = root / 'audio' / (name + '.wav')
         digest = hashlib.sha256(audio.read_bytes()).hexdigest()
+        context = context_loader(root, item, digest)
+        comparison_expected = str(context['comparisonExpected']) if context is not None else expected
         destination = out / (name + '.json')
         if destination.exists():
             prior = json.loads(destination.read_text())
-            if isinstance(prior, dict) and prior.get('sha256') == digest and prior.get('expected') == expected:
+            if matching_report(prior, digest, expected, context):
                 continue
         pending.append({'item': item, 'audio': audio, 'sha256': digest,
-                        'attempts': cached_attempts(checkpoints / (name + '.json'), digest, expected, models)})
+                        'attempts': cached_attempts(checkpoints / (name + '.json'), digest, expected, models, comparison_expected, context),
+                        'renderingContext': context, 'comparisonExpected': comparison_expected})
 
     # mlx_whisper caches only the most recently used model. Grouping all small
     # checks before stronger checks avoids reloading weights for every escalation.
@@ -134,9 +168,9 @@ def review_items(root: Path, items: list[ReviewItem], models: list[str], transcr
                 raise ValueError('Missing transcript')
             if hashlib.sha256(entry['audio'].read_bytes()).hexdigest() != entry['sha256']:
                 raise ValueError('Audio changed during independent review')
-            attempts.append({'model': model, 'transcript': transcript, **compare(item['spokenText'], transcript)})
+            attempts.append({'model': model, 'transcript': transcript, **compare(entry['comparisonExpected'], transcript)})
             save_json(checkpoints / (item['customId'] + '.json'),
-                      {'sha256': entry['sha256'], 'expected': item['spokenText'], 'models': models, 'attempts': attempts})
+                      {'sha256': entry['sha256'], 'expected': item['spokenText'], 'models': models, 'attempts': attempts, 'renderingContext': entry['renderingContext']})
             if not attempts[-1]['needsStronger'] or index == len(models) - 1:
                 finish_review(out, entry)
 
@@ -150,7 +184,7 @@ def review_items(root: Path, items: list[ReviewItem], models: list[str], transcr
                 finish_review(out, entry)
             else:
                 prior = json.loads(destination.read_text())
-                if prior.get('sha256') != entry['sha256'] or prior.get('expected') != entry['item']['spokenText']:
+                if not matching_report(prior, entry['sha256'], entry['item']['spokenText'], entry['renderingContext']):
                     finish_review(out, entry)
 
 
@@ -160,6 +194,9 @@ def finish_review(out: Path, entry: PendingReview) -> None:
     report = {'sha256': entry['sha256'], 'expected': entry['item']['spokenText'], 'attempts': attempts,
               'severity': 'major' if final['major'] else 'minor' if final['changes'] else 'pass',
               'limitation': 'Automated ASR is fallible; it does not verify subjective acting or voice identity.'}
+    if entry['renderingContext'] is not None:
+        report['comparisonExpected'] = entry['comparisonExpected']
+        report['renderingContext'] = entry['renderingContext']
     save_json(out / (entry['item']['customId'] + '.json'), report)
     print(entry['item']['customId'], report['severity'], flush=True)
 

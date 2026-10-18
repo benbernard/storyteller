@@ -3,7 +3,7 @@ import {join} from 'node:path';
 import {hash,sha} from './core.mjs';
 import {repairItems} from './adjudication.mjs';
 
-async function installPromotion(entry, directory, promotion, save) {
+export async function installPromotion(entry, directory, promotion, save) {
  const target=join(entry.root,'audio',promotion.passage+'.wav');
  const receiptPath=join(entry.root,'receipts',promotion.passage+'.json');
  const audio=await fs.readFile(join(directory,'replacement.wav'));

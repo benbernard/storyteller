@@ -2,11 +2,20 @@
 import fs from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {join,dirname} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {hash,validateCoverage} from './core.mjs';
 import {steeringText} from './pipeline.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
-export function buildChapter(plan, spoken, config) {
+export async function renderPlanSpoken(plan, selectPolicy=false) {
+ const texts=plan.segments.map(segment=>segment.text);
+ if(plan.spokenRendering===undefined&&!selectPolicy)return {texts};
+ const renderer=await import(pathToFileURL(join(here,'../audiobooks/dist/spoken-redactions.js')).href);
+ if(plan.spokenRendering!==undefined&&(plan.spokenRendering?.policy!==renderer.visualRedactionPolicy||Object.keys(plan.spokenRendering).length!==1))throw Error('Unknown spoken rendering policy');
+ const proofs=plan.segments.map(segment=>({uid:segment.uid,rendering:renderer.renderVisualRedactions(segment.text)}));
+ for(const [index,proof]of proofs.entries())renderer.verifyVisualRedactions(texts[index],proof.rendering);
+ return {texts:proofs.map(proof=>proof.rendering.text),provenance:{policy:renderer.visualRedactionPolicy,segments:proofs.filter(proof=>proof.rendering.mapping.some(range=>range.kind==='redaction'))}};
+}
+export function buildChapter(plan, spoken, config, rendering) {
  if(spoken.length!==plan.segments.length)throw Error('Normalization omitted segments');
  const byUid=new Map(plan.directions.map(d=>[d.uid,d]));
  if(byUid.size!==plan.segments.length)throw Error('Directions do not cover the plan');
@@ -32,15 +41,24 @@ export function buildChapter(plan, spoken, config) {
   }
   segments.push({...s,items:indices,direction:d.instruction});
  }
- return {chapterId:plan.chapterId,sequence:plan.sequence,title:plan.title,source:plan.source,analysis:plan.analysis,segments,items,provenance:{planHash:hash(plan),narratorPolicy:config.narratorPolicy}};
+ return {chapterId:plan.chapterId,sequence:plan.sequence,title:plan.title,source:plan.source,analysis:plan.analysis,segments,items,provenance:{planHash:hash(plan),narratorPolicy:config.narratorPolicy,...(rendering?{spokenRendering:rendering}:{})}};
 }
 export async function materializeChapter(planRoot, config) {
  const read=async path=>JSON.parse(await fs.readFile(join(planRoot,path),'utf8'));
  const plan=await read('plan.json'),source=await read('source.json');
  validateCoverage(plan.segments,source.text);
- const normalization=spawnSync('python3',[join(here,'normalize.py')],{input:JSON.stringify(plan.segments.map(s=>s.text)),encoding:'utf8',maxBuffer:8e6});
+ const root=join(config.root,'chapters',String(plan.sequence));
+ let existing;
+ try{existing=JSON.parse(await fs.readFile(join(root,'input.json'),'utf8'));}
+ catch(error){if(error.code!=='ENOENT')throw error;}
+ if(existing&&(existing.provenance?.planHash!==hash(plan)||existing.chapterId!==plan.chapterId||existing.sequence!==plan.sequence||existing.source!==plan.source))throw Error('Prepared chapter changed: original plan or source');
+ // Select the new policy only for a new input, or reproduce its pinned rendering.
+ // Legacy queued inputs retain their exact historical normalization and hashes.
+ const selected=existing?Boolean(existing.provenance?.spokenRendering):true;
+ const spoken=existing&&!selected?{texts:plan.segments.map(segment=>segment.text)}:await renderPlanSpoken(plan,selected);
+ const normalization=spawnSync('python3',[join(here,'normalize.py')],{input:JSON.stringify(spoken.texts),encoding:'utf8',maxBuffer:8e6});
  if(normalization.status!==0)throw Error('Normalization failed: '+normalization.stderr);
- const chapter=buildChapter(plan,JSON.parse(normalization.stdout),config),root=join(config.root,'chapters',String(chapter.sequence));
+ const chapter=buildChapter(plan,JSON.parse(normalization.stdout),config,spoken.provenance);
  await fs.mkdir(root,{recursive:true,mode:0o700});
  const save=async(name,value)=>{const path=join(root,name),contents=JSON.stringify(value,null,2)+'\n';
   try{const old=JSON.parse(await fs.readFile(path,'utf8'));if(hash(old)!==hash(value))throw Error('Prepared chapter changed: '+name);}
