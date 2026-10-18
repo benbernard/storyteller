@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {hash} from './core.mjs';
-import {effectiveReview,processingOnlyEntry} from './owner-review.mjs';
+import {effectiveReview,acceptedRecoveryReview,processingOnlyEntry} from './owner-review.mjs';
 
 test('owner acceptance preserves evidence and cannot carry over to changed audio or review',()=>{
  const report={sha256:'a'.repeat(64),severity:'major',expected:'Ohhh',attempts:[{transcript:'Oh'}]};
@@ -16,6 +16,21 @@ test('owner acceptance preserves evidence and cannot carry over to changed audio
  assert.deepEqual(effectiveReview(report,decision).attempts,report.attempts);
  for(const changed of [{...report,sha256:'b'.repeat(64)},{...report,expected:'Wait'},{...report,attempts:[]}])assert.throws(()=>effectiveReview(changed,decision),/stale/);
  assert.throws(()=>effectiveReview(report,{...decision,reason:''}));
+});
+
+test('exact owner acceptance wins after recovery adjudication without changing its cached evidence',()=>{
+ const original={sha256:'a'.repeat(64),severity:'minor',expected:'Unit A',attempts:[{transcript:'Unit I'}],renderingContext:{policy:'verified-recovery'}};
+ const decision={action:'accept',audioSha256:original.sha256,reportHash:hash(original),reason:'Owner accepts the single letter.',ownerInstruction:'Never block for one letter',recordedAt:'2026-10-18T23:30:00Z'};
+ const modelReview={severity:'major',proof:'retained-proof',evidenceHash:'unchanged-row'};
+ const automated={...original,severity:'major',automatedSeverity:'minor',modelReview};
+ const before=hash(automated),rawHash=hash(original),result=acceptedRecoveryReview(automated,original,decision);
+ assert.equal(result.severity,'minor');assert.equal(result.automatedSeverity,'major');
+ assert.deepEqual(result.modelReview,modelReview);assert.deepEqual(result.attempts,original.attempts);
+ assert.equal(hash(automated),before);assert.equal(hash(original),rawHash);
+ assert.equal(acceptedRecoveryReview(automated,original),automated);
+ for(const changed of [{...original,sha256:'b'.repeat(64)},{...original,expected:'Other'},{...original,attempts:[]},{...original,renderingContext:{policy:'changed'}}])assert.throws(()=>acceptedRecoveryReview(automated,changed,decision),/stale/);
+ assert.throws(()=>acceptedRecoveryReview({...automated,sha256:'b'.repeat(64)},original,decision),/stale/);
+ for(const change of [{attempts:[]},{renderingContext:{policy:'changed'}},{comparisonExpected:'Changed'},{fidelityUncertainty:'new finding'}])assert.throws(()=>acceptedRecoveryReview({...automated,...change},original,decision),/stale/);
 });
 
 test('processing-only work cannot select an ungenerated, active or changed chapter',()=>{

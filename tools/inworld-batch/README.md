@@ -400,3 +400,6 @@ retakes remain in `review-backlog`. Do not silently accept them to finish a run.
 
 The original processing-only and audio-bound owner-review tools remain available
 for an explicitly reviewed exception. They cannot waive changed recordings.
+For a recovered recording, its required proof checks and cached adjudication run
+against the original report first. The exact-audio, exact-report owner acceptance
+then determines publication eligibility, retaining the automated finding and proof.

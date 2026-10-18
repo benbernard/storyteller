@@ -6,7 +6,7 @@ import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {sha, hash, pack, checkResults, assertBudget, validateCoverage} from './core.mjs';
-import {effectiveReview, processingOnlyEntry} from './owner-review.mjs';
+import {effectiveReview, acceptedRecoveryReview, processingOnlyEntry} from './owner-review.mjs';
 import {PaidLane,belongsToEntry,adjudicationEvidence,modelReview,needsModelReview,reviewInstructions,reviewSchema,validateReview} from './adjudication.mjs';
 import {repairPassage,recoverRepairs} from './repair.mjs';
 import {validateQueueUpdate,queuePreparationComplete,archiveExcludes} from './queue.mjs';
@@ -228,15 +228,21 @@ async function quality(entry,chapter){
  await status({stage:'checking-transcripts',operation:null});
  const heartbeat=setInterval(()=>{void fs.readdir(join(entry.root,'review')).then(files=>status({reviewedItems:files.filter(f=>f.endsWith('.json')).length,totalItems:chapter.items.length})).catch(()=>{});},15000);
  try{const review=await asrReviewCommand(config,here,entry.root);await run(review.command,review.args,{timeout:7200000});}finally{clearInterval(heartbeat);}
- const major=[];let minor=0,hasRenderingRecovery=false;const reports={};
+ const major=[];let minor=0,hasRenderingRecovery=false;const reports={},acceptedRecoveries={};
  const decisions=await read(join(entry.root,'owner-reviews.json'),{});
  for(const item of chapter.items){const report=await read(join(entry.root,'review',item.customId+'.json')),receipt=await read(join(entry.root,'receipts',item.customId+'.json'));
   if(report.sha256!==receipt.sha256||report.expected!==item.spokenText)throw Error('Stale transcript review');
   if(receipt.renderingRecovery){await renderingContext(entry.root,item);hasRenderingRecovery=true;}
   const decision=decisions[item.customId];
-  reports[item.customId]=effectiveReview(report,decision?.audioSha256===report.sha256?decision:undefined);
+  const currentDecision=decision?.audioSha256===report.sha256?decision:undefined;
+  if((receipt.renderingRecovery||receipt.decimalRecovery)&&currentDecision){
+   effectiveReview(report,currentDecision); // Validate before any adjudication work.
+   acceptedRecoveries[item.customId]={report,decision:currentDecision};
+   reports[item.customId]=report;
+  }else reports[item.customId]=effectiveReview(report,currentDecision);
  }
  if(config.automaticRepair||hasRenderingRecovery)await adjudicate(entry,chapter,reports);
+ for(const [id,accepted]of Object.entries(acceptedRecoveries))reports[id]=acceptedRecoveryReview(reports[id],accepted.report,accepted.decision);
  for(const [id,report]of Object.entries(reports)){if(['major','uncertain'].includes(report.severity))major.push(id);if(report.severity==='minor')minor++;}
  await save(join(entry.root,'effective-reviews.json'),reports);
  await save(join(entry.root,'quality.json'),{major,minor,status:major.length?'needs-review':minor?'provisional':'reviewed'});return major;
