@@ -110,7 +110,7 @@ docker compose run --rm cli publish --batch inworld-first --edition inworld \
 ```
 
 For Flash, select `inworld-tts-2-flash` in the config and use edition
-`inworld-flash`. Edition names check the recorded model. Listener and Android show
+`inworld-flash`. Edition names check the recorded model. Storyteller and Android show
 these alongside other published editions. Use `export` for MP3s and an M3U playlist.
 
 ## Resume, costs, and provider changes

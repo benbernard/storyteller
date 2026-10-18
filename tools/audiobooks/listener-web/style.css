@@ -54,3 +54,6 @@ body:has(#reading-view:not([hidden])) #message[data-routine=true]{display:none}
 @media(max-width:600px){.story-row{gap:12px;padding:16px 0}.story-row h2{font-size:20px}.story-row p{font-size:14px}#mini-player{flex-wrap:wrap}#mini-player>div{flex-basis:100%}#back-story{margin-bottom:4px}.story-row img{width:48px;height:72px}}
 
 .repair-status{margin:20px 0;padding:16px 20px;border-left:4px solid var(--accent);background:var(--active);overflow-wrap:anywhere}.repair-status h2{font-size:20px;margin:0 0 8px}.repair-status p{margin:8px 0}.repair-status progress{width:100%;accent-color:var(--accent);margin-bottom:12px}.repair-status>small{display:block;margin-top:12px;color:var(--muted)}.repair-label{color:var(--accent)}
+
+/* Storyteller uses the same mark and clear space in both color schemes. */
+.brand{display:inline-flex;align-items:center;gap:10px;min-height:44px}.brand img{display:block;object-fit:contain;flex:none;padding:3px;border-radius:10px;background:#eff5ed}

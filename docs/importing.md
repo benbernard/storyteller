@@ -41,7 +41,7 @@ export FICTION_ID=rr-12345
 docker compose run --rm cli ingest --file /archive/rr-12345/chapters.json
 ```
 
-For automatic local generation, use Listener's **Tools → Source library** to
+For automatic local generation, use Storyteller's **Tools → Source library** to
 follow the story after completing the local worker setup. Download-only follows
 need the worker too, but do not load a speech model or call analysis.
 

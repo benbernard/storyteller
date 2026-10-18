@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "title": "The Maltese Falcon — an office consultation",
+  "author": "Dashiell Hammett",
+  "year": 1930,
+  "chapter": "1 — Spade & Archer",
+  "source": {
+    "url": "https://www.gutenberg.org/cache/epub/77600/pg77600.txt",
+    "ebook": 77600,
+    "downloadSha256": "768b21c7090e68ededf49a765841dc28339a56dcc36d75d458134409a77e53f6",
+    "startAnchor": "“What does he do for a living?” Spade asked",
+    "endAnchor": "“And don’t look for me,” Archer cautioned her. “I’ll see you all right.”",
+    "normalization": "UTF-8; CRLF to LF; soft line wraps joined with spaces; paragraph breaks and all wording retained.",
+    "publicDomain": "United States, effective 2026-01-01",
+    "rightsSource": "https://blogs.loc.gov/copyright/2025/12/lifecycle-of-copyright-1930-works-in-the-public-domain/"
+  },
+  "textSha256": "c3d69b65390d91a4c6227aa51733ad5567c2c54876a8676b82ac0bce29a582df",
+  "instructions": {
+    "narrator": "A clear, measured adult male American audiobook narrator. Neutral scene description with natural sentence pacing; no exaggerated drama.",
+    "spade": "An adult male American detective speaking with calm, dry confidence and clipped conversational phrasing. Original synthetic character, not an imitation of an actor.",
+    "wonderly": "An adult American woman with a soft clear voice, controlled anxiety and polite, increasingly urgent appeals. Natural conversational delivery without breathy whispering.",
+    "archer": "A middle-aged American man with a low, slightly rough and blunt conversational voice, confident and matter-of-fact. Original synthetic character."
+  },
+  "spans": [
+    {
+      "speaker": "spade",
+      "text": "“What does he do for a living?”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " Spade asked as he laid down his pencil.\n\n"
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“I don’t know,”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " she said. "
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“I haven’t the slightest idea.”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\n"
+    },
+    {
+      "speaker": "spade",
+      "text": "“What time is he coming to see you?”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\n"
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“After eight o’clock.”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\n"
+    },
+    {
+      "speaker": "spade",
+      "text": "“All right, Miss Wonderly, we’ll have a man there. It’ll help if—”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\n"
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“Mr. Spade, could either you or Mr. Archer?”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " She made an appealing gesture with both hands. "
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“Could either of you look after it personally? I don’t mean that the man you’d send wouldn’t be capable, but—oh!—I’m so afraid of what might happen to Corinne. I’m afraid of him. Could you? I’d be—I’d expect to be charged more, of course.”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " She opened her handbag with nervous fingers and put two hundred-dollar bills on Spade’s desk. "
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“Would that be enough?”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\n"
+    },
+    {
+      "speaker": "archer",
+      "text": "“Yeh,”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " Archer said, "
+    },
+    {
+      "speaker": "archer",
+      "text": "“and I’ll look after it myself.”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\nMiss Wonderly stood up, impulsively holding a hand out to him.\n\n"
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“Thank you! Thank you!”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " she exclaimed, and then gave Spade her hand, repeating: "
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“Thank you!”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\n"
+    },
+    {
+      "speaker": "spade",
+      "text": "“Not at all,”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " Spade said over it. "
+    },
+    {
+      "speaker": "spade",
+      "text": "“Glad to. It’ll help some if you either meet Thursby downstairs or let yourself be seen in the lobby with him at some time.”"
+    },
+    {
+      "speaker": "narrator",
+      "text": "\n\n"
+    },
+    {
+      "speaker": "wonderly",
+      "text": "“I will,”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " she promised, and thanked the partners again.\n\n"
+    },
+    {
+      "speaker": "archer",
+      "text": "“And don’t look for me,”"
+    },
+    {
+      "speaker": "narrator",
+      "text": " Archer cautioned her. "
+    },
+    {
+      "speaker": "archer",
+      "text": "“I’ll see you all right.”"
+    }
+  ]
+}

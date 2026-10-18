@@ -1,4 +1,4 @@
-# Android Listener
+# Android Storyteller
 
 The app supports Android 13 and newer. It pairs with your server, streams audio,
 saves checked audio for offline listening, keeps an event queue for progress and
@@ -38,9 +38,9 @@ for each release. There are no prebuilt Android release binaries in this package
 
 ## Pair and listen
 
-1. Start Listener at the same HTTPS origin used in the build.
+1. Start Storyteller at the same HTTPS origin used in the build.
 2. Tap **Connect account**. The app opens a browser pairing URL.
-3. Sign in using your household Listener login, compare the code, and confirm.
+3. Sign in using your household Storyteller login, compare the code, and confirm.
 4. Return to the app. Pairing expires after ten minutes. Restart if needed.
 
 Device credentials are encrypted through Android Keystore and excluded from

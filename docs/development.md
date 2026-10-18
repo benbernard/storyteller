@@ -54,6 +54,7 @@ uses local generated demo state and never calls providers.
 node scripts/setup.mjs
 docker compose build listener
 docker compose run --rm demo
+docker compose run --rm sample
 node scripts/smoke.mjs
 ```
 
@@ -130,6 +131,28 @@ operator.
 For the Breeze/Inworld addition, local checks also exercised the Breeze import and
 job-initialization commands with synthetic references. A synthetic Breeze chapter
 passed the actual Python plan/assembly path, TypeScript publication, and live
-loopback Listener checks for reading text, audio checksums, and HTTP ranges. The
+loopback Storyteller checks for reading text, audio checksums, and HTTP ranges. The
 small-layer MLX numerical test passed on Apple Silicon with MLX 0.32.3 and
 mlx-audio 0.5.7. These checks generated no speech and made no provider requests.
+
+## Storyteller 0.3.1 validation
+
+The rename and Bookwave assets passed the five-width browser suite, Android unit
+tests/lint/debug builds, and all 13 native UI fixtures at compact and wide sizes
+and 320dp/200% text in dark mode on a task-owned Android 36 ARM64 emulator. The
+initial Gradle run encountered a stale daemon referencing a removed scratch
+distribution. Stopping that daemon and rerunning with `--no-daemon` passed.
+
+The public sample was generated with the existing local Mac speech API and the
+existing Inworld account. It establishes live generation for this credited scene,
+not another operator's fresh model installation. Each recording passed decoding,
+source/timing coverage, checksums, and independent Whisper large transcript checks
+with retained recognition differences. No human listening rating is claimed.
+One Breeze passage received a bounded seed retake after its false start was flagged.
+The bundled installer is tested for all editions, repeat installs, corrupted input,
+and preservation of different existing data. Docker smoke checks include all three
+spoken editions and the PNG asset's response type and signature.
+
+Earlier validation limits above describe the earlier release. Fresh model
+downloads, another person's accounts, physical-phone behavior, and a friend's
+Windows/Linux installation remain outside this run.

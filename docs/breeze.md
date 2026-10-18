@@ -144,7 +144,7 @@ cast reset or separate fiction state. There is no automatic recasting command.
 
 ## Generate, review, and publish
 
-Keep the local speech service and the Compose listener running. Listener must use
+Keep the local speech service and the Compose listener running. Storyteller must use
 the same `data/fictions/` directory and credentials as this checkout. The job uses
 `LISTENER_PUBLIC_URL` and `LISTENER_USERNAME` from `.env`, and reads the private
 password file created by `scripts/setup.mjs`.
@@ -167,7 +167,7 @@ with provisional quality evidence. Set `queue.publishMinor` to `false` in
 remain unpublished drafts, with `guidance-request.json` describing what needs
 attention. Later selected chapters may still generate; the initialization reason
 records that authorization. The worker checks the published audio checksum,
-reading text, and HTTP byte ranges against Listener. An existing book's default
+reading text, and HTTP byte ranges against Storyteller. An existing book's default
 edition is preserved. Choose Breeze in the edition picker.
 
 Inspect `status.json`, per-chapter logs, `trials/CHAPTER/review/`,

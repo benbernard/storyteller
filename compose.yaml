@@ -1,6 +1,6 @@
-name: audiobook-system
+name: storyteller
 x-runtime: &runtime
-  image: audiobook-system:local
+  image: storyteller:local
   build:
     context: .
     dockerfile: tools/audiobooks/Dockerfile
@@ -68,6 +68,17 @@ services:
       - ./data/fictions:/fictions
       - ./scripts:/scripts:ro
       - ./tools/audiobooks/examples:/examples:ro
+  sample:
+    <<: *runtime
+    profiles: [tools]
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    entrypoint: [node, /scripts/install-sample.mjs]
+    environment:
+      AUDIOBOOK_SAMPLE_STATE: /fictions/maltese-falcon-sample
+    volumes:
+      - ./data/fictions:/fictions
+      - ./scripts:/scripts:ro
+      - ./samples:/samples:ro
   worker:
     <<: *runtime
     profiles: [local]

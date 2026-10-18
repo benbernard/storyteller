@@ -87,7 +87,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       let owner: string | undefined;
       if (web) {
         owner = browserOwner(request) ?? undefined;
-        if (!owner) { if (basicChallenge) response.setHeader('WWW-Authenticate', 'Basic realm="Audiobook Listener", charset="UTF-8"'); json(response, 401, { error: 'Sign in to continue.' }); return; }
+        if (!owner) { if (basicChallenge) response.setHeader('WWW-Authenticate', 'Basic realm="Storyteller", charset="UTF-8"'); json(response, 401, { error: 'Sign in to continue.' }); return; }
         if (request.headers['x-listener-account'] && request.headers['x-listener-account'] !== sha(owner)) { json(response, 409, { error: 'The signed-in account changed. Reload to continue.' }); return; }
         if (method !== 'GET' && method !== 'HEAD' && request.headers.origin !== origin) { json(response, 403, { error: 'Origin mismatch.' }); return; }
       } else {
@@ -270,8 +270,8 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const stream = createReadStream(path, { start, end }); stream.on('error', () => response.destroy()); response.on('close', () => stream.destroy()); stream.pipe(response); return;
       }
       if (web && method === 'GET') {
-        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : null;
-        if (filename) { const bytes = await readFile(join(dirname(fileURLToPath(import.meta.url)), '../listener-web', filename)); response.writeHead(200, { 'Content-Type': filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : 'text/html' }); response.end(bytes); return; }
+        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : route === '/storyteller-mark.png' ? 'storyteller-mark.png' : null;
+        if (filename) { const bytes = await readFile(join(dirname(fileURLToPath(import.meta.url)), '../listener-web', filename)); response.writeHead(200, { 'Content-Type': filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.png') ? 'image/png' : 'text/html' }); response.end(bytes); return; }
       }
       throw new Error('not_found');
     } catch (error) {

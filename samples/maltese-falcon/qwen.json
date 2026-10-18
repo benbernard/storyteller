@@ -1,0 +1,1022 @@
+{
+  "source": {
+    "schemaVersion": 1,
+    "fictionId": "maltese-falcon-sample",
+    "chapterId": "office-consultation",
+    "sequence": 1,
+    "url": "https://www.gutenberg.org/cache/epub/77600/pg77600.txt",
+    "title": "An office consultation",
+    "text": "“What does he do for a living?” Spade asked as he laid down his pencil.\n\n“I don’t know,” she said. “I haven’t the slightest idea.”\n\n“What time is he coming to see you?”\n\n“After eight o’clock.”\n\n“All right, Miss Wonderly, we’ll have a man there. It’ll help if—”\n\n“Mr. Spade, could either you or Mr. Archer?” She made an appealing gesture with both hands. “Could either of you look after it personally? I don’t mean that the man you’d send wouldn’t be capable, but—oh!—I’m so afraid of what might happen to Corinne. I’m afraid of him. Could you? I’d be—I’d expect to be charged more, of course.” She opened her handbag with nervous fingers and put two hundred-dollar bills on Spade’s desk. “Would that be enough?”\n\n“Yeh,” Archer said, “and I’ll look after it myself.”\n\nMiss Wonderly stood up, impulsively holding a hand out to him.\n\n“Thank you! Thank you!” she exclaimed, and then gave Spade her hand, repeating: “Thank you!”\n\n“Not at all,” Spade said over it. “Glad to. It’ll help some if you either meet Thursby downstairs or let yourself be seen in the lobby with him at some time.”\n\n“I will,” she promised, and thanked the partners again.\n\n“And don’t look for me,” Archer cautioned her. “I’ll see you all right.”",
+    "contentHash": "c3d69b65390d91a4c6227aa51733ad5567c2c54876a8676b82ac0bce29a582df",
+    "retrievedAt": "2026-10-17T00:00:00Z"
+  },
+  "analysis": {
+    "schemaVersion": 1,
+    "source": "c3d69b65390d91a4c6227aa51733ad5567c2c54876a8676b82ac0bce29a582df",
+    "fingerprint": "b06d7631ddd46e4df67d6ba0f80a603930e5848afac782439ef0cf6a500519a3",
+    "model": "imported",
+    "promptVersion": "import-v1",
+    "spans": [
+      {
+        "text": "“What does he do for a living?”",
+        "kind": "dialogue",
+        "speaker": "spade",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_291f8676-707b-453a-a4ef-e66803208035",
+        "start": 0,
+        "end": 31
+      },
+      {
+        "text": " Spade asked as he laid down his pencil.\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_0f148f45-a4a6-4aaf-99ae-1d8d69425cb7",
+        "start": 31,
+        "end": 73
+      },
+      {
+        "text": "“I don’t know,”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_ca33435a-1e26-42e4-a3f5-a22e20d08bee",
+        "start": 73,
+        "end": 88
+      },
+      {
+        "text": " she said. ",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_cb0759af-6a0b-4f32-8148-5f81c1d208b2",
+        "start": 88,
+        "end": 99
+      },
+      {
+        "text": "“I haven’t the slightest idea.”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_7e2bbaa6-87ff-4f86-ac55-36d4f8d5b3e4",
+        "start": 99,
+        "end": 130
+      },
+      {
+        "text": "\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_b0981aef-c335-4f4c-95a3-70dd07b0be1c",
+        "start": 130,
+        "end": 132
+      },
+      {
+        "text": "“What time is he coming to see you?”",
+        "kind": "dialogue",
+        "speaker": "spade",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_7366480d-13c7-42c3-8b13-8a2cde3d89d4",
+        "start": 132,
+        "end": 168
+      },
+      {
+        "text": "\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_1964adf7-f094-4fb1-8352-c564051d38c6",
+        "start": 168,
+        "end": 170
+      },
+      {
+        "text": "“After eight o’clock.”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_61d71380-1060-4ad7-8cf4-e98feefecdcf",
+        "start": 170,
+        "end": 192
+      },
+      {
+        "text": "\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_ff2e3620-27fa-4e74-bfbf-e642113a7d2a",
+        "start": 192,
+        "end": 194
+      },
+      {
+        "text": "“All right, Miss Wonderly, we’ll have a man there. It’ll help if—”",
+        "kind": "dialogue",
+        "speaker": "spade",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_7f4151a7-d0bc-48a4-9d49-c0771db71073",
+        "start": 194,
+        "end": 260
+      },
+      {
+        "text": "\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_6879fde0-08ee-4f13-b26a-654930a85c60",
+        "start": 260,
+        "end": 262
+      },
+      {
+        "text": "“Mr. Spade, could either you or Mr. Archer?”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_e1d1098e-043b-4a2e-9820-48a0e30124a5",
+        "start": 262,
+        "end": 306
+      },
+      {
+        "text": " She made an appealing gesture with both hands. ",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_2441eaa3-7046-4b87-b276-f9b285ca5bc8",
+        "start": 306,
+        "end": 354
+      },
+      {
+        "text": "“Could either of you look after it personally? I don’t mean that the man you’d send wouldn’t be capable, but—oh!—I’m so afraid of what might happen to Corinne. I’m afraid of him. Could you? I’d be—I’d expect to be charged more, of course.”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_53cddeea-7a4d-48fa-be91-4302394ac44e",
+        "start": 354,
+        "end": 593
+      },
+      {
+        "text": " She opened her handbag with nervous fingers and put two hundred-dollar bills on Spade’s desk. ",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_ab9a3988-874f-40fc-808b-d6192b54a9d4",
+        "start": 593,
+        "end": 688
+      },
+      {
+        "text": "“Would that be enough?”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_46c7daac-cacc-4a18-b9e8-a94c2ea1df60",
+        "start": 688,
+        "end": 711
+      },
+      {
+        "text": "\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_7e86b6b7-57de-4f50-a76b-45d651ae233b",
+        "start": 711,
+        "end": 713
+      },
+      {
+        "text": "“Yeh,”",
+        "kind": "dialogue",
+        "speaker": "archer",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_050f6ef7-d899-480d-9644-9db17e352523",
+        "start": 713,
+        "end": 719
+      },
+      {
+        "text": " Archer said, ",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_dc5b11c6-9a6f-4293-8430-3ae1981af6df",
+        "start": 719,
+        "end": 733
+      },
+      {
+        "text": "“and I’ll look after it myself.”",
+        "kind": "dialogue",
+        "speaker": "archer",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_107dd979-d581-4e40-96df-6385b4c04afe",
+        "start": 733,
+        "end": 765
+      },
+      {
+        "text": "\n\nMiss Wonderly stood up, impulsively holding a hand out to him.\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_b496469e-07f3-4bc2-8ea0-c0f06d27cf0c",
+        "start": 765,
+        "end": 831
+      },
+      {
+        "text": "“Thank you! Thank you!”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_3c550fb7-5bdc-4027-ae59-8180794470f1",
+        "start": 831,
+        "end": 854
+      },
+      {
+        "text": " she exclaimed, and then gave Spade her hand, repeating: ",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_74139192-e430-4538-9069-9e066a184aed",
+        "start": 854,
+        "end": 911
+      },
+      {
+        "text": "“Thank you!”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_af429022-4f52-49dc-a30c-bfd9a9ba9bf3",
+        "start": 911,
+        "end": 923
+      },
+      {
+        "text": "\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_771eb4df-6b0c-4c9a-b492-72315b106c09",
+        "start": 923,
+        "end": 925
+      },
+      {
+        "text": "“Not at all,”",
+        "kind": "dialogue",
+        "speaker": "spade",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_4c60a412-4c29-45d7-baba-c7425c8dd11e",
+        "start": 925,
+        "end": 938
+      },
+      {
+        "text": " Spade said over it. ",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_a89b510d-3fa1-4090-b9f5-bfdd04dcdf68",
+        "start": 938,
+        "end": 959
+      },
+      {
+        "text": "“Glad to. It’ll help some if you either meet Thursby downstairs or let yourself be seen in the lobby with him at some time.”",
+        "kind": "dialogue",
+        "speaker": "spade",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_4b7b14f0-efe5-4af3-b831-43946b99866b",
+        "start": 959,
+        "end": 1083
+      },
+      {
+        "text": "\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_f6f59259-eacf-49ef-ad42-105f32ecf7df",
+        "start": 1083,
+        "end": 1085
+      },
+      {
+        "text": "“I will,”",
+        "kind": "dialogue",
+        "speaker": "wonderly",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_d080dfdd-d2e5-4e95-8402-d67e332907fc",
+        "start": 1085,
+        "end": 1094
+      },
+      {
+        "text": " she promised, and thanked the partners again.\n\n",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_04861c02-7829-4465-a055-90c229ceb7a1",
+        "start": 1094,
+        "end": 1142
+      },
+      {
+        "text": "“And don’t look for me,”",
+        "kind": "dialogue",
+        "speaker": "archer",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_df07a9f7-e00b-4796-81e2-1f13c5a93460",
+        "start": 1142,
+        "end": 1166
+      },
+      {
+        "text": " Archer cautioned her. ",
+        "kind": "prose",
+        "speaker": "narrator",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_1d44e4a5-192d-4ceb-9672-84daf9ac3495",
+        "start": 1166,
+        "end": 1189
+      },
+      {
+        "text": "“I’ll see you all right.”",
+        "kind": "dialogue",
+        "speaker": "archer",
+        "certainty": "attributed",
+        "confidence": 1,
+        "reason": "Manually curated against the credited public-domain excerpt.",
+        "uid": "span_b349ec64-594b-4aef-a9cc-2c7fd82f25f4",
+        "start": 1189,
+        "end": 1214
+      }
+    ],
+    "characters": [],
+    "aliasUpdates": [],
+    "summary": "Sam Spade and Miles Archer agree to help Miss Wonderly."
+  },
+  "plan": {
+    "policy": {
+      "model": "qwen-base"
+    },
+    "quality": {
+      "status": "preview",
+      "note": "Automated transcript evidence; no human listening rating."
+    },
+    "generation": {
+      "provider": "qwen",
+      "model": "qwen-base",
+      "sourceSha256": "c3d69b65390d91a4c6227aa51733ad5567c2c54876a8676b82ac0bce29a582df",
+      "voices": {
+        "type": "Synthetic Breeze-designed references shared by the local models",
+        "designRevision": "3c8829fb7fd335818f085cd2ef49b4100c0e46c8",
+        "voices": {
+          "narrator": {
+            "sha256": "30338a699dda2d845a8460f8d362843982e5d69b722741a81e5070fb5c64a4f0",
+            "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+            "provenance": "Synthetic Breeze voice: A clear, measured adult male American audiobook narrator. Neutral scene description with natural sentence pacing; no exaggerated drama."
+          },
+          "spade": {
+            "sha256": "d9101c5b92e59753fc88e050e0c38b92cc23f6a79162555780eb0df1d7cc1d37",
+            "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+            "provenance": "Synthetic Breeze voice: An adult male American detective speaking with calm, dry confidence and clipped conversational phrasing. Original synthetic character, not an imitation of an actor."
+          },
+          "archer": {
+            "sha256": "4c7cfd5461e23ee7e2e6d397652c20f2d125e024a38d32c180ba520bace4aab0",
+            "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+            "provenance": "Synthetic Breeze voice: A middle-aged American man with a low, slightly rough and blunt conversational voice, confident and matter-of-fact. Original synthetic character."
+          },
+          "wonderly": {
+            "sha256": "5a6b311d9ae99b0242a85341b727fc81851f8c84d0408486ffa921acbe209c1e",
+            "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+            "provenance": "Synthetic Breeze voice: An adult American woman with a soft clear voice, controlled anxiety and polite, increasingly urgent appeals. Natural conversational delivery without breathy whispering."
+          }
+        }
+      },
+      "generatedAt": "2026-10-18T00:52:53.212Z"
+    }
+  },
+  "assembly": {
+    "schemaVersion": 1,
+    "id": "bbdcaef420b6365a558c460eaeeee6f57e45c4cc805dbb4164710b97af0147ec",
+    "chapterId": "office-consultation",
+    "sequence": 1,
+    "source": "fa4214226def4b2ff61a4795419bfcd68b52ee3d5d9094f0cbfcd48692dff80d",
+    "analysis": "0d32e27823444ccab4123cc402b7f51e79d6c461902c78aed36b09bc74e0294d",
+    "plan": "832964a1302ddd3a8bcf72a86a0e046b08574cbf022afd59038257c635a96d03",
+    "checksum": "4866bc6f2f4ca5db883437c4d7713438b0e78e3c5692b0f74df38c34faf1f25a",
+    "duration": 75.66,
+    "timeline": [
+      {
+        "segmentId": "e11f27272c5276f42b4abe02b7b392df0ddd5b7ac024d707f60df939932645a0",
+        "asset": "603aea1562f2d1a2cfd9101074cded5299e4b9c5e30aeaf2e3da16afb4d3cfb2",
+        "start": 0,
+        "end": 1.44,
+        "spans": [
+          {
+            "uid": "span_291f8676-707b-453a-a4ef-e66803208035",
+            "start": 0,
+            "end": 31
+          }
+        ]
+      },
+      {
+        "segmentId": "292c64ba3b25638df445fcf9f450201d3627feeb3ef43eef644f970210b7b410",
+        "asset": "0a2e738c04c3d081bb448fb4e7a72719272527893a13f569d977970f72a14856",
+        "start": 1.56,
+        "end": 4.2,
+        "spans": [
+          {
+            "uid": "span_0f148f45-a4a6-4aaf-99ae-1d8d69425cb7",
+            "start": 31,
+            "end": 73
+          }
+        ]
+      },
+      {
+        "segmentId": "d80010c71792e03057179530fb37ce36ec674aebc8f65c6e71631d18faef57ef",
+        "asset": "0b3798877d4969a425d1305a39a08df1a1a92f90d90e2395a8cc75dadf97cb4e",
+        "start": 4.32,
+        "end": 5.6,
+        "spans": [
+          {
+            "uid": "span_ca33435a-1e26-42e4-a3f5-a22e20d08bee",
+            "start": 73,
+            "end": 88
+          }
+        ]
+      },
+      {
+        "segmentId": "baa91b1c02421936d86e48ef6a1c9e705054a851feacc8d2d234987088ae2049",
+        "asset": "37e9f255fc72d8629e1a6e145ed8b9bf724bf9b167d0ccacf53e78927a6bb20a",
+        "start": 5.72,
+        "end": 6.36,
+        "spans": [
+          {
+            "uid": "span_cb0759af-6a0b-4f32-8148-5f81c1d208b2",
+            "start": 88,
+            "end": 99
+          }
+        ]
+      },
+      {
+        "segmentId": "2f2e9979c1f6da951c18d5eaa9546b14afe9afd4708a07d2e16d5a03ea34e219",
+        "asset": "f043d08b478a8a01f0594d3e9353d07ecc0c439a960c5fe2ed18247f3aa8cfa1",
+        "start": 6.48,
+        "end": 8.56,
+        "spans": [
+          {
+            "uid": "span_7e2bbaa6-87ff-4f86-ac55-36d4f8d5b3e4",
+            "start": 99,
+            "end": 130
+          }
+        ]
+      },
+      {
+        "segmentId": "03cdc78c88940fa83975c690613bc33fea2bfeda3614d61d69986e4edac56ea8",
+        "asset": "caebf81d8a553b916e8176b7643d3a642b427c7f2be944759842bd9932418ec3",
+        "start": 8.68,
+        "end": 8.78,
+        "spans": [
+          {
+            "uid": "span_b0981aef-c335-4f4c-95a3-70dd07b0be1c",
+            "start": 130,
+            "end": 132
+          }
+        ]
+      },
+      {
+        "segmentId": "757492f40430c6c05d3cd939c6decdc31eb84ae9d651981b1053de907ef98008",
+        "asset": "9c2aa85c4e0ec9cd6bf16c5f20daaad928d8d8ebe91cc22d2964ff2802ccce83",
+        "start": 8.9,
+        "end": 10.34,
+        "spans": [
+          {
+            "uid": "span_7366480d-13c7-42c3-8b13-8a2cde3d89d4",
+            "start": 132,
+            "end": 168
+          }
+        ]
+      },
+      {
+        "segmentId": "0b672a36068491220f4b94f80d0188c86654d76e41382711ca1d2d4ed2731206",
+        "asset": "dc7cf3745339abcf6b9b270f7c9612e4e6712ea4f976247bd16413939a81c79d",
+        "start": 10.46,
+        "end": 10.56,
+        "spans": [
+          {
+            "uid": "span_1964adf7-f094-4fb1-8352-c564051d38c6",
+            "start": 168,
+            "end": 170
+          }
+        ]
+      },
+      {
+        "segmentId": "31d685239a8af8fc937bafb03329e3372f4674438870d3b60379d26b430f6e62",
+        "asset": "a14da7774d455a5539f2ccf6ac0ab7d0d8e3cf4f14682f7c18fb859b0436c111",
+        "start": 10.68,
+        "end": 12.12,
+        "spans": [
+          {
+            "uid": "span_61d71380-1060-4ad7-8cf4-e98feefecdcf",
+            "start": 170,
+            "end": 192
+          }
+        ]
+      },
+      {
+        "segmentId": "2570021c9b51c2a8e0f411830e43577f6be04d368f8ff161a82276eb8ce380ab",
+        "asset": "873cf1ac817d682efa90d547f57bbd19478323ab49e39563cb6ac4af1babe454",
+        "start": 12.24,
+        "end": 12.34,
+        "spans": [
+          {
+            "uid": "span_ff2e3620-27fa-4e74-bfbf-e642113a7d2a",
+            "start": 192,
+            "end": 194
+          }
+        ]
+      },
+      {
+        "segmentId": "409b23a1318b1b175ab318d8542ccd28c27fd43da542c1b37fcc4f4d42cddf44",
+        "asset": "188c42b153b5a91ead7cb7da2ff48d6adebdafe33a1bfac39c05f76657d78a79",
+        "start": 12.46,
+        "end": 15.42,
+        "spans": [
+          {
+            "uid": "span_7f4151a7-d0bc-48a4-9d49-c0771db71073",
+            "start": 194,
+            "end": 260
+          }
+        ]
+      },
+      {
+        "segmentId": "0263871ec34dc49fec34104a91489fa0db60e698b76639d1129ea96bf40d3b4a",
+        "asset": "7b269fc971589145e6d3aa052fb8d709b199dcd58bd9887b29c566cc3aa23180",
+        "start": 15.54,
+        "end": 15.64,
+        "spans": [
+          {
+            "uid": "span_6879fde0-08ee-4f13-b26a-654930a85c60",
+            "start": 260,
+            "end": 262
+          }
+        ]
+      },
+      {
+        "segmentId": "997a2cf24e462e87cefdb6a2c4f0e224b94e07979e924cde23aad15a74219b3a",
+        "asset": "e81d462aba8a2d1af7d069e049be571b863197a4d1c3039b3c4489da95cdbbc3",
+        "start": 15.76,
+        "end": 18.8,
+        "spans": [
+          {
+            "uid": "span_e1d1098e-043b-4a2e-9820-48a0e30124a5",
+            "start": 262,
+            "end": 306
+          }
+        ]
+      },
+      {
+        "segmentId": "6bfb3671ec05588f272e3610ae1e4cf560c5e4c317ade3a7879cd2b8131111f7",
+        "asset": "d5d6cad89b410e05945173634485328f9ce2931af103ac170286f739e8bcf40a",
+        "start": 18.92,
+        "end": 21.88,
+        "spans": [
+          {
+            "uid": "span_2441eaa3-7046-4b87-b276-f9b285ca5bc8",
+            "start": 306,
+            "end": 354
+          }
+        ]
+      },
+      {
+        "segmentId": "14d1d8d44c1b34998cbb8322433a123031a3be5b5e9d84d9df356a1bf7c1e890",
+        "asset": "f821017c94e10d5f495b086c5f70120a50b7d3fd35a444cd860a432b48766488",
+        "start": 22,
+        "end": 36.64,
+        "spans": [
+          {
+            "uid": "span_53cddeea-7a4d-48fa-be91-4302394ac44e",
+            "start": 354,
+            "end": 593
+          }
+        ]
+      },
+      {
+        "segmentId": "f565823c7e3d10ca265ce3a5d1531914aa4ea364840e37a1820e05187914ad62",
+        "asset": "d3f7f0fdace3f9769c5ee641239d47221dde7c4919c19b7ccfffc20648ede2ec",
+        "start": 36.76,
+        "end": 41.8,
+        "spans": [
+          {
+            "uid": "span_ab9a3988-874f-40fc-808b-d6192b54a9d4",
+            "start": 593,
+            "end": 688
+          }
+        ]
+      },
+      {
+        "segmentId": "3b9898f537f0583ee75d049359a3f51752fbe9a7e376a7255143e03cb36ac1ed",
+        "asset": "96bb92a6b1da478fab33e3c974837ad78fded61ea6e978823b064b96fd3325e7",
+        "start": 41.92,
+        "end": 43.36,
+        "spans": [
+          {
+            "uid": "span_46c7daac-cacc-4a18-b9e8-a94c2ea1df60",
+            "start": 688,
+            "end": 711
+          }
+        ]
+      },
+      {
+        "segmentId": "4ea677335b83020bc558caeea7419b75a0f9a4e9b03fbc4d57a03655b5264bce",
+        "asset": "7bf7fc8fbe6deb22f885b95e440d19ba4dbffbf69dad5f074d227e6e344f0c0d",
+        "start": 43.48,
+        "end": 43.58,
+        "spans": [
+          {
+            "uid": "span_7e86b6b7-57de-4f50-a76b-45d651ae233b",
+            "start": 711,
+            "end": 713
+          }
+        ]
+      },
+      {
+        "segmentId": "8ba909314289fb602d37eb934888ec883e21799c3a859a6bd6544c24ceff3f2f",
+        "asset": "980d18e30d2a1ebddce3ea6e8fd126863a4a5c780f523b73dad03df65fcbbfa8",
+        "start": 43.7,
+        "end": 44.42,
+        "spans": [
+          {
+            "uid": "span_050f6ef7-d899-480d-9644-9db17e352523",
+            "start": 713,
+            "end": 719
+          }
+        ]
+      },
+      {
+        "segmentId": "4b97b70bf0b6141cb199bed940e7be00e471adfc81f5f9a1fb2a95d6aa3c59e9",
+        "asset": "60bcbe259d69be4c64be02e0d7f64ad4a3305b8f7a16a24bb917342ecdbb2e1a",
+        "start": 44.54,
+        "end": 45.58,
+        "spans": [
+          {
+            "uid": "span_dc5b11c6-9a6f-4293-8430-3ae1981af6df",
+            "start": 719,
+            "end": 733
+          }
+        ]
+      },
+      {
+        "segmentId": "ae17e28d6f04325ef3f3860a3e9a31d33b2bc24ed6187d6ee15c1b4626994c31",
+        "asset": "8fb5df78ea9234aa7e7fa695fa78dea2ed2542f66cda7ef081026bc7688f1fd9",
+        "start": 45.7,
+        "end": 47.22,
+        "spans": [
+          {
+            "uid": "span_107dd979-d581-4e40-96df-6385b4c04afe",
+            "start": 733,
+            "end": 765
+          }
+        ]
+      },
+      {
+        "segmentId": "81d019c788cb54d74972c62150d709a4ce358ee74fe4c17a73dc123f32fbcff7",
+        "asset": "dab0e0acc9e6a3baf3bcf0643556d2928693e97e3a72c1853846c3d0be662f6f",
+        "start": 47.34,
+        "end": 51.42,
+        "spans": [
+          {
+            "uid": "span_b496469e-07f3-4bc2-8ea0-c0f06d27cf0c",
+            "start": 765,
+            "end": 831
+          }
+        ]
+      },
+      {
+        "segmentId": "ddce29517fa0ea1fcab9bcd9f578bc4f752e63a4613ac2fea226d6abf121e70c",
+        "asset": "cfda27248daedc8c4085761e9d3829808271a778bc0d3d9a92e05d6f9e7df55d",
+        "start": 51.54,
+        "end": 53.62,
+        "spans": [
+          {
+            "uid": "span_3c550fb7-5bdc-4027-ae59-8180794470f1",
+            "start": 831,
+            "end": 854
+          }
+        ]
+      },
+      {
+        "segmentId": "872be84a49a9fbf9e0a39dba143f5a0b3c2283bb736e123052f245002926c536",
+        "asset": "8e48800d1d8d360d1bcce837d2118da01bc424a7bf2d22b1be0275333931b83d",
+        "start": 53.74,
+        "end": 57.5,
+        "spans": [
+          {
+            "uid": "span_74139192-e430-4538-9069-9e066a184aed",
+            "start": 854,
+            "end": 911
+          }
+        ]
+      },
+      {
+        "segmentId": "a13213bb4d5de7dc63e714356519b43407d126f614faf3228a503b35c00faa3e",
+        "asset": "5025c0d4fdfa97ad06159711c8bfe02337eb7209981be470859f02acf51d8e42",
+        "start": 57.62,
+        "end": 58.66,
+        "spans": [
+          {
+            "uid": "span_af429022-4f52-49dc-a30c-bfd9a9ba9bf3",
+            "start": 911,
+            "end": 923
+          }
+        ]
+      },
+      {
+        "segmentId": "1b40e13c7873b3277d7f3dbdd03314777b25941bd1daf67541bf8ad62b20ff29",
+        "asset": "68e637a0f5bb0bd48cb73af0c50fddd278bd9f81c4174502262f33d778a907dd",
+        "start": 58.78,
+        "end": 58.88,
+        "spans": [
+          {
+            "uid": "span_771eb4df-6b0c-4c9a-b492-72315b106c09",
+            "start": 923,
+            "end": 925
+          }
+        ]
+      },
+      {
+        "segmentId": "bb09df7b0a89a3223b5ed19346f7a9054bd78438be3c90066d06da1c7ef4d099",
+        "asset": "3dd725ccb6b0a08e32bbbcab33414c1e5f48189b1c5ab896d2cdc4241ff477a9",
+        "start": 59,
+        "end": 59.8,
+        "spans": [
+          {
+            "uid": "span_4c60a412-4c29-45d7-baba-c7425c8dd11e",
+            "start": 925,
+            "end": 938
+          }
+        ]
+      },
+      {
+        "segmentId": "413b0cda7af52c9256fd99a436f26c26ac643d94a4e9a50879ee8e500ebc3368",
+        "asset": "5e7493db7d4a334681792aba11fcd83e374102416db30231eb7235368e90f79f",
+        "start": 59.92,
+        "end": 61.28,
+        "spans": [
+          {
+            "uid": "span_a89b510d-3fa1-4090-b9f5-bfdd04dcdf68",
+            "start": 938,
+            "end": 959
+          }
+        ]
+      },
+      {
+        "segmentId": "9bc572e1b8604d3cf5fe09d0346add57c887c6659b8386316ecb511bfd6eb8ef",
+        "asset": "0b23ffe1d49bdd159e8473c4a14dadf96332bc68d34bd0a64953eb03f4e02297",
+        "start": 61.4,
+        "end": 66.92,
+        "spans": [
+          {
+            "uid": "span_4b7b14f0-efe5-4af3-b831-43946b99866b",
+            "start": 959,
+            "end": 1083
+          }
+        ]
+      },
+      {
+        "segmentId": "cb96b644b09b1b56e381d775a486d30ec3428ef58dd445ad194c66620867be54",
+        "asset": "269288a86b8af9d9564f1fd92381180ea6ee713924301d048a0503871c39017a",
+        "start": 67.04,
+        "end": 67.14,
+        "spans": [
+          {
+            "uid": "span_f6f59259-eacf-49ef-ad42-105f32ecf7df",
+            "start": 1083,
+            "end": 1085
+          }
+        ]
+      },
+      {
+        "segmentId": "3583f5d35fbc0793d159a5376c330cc6fbf8280ecd0fdc6f4c3bf30723cb1ec6",
+        "asset": "186dc4fa2da648d4f8c21aadc4d42584747498719dbce58a77e26ac4fb6ea21b",
+        "start": 67.26,
+        "end": 68.38,
+        "spans": [
+          {
+            "uid": "span_d080dfdd-d2e5-4e95-8402-d67e332907fc",
+            "start": 1085,
+            "end": 1094
+          }
+        ]
+      },
+      {
+        "segmentId": "3c59407b2c7be0c87e6ca803495e6bbcfc54663fa1196add38cbd0cb2cde830e",
+        "asset": "e3a462a7b9eb48d84fac259558d7bf797fad141818badc2ef5e05eac9f140b30",
+        "start": 68.5,
+        "end": 71.22,
+        "spans": [
+          {
+            "uid": "span_04861c02-7829-4465-a055-90c229ceb7a1",
+            "start": 1094,
+            "end": 1142
+          }
+        ]
+      },
+      {
+        "segmentId": "611fa25df71ed8d0ab4b42b27bdbea0c83633a171fd9d1abc663e842656507b6",
+        "asset": "809bef313a5901fd3813d84478892d1c847cc57c840975b77eb28a293bb13f3d",
+        "start": 71.34,
+        "end": 72.54,
+        "spans": [
+          {
+            "uid": "span_df07a9f7-e00b-4796-81e2-1f13c5a93460",
+            "start": 1142,
+            "end": 1166
+          }
+        ]
+      },
+      {
+        "segmentId": "1c38a4b8e0943692965a27f73e9240d666a426eaf2d401feac9dffd5c12010da",
+        "asset": "a3117daf251a476ee67ce49cb58a7ec5a85412d159ebe42bb8ecf4a35b726ffa",
+        "start": 72.66,
+        "end": 74.26,
+        "spans": [
+          {
+            "uid": "span_1d44e4a5-192d-4ceb-9672-84daf9ac3495",
+            "start": 1166,
+            "end": 1189
+          }
+        ]
+      },
+      {
+        "segmentId": "19658623fcea8c1b28e6f706ef7a078342f9e77cc9c556ca8f8bbb32e2ffac8c",
+        "asset": "93ea697bd0cc2baa9f64098867ca645e4dc99a51a85dd7d67599832f2fb3573b",
+        "start": 74.38,
+        "end": 75.66,
+        "spans": [
+          {
+            "uid": "span_b349ec64-594b-4aef-a9cc-2c7fd82f25f4",
+            "start": 1189,
+            "end": 1214
+          }
+        ]
+      }
+    ]
+  },
+  "generation": {
+    "provider": "qwen",
+    "model": "qwen-base",
+    "sourceSha256": "c3d69b65390d91a4c6227aa51733ad5567c2c54876a8676b82ac0bce29a582df",
+    "voices": {
+      "type": "Synthetic Breeze-designed references shared by the local models",
+      "designRevision": "3c8829fb7fd335818f085cd2ef49b4100c0e46c8",
+      "voices": {
+        "narrator": {
+          "sha256": "30338a699dda2d845a8460f8d362843982e5d69b722741a81e5070fb5c64a4f0",
+          "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+          "provenance": "Synthetic Breeze voice: A clear, measured adult male American audiobook narrator. Neutral scene description with natural sentence pacing; no exaggerated drama."
+        },
+        "spade": {
+          "sha256": "d9101c5b92e59753fc88e050e0c38b92cc23f6a79162555780eb0df1d7cc1d37",
+          "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+          "provenance": "Synthetic Breeze voice: An adult male American detective speaking with calm, dry confidence and clipped conversational phrasing. Original synthetic character, not an imitation of an actor."
+        },
+        "archer": {
+          "sha256": "4c7cfd5461e23ee7e2e6d397652c20f2d125e024a38d32c180ba520bace4aab0",
+          "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+          "provenance": "Synthetic Breeze voice: A middle-aged American man with a low, slightly rough and blunt conversational voice, confident and matter-of-fact. Original synthetic character."
+        },
+        "wonderly": {
+          "sha256": "5a6b311d9ae99b0242a85341b727fc81851f8c84d0408486ffa921acbe209c1e",
+          "transcript": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival.",
+          "provenance": "Synthetic Breeze voice: An adult American woman with a soft clear voice, controlled anxiety and polite, increasingly urgent appeals. Natural conversational delivery without breathy whispering."
+        }
+      }
+    },
+    "generatedAt": "2026-10-18T00:52:53.212Z"
+  },
+  "review": {
+    "audioSha256": "4866bc6f2f4ca5db883437c4d7713438b0e78e3c5692b0f74df38c34faf1f25a",
+    "sourceSha256": "85c8151966ae764a96bcef70d3d93f47e4c3917f0689467f60bdd222d9af5ab3",
+    "model": "mlx-community/whisper-large-v3-turbo",
+    "revision": "a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb",
+    "transcript": " What does he do for a living? Spade asked as he laid down his pencil. I don't know, she said. I haven't the slightest idea. What time is he coming to see you? After eight o'clock. All right, Miss Wonderly, we'll have a man there. It'll help if... Mr. Spade, could either you or Mr. Archer... She made an appealing gesture with both hands. Could either of you look after it personally? I don't mean that the man you'd send wouldn't be capable, but... Oh, I'm so afraid of what might happen to Corinne. I'm afraid of him. Could you? I'd be... I'd expect to be charged more, of course. She opened her handbag with nervous fingers and put $200 bills on Spade's desk. Would that be enough? Yeah, Archer said. And I'll look after it myself. Miss Wonderly stood up, impulsively holding a hand out to him. Thank you. Thank you. She exclaimed, and then gave Spade her hand, repeating, Thank you. Not at all. Spade said over it. Glad to. It'll help some if you either meet Thursby downstairs or let yourself be seen in the lobby with him at some time. I will. She promised, and thanked the partners again. And don't look for me. Archer cautioned her. I'll see you all right.",
+    "wordErrorRate": 0.027522935779816515,
+    "differences": [
+      {
+        "operation": "insert",
+        "source_word_index": null,
+        "asr_word_index": 35,
+        "expected": null,
+        "recognized": "o",
+        "start_seconds": 11.58,
+        "end_seconds": 11.72,
+        "timing_note": null
+      },
+      {
+        "operation": "replace",
+        "source_word_index": 35,
+        "asr_word_index": 36,
+        "expected": "o'clock",
+        "recognized": "clock",
+        "start_seconds": 11.72,
+        "end_seconds": 11.98,
+        "timing_note": null
+      },
+      {
+        "operation": "delete",
+        "source_word_index": 119,
+        "asr_word_index": null,
+        "expected": "two",
+        "recognized": null,
+        "start_seconds": 39.68,
+        "end_seconds": 40.18,
+        "timing_note": "Neighbor boundary only"
+      },
+      {
+        "operation": "delete",
+        "source_word_index": 120,
+        "asr_word_index": null,
+        "expected": "hundred",
+        "recognized": null,
+        "start_seconds": 39.68,
+        "end_seconds": 40.18,
+        "timing_note": "Neighbor boundary only"
+      },
+      {
+        "operation": "replace",
+        "source_word_index": 121,
+        "asr_word_index": 120,
+        "expected": "dollar",
+        "recognized": "200",
+        "start_seconds": 39.68,
+        "end_seconds": 40.18,
+        "timing_note": null
+      },
+      {
+        "operation": "replace",
+        "source_word_index": 130,
+        "asr_word_index": 129,
+        "expected": "yeh",
+        "recognized": "yeah",
+        "start_seconds": 43.7,
+        "end_seconds": 44.26,
+        "timing_note": null
+      }
+    ],
+    "limitation": "Automated transcript evidence only; no human listening or acting-quality rating is claimed."
+  }
+}

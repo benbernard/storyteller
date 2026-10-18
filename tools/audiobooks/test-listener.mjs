@@ -45,8 +45,8 @@ const server = createServer(async (req, res) => {
     if (range) { res.statusCode = 206; res.setHeader('Content-Range', `bytes ${start}-${end}/${wave.length}`); }
     res.setHeader('Content-Length', end - start + 1); res.end(wave.subarray(start, end + 1)); return;
   }
-  const name = path === '/listen/app.js' ? 'app.js' : path === '/listen/style.css' ? 'style.css' : 'index.html';
-  res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html');
+  const name = path === '/listen/app.js' ? 'app.js' : path === '/listen/style.css' ? 'style.css' : path === '/listen/storyteller-mark.png' ? 'storyteller-mark.png' : 'index.html';
+  res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.png') ? 'image/png' : 'text/html');
   res.end(await readFile(new URL(`./listener-web/${name}`, import.meta.url)));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

@@ -117,7 +117,7 @@ In a separate terminal, from the repository root:
 node scripts/worker.mjs
 ```
 
-Now open Listener → **Tools → Source library**, paste a public Royal Road URL,
+Now open Storyteller → **Tools → Source library**, paste a public Royal Road URL,
 and choose:
 
 - **Download text only** to save chapters without analysis or speech.

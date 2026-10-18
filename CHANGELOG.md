@@ -1,5 +1,15 @@
 # Changes
 
+## 0.3.1
+
+Renames the project and its web/Android listener to Storyteller, with a shared
+Bookwave icon for the README, browser, launcher, and app screens. Existing app
+identity, pairing, progress, downloads, and source directories are retained.
+
+Adds a credited public-domain dialogue sample with generated Breeze, Qwen, and
+Inworld editions, passage timings, transcript evidence, and a checked installer.
+The README quick start plays this sample without keys or model downloads.
+
 ## 0.2.0
 
 Adds the standalone Breeze renderer, synthetic voice design, pinned Mac/review

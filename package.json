@@ -1,5 +1,5 @@
 {
-  "name": "audiobook-system",
+  "name": "storyteller",
   "private": true,
   "type": "module",
   "license": "PolyForm-Noncommercial-1.0.0",
@@ -7,7 +7,8 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "build": "pnpm -C tools/royal-road build && pnpm -C tools/audiobooks build && pnpm -C tools/mac-tts build",
-    "test": "pnpm -C tools/royal-road test && pnpm -C tools/audiobooks test && pnpm -C tools/mac-tts test",
-    "demo": "node scripts/demo.mjs"
+    "test": "pnpm -C tools/royal-road test && pnpm -C tools/audiobooks test && pnpm -C tools/mac-tts test && node scripts/test-sample.mjs",
+    "demo": "node scripts/demo.mjs",
+    "sample": "node scripts/install-sample.mjs"
   }
 }

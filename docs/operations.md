@@ -16,7 +16,7 @@ loads `.env`; you can change these values there:
 | `AUDIOBOOK_ANALYSIS_MODEL` | Placeholder | Explicit local-worker analysis model |
 | `OPENAI_API_KEY`, `ELEVENLABS_API_KEY` | Empty | Paid CLI credentials |
 
-Restart Listener after changing its configuration. Its password comes from
+Restart Storyteller after changing its configuration. Its password comes from
 `data/credentials/listener-password`, not an environment variable. Rotate it by
 replacing that file with a new random password of at least 24 characters and
 recreating the container. Keep the username stable: changing it creates a different
@@ -30,7 +30,7 @@ put your own HTTPS reverse proxy in front of it and set `LISTENER_PUBLIC_URL` to
 that exact origin, with no path or trailing slash. Preserve the public `Host`,
 `Authorization`, `Origin`, and Range request headers. Route both `/listen/` and
 `/api/listener/` to the same server, and do not cache private responses. The root
-path redirects to Listener.
+path redirects to Storyteller.
 
 For a reverse proxy running on the host, forward to `http://127.0.0.1:8080`.
 For example, a host Caddy configuration can contain:
@@ -91,10 +91,33 @@ Restore into an empty `data/` directory while all writers are stopped. Restore
 read and write their mounts. Start the listener and inspect a known chapter's
 reading text, audio seek, and saved progress before resuming generation.
 
+## Moving from Audiobook System to Storyteller
+
+The GitHub repository is now `benbernard/storyteller`. For an existing checkout:
+
+```sh
+git remote set-url origin git@github.com:benbernard/storyteller.git
+```
+
+The Compose project and image are now named `storyteller`. After backing up and
+stopping generation, stop the previous containers before starting the renamed
+project to avoid a port conflict:
+
+```sh
+docker compose -p audiobook-system down
+docker compose build listener
+docker compose up -d --wait listener
+```
+
+Keep the same `.env` and `data/` directory. Data paths, server routes, passwords,
+paired devices, and Android application ID are unchanged. The Android launcher
+and in-app name now read Storyteller. Retain your signing key and raise your
+release version code when distributing an update.
+
 ## Updates and troubleshooting
 
 To update code, stop generation, take a backup, pull the desired Git revision,
-rebuild the Docker image and local TypeScript packages, and recreate Listener.
+rebuild the Docker image and local TypeScript packages, and recreate Storyteller.
 Keep model locks and recorded story revisions together. Review casting before
 changing a model revision or replacing reference audio.
 

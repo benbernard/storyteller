@@ -1,0 +1,28 @@
+{
+  "voices": [
+    {
+      "role": "narrator",
+      "instruction": "A clear, measured adult male American audiobook narrator. Neutral scene description with natural sentence pacing; no exaggerated drama.",
+      "seed": 1101,
+      "text": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival."
+    },
+    {
+      "role": "anonymous",
+      "instruction": "An adult American woman with a soft clear voice, controlled anxiety and polite, increasingly urgent appeals. Natural conversational delivery without breathy whispering.",
+      "seed": 2202,
+      "text": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival."
+    },
+    {
+      "role": "spade",
+      "instruction": "An adult male American detective speaking with calm, dry confidence and clipped conversational phrasing. Original synthetic character, not an imitation of an actor.",
+      "seed": 3303,
+      "text": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival."
+    },
+    {
+      "role": "archer",
+      "instruction": "A middle-aged American man with a low, slightly rough and blunt conversational voice, confident and matter-of-fact. Original synthetic character.",
+      "seed": 4404,
+      "text": "The city had grown quiet by the time we reached the station. A lamp burned beside the door, and someone inside was waiting for our arrival."
+    }
+  ]
+}

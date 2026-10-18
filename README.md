@@ -1,4 +1,6 @@
-# Audiobook System
+# Storyteller
+
+<img src="tools/audiobooks/listener-web/storyteller-mark.png" alt="Storyteller: an open book becoming sound waves" width="160" height="160">
 
 Turn chapter text into a cast of persistent voices, generate chapter audio, and
 listen on the web or Android with reading text and synced progress.
@@ -31,18 +33,18 @@ Local **speech** runs on your Mac. Speaker analysis still uses your configured
 Codex subscription or an explicitly enabled OpenAI API workflow. It is not a
 fully offline generation pipeline.
 
-## Start here: run the listener demo
+## Start here: hear the sample
 
 You need Git, Node.js 22.13 or newer, and Docker with Compose v2. On macOS or
 Windows, start Docker Desktop first. The commands below use a POSIX shell; on
 Windows, use WSL2 for these scripts. Local speech requires Apple Silicon macOS.
 
 ```sh
-git clone https://github.com/benbernard/audiobook-system.git
-cd audiobook-system
+git clone https://github.com/benbernard/storyteller.git
+cd storyteller
 node scripts/setup.mjs
 docker compose build listener
-docker compose run --rm demo
+docker compose run --rm sample
 docker compose up -d --wait listener
 ```
 
@@ -50,10 +52,14 @@ Open **<http://localhost:8080/listen/>**. Sign in as `listener` using the passwo
 in `data/credentials/listener-password`. Read that file locally or open it in your
 editor. Keep it private.
 
-The demo publishes an original short scene with **silent synthetic audio**. Use
-it to try the library, reader, seeking, and saved progress. It does not call an AI
-provider, read provider keys, or demonstrate voice quality. Repeating the demo
-reuses its recording. It lives in its own `lantern-pilot` story.
+The sample includes real **Breeze, Qwen, and Inworld** editions of a dialogue scene
+from *The Maltese Falcon* (1930, United States public domain in 2026). Open the
+book and switch editions to compare them. No provider account or Mac speech
+runtime is needed to play these bundled recordings. See the
+[sample, transcript, rights, and reproduction notes](samples/maltese-falcon/README.md).
+
+For a separate silent infrastructure fixture, run `docker compose run --rm demo`.
+It publishes an original scene in its own `lantern-pilot` story.
 
 `setup.mjs` creates `.env`, private state directories, and a random password. It
 preserves existing files and records your UID/GID for Docker volume ownership.
@@ -93,7 +99,7 @@ writable progress directory. Only generation processes receive provider keys.
 
 ## Scope and current limits
 
-This is a technical self-hosting project. The listener demo is the shortest setup;
+This is a technical self-hosting project. The bundled sample is the shortest setup;
 local voice casting and Android builds require additional steps. The public
 edition has one household browser account, with separately paired devices.
 It does not include the original BookOrbit deployment, private browser-account
@@ -103,8 +109,9 @@ optional and is not provisioned by Compose. Breeze runs selected chapters as
 explicit jobs. Qwen provides automatic follows. Other retained Mac adapters are
 advanced, separately configured tools.
 
-No chapter archives, generated books, personal listening history, voice samples,
-model weights, or credentials are distributed here. The software license does not
+The only distributed speech is the credited public-domain preview above. No
+private chapter archives, books, listening history, reference recordings, model
+weights, or credentials are distributed here. The software license does not
 grant rights to books, voices, or provider services. Use material and voice
 references you have permission to process; review a provider's terms before
 sharing generated recordings.

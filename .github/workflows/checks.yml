@@ -38,6 +38,8 @@ jobs:
           docker compose build listener
           docker compose run --rm demo
           docker compose run --rm demo
+          docker compose run --rm sample
+          docker compose run --rm sample
           node scripts/smoke.mjs
   android:
     runs-on: ubuntu-24.04

@@ -96,7 +96,7 @@ docker compose run --rm cli publish --batch first-chapter --edition v3 \
   --title 'My book' --author 'Author'
 ```
 
-Open Listener and select the published book. Publication verifies assemblies and
+Open Storyteller and select the published book. Publication verifies assemblies and
 does not call a provider. Use `eleven_v3` with scene grouping for multi-voice
 requests, or `eleven_flash_v2_5` for separate single-voice requests. Flash rejects
 v3 acting tags. Name editions consistently: the `v3` and `flash` names have model

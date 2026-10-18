@@ -7,6 +7,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.ImageBitmap
@@ -70,7 +73,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     Row(Modifier.fillMaxSize()) {
         if (expanded && state.connected) NavigationRail {
             Spacer(Modifier.height(16.dp))
-            Image(painterResource(R.drawable.listener_mascot), null, Modifier.size(48.dp))
+            StorytellerMark(48.dp)
             Spacer(Modifier.height(24.dp))
             destinations.forEach { (index, label, icon) -> NavigationRailItem(selected = (tab == index || (index == 4 && tab in listOf(2, 3))), onClick = { navigate(index) }, icon = { Icon(icon, null) }, label = { Text(label) }, modifier = Modifier.padding(vertical = 4.dp)) }
         }
@@ -81,8 +84,8 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
         }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().padding(horizontal = if (expanded) 24.dp else 16.dp)) {
             if (tab != 1 || !state.connected || state.selection == null) Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (!expanded) { Image(painterResource(R.drawable.listener_mascot), null, Modifier.size(40.dp)); Spacer(Modifier.width(10.dp)) }
-                Text("Listener", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                if (!expanded) { StorytellerMark(40.dp); Spacer(Modifier.width(10.dp)) }
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 if (state.connected) {
                     IconButton(onClick = onRefresh, enabled = !state.loading) { Icon(Icons.Default.Refresh, "Sync library") }
                     var accountMenu by remember { mutableStateOf(false) }
@@ -93,7 +96,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
             if (state.pending > 0) Text("${state.pending} issue reports waiting to sync", style = MaterialTheme.typography.labelMedium)
             if (!state.connected) {
                 Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.Center) {
-                    Image(painterResource(R.drawable.listener_mascot), null, Modifier.size(112.dp).clip(RoundedCornerShape(28.dp)))
+                    StorytellerMark(112.dp)
                     Text("Pick up the story", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 24.dp))
                     Text("Connect your account to listen, save your place, and mark anything that needs fixing.", Modifier.padding(vertical = 16.dp))
                     if (state.pairCode.isNotEmpty()) Text(state.pairCode, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 16.dp))
@@ -347,7 +350,7 @@ private fun PlayerPanel(state: ListenerUiState, onToggle: () -> Unit, onSeek: (D
     var more by remember { mutableStateOf(false) }
     if (selected == null) {
         Column(modifier, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(painterResource(R.drawable.listener_mascot), null, Modifier.size(112.dp))
+            StorytellerMark(112.dp)
             Text("A story is waiting", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 20.dp))
             Text("Choose a chapter from your library.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -487,5 +490,13 @@ private fun StoryCover(story: String, modifier: Modifier) {
     Box(modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
         if (cover != null) Image(cover!!, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Icon(Icons.AutoMirrored.Filled.LibraryBooks, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+    }
+}
+
+/** Decorative beside the visible app name or connection heading. */
+@Composable
+private fun StorytellerMark(size: Dp) {
+    Box(Modifier.size(size).background(colorResource(R.color.ic_launcher_background), RoundedCornerShape(size / 4)).padding(size / 12)) {
+        Image(painterResource(R.drawable.storyteller_mark), null, Modifier.fillMaxSize())
     }
 }

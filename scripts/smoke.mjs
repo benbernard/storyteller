@@ -13,7 +13,8 @@ const origin='http://127.0.0.1:'+port;
 try{
  await mkdir(join(temp,'fictions'));await mkdir(join(temp,'listener'));await mkdir(join(temp,'archive'));
  await cp('data/fictions/lantern-pilot',join(temp,'fictions/lantern-pilot'),{recursive:true});
- const args=['run','-d','--name',name,'--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user',String(process.getuid?.() ?? 1000)+':'+String(process.getgid?.() ?? 1000),'-p','127.0.0.1:'+port+':8080','-e','LISTENER_PUBLIC_URL='+origin,'-v',join(temp,'fictions')+':/fictions:ro','-v',join(temp,'listener')+':/listener','-v',join(temp,'archive')+':/archive:ro','-v',join(root,'data/credentials/listener-password')+':/credential/listener-password:ro','--entrypoint','node','audiobook-system:local','dist/listener.js'];
+ await cp('data/fictions/maltese-falcon-sample',join(temp,'fictions/maltese-falcon-sample'),{recursive:true});
+ const args=['run','-d','--name',name,'--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user',String(process.getuid?.() ?? 1000)+':'+String(process.getgid?.() ?? 1000),'-p','127.0.0.1:'+port+':8080','-e','LISTENER_PUBLIC_URL='+origin,'-v',join(temp,'fictions')+':/fictions:ro','-v',join(temp,'listener')+':/listener','-v',join(temp,'archive')+':/archive:ro','-v',join(root,'data/credentials/listener-password')+':/credential/listener-password:ro','--entrypoint','node','storyteller:local','dist/listener.js'];
  command(args);
  let ready=false;for(let i=0;i<120;i++){try{if((await fetch(origin+'/healthz')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}assert(ready,'Listener startup');
  assert.equal((await fetch(origin+'/listen/library')).status,401);
@@ -21,6 +22,10 @@ try{
  const headers={Authorization:'Basic '+Buffer.from('listener:'+password).toString('base64')};
  const library=await fetch(origin+'/listen/library',{headers});assert.equal(library.status,200);
  const data=await library.json();const book=data.books.find(b=>b.id==='lantern-pilot');assert(book,'Demo book present');
+ const page=await fetch(origin+'/listen/',{headers});assert.match(await page.text(),/<title>Storyteller<\/title>/);
+ const icon=await fetch(origin+'/listen/storyteller-mark.png',{headers});assert.equal(icon.headers.get('content-type'),'image/png');assert.equal(Buffer.from(await icon.arrayBuffer()).subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+ const real=data.books.find(b=>b.id==='maltese-falcon-sample');assert(real,'Spoken sample present');
+ for(const edition of ['breeze','qwen','inworld']){const c=real.editions[edition].chapters[0],prefix='/listen/stories/'+real.id+'/'+edition+'/';const r=await fetch(origin+prefix+'text/'+c.assembly,{headers});assert.equal(r.status,200);assert.match((await r.json()).text,/What does he do for a living/);const a=await fetch(origin+prefix+'audio/'+c.assembly,{headers:{...headers,Range:'bytes=0-15'}});assert.equal(a.status,206);assert.equal((await a.arrayBuffer()).byteLength,16);}
  const chapter=book.editions.v3.chapters[0];
  const prefix='/listen/stories/lantern-pilot/v3/';
  const text=await fetch(origin+prefix+'text/'+chapter.assembly,{headers});assert.equal(text.status,200);assert((await text.json()).passages.length>0);

@@ -35,3 +35,8 @@ derivatives and self-hosted output. Review those terms separately. Neither this
 package nor its PolyForm license grants permission to use model weights outside
 their own license. Inworld and ElevenLabs access and output also remain subject
 to the provider terms.
+
+The bundled Maltese Falcon excerpt is United States public-domain source text,
+not first-party prose. The new synthetic recordings have separate model/provider
+conditions. See [the sample rights and provenance](samples/maltese-falcon/README.md#source-and-rights).
+The Bookwave mark was generated for this project; see [branding](docs/branding.md).
