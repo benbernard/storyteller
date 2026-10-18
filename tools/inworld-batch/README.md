@@ -26,7 +26,9 @@ On-Demand accounts. The 9,500-character packing cap remains below that plan's
 ## Requirements
 
 Use Node 22+, Python 3.11+, ffmpeg, rsync and SSH. The current ASR adapter uses
-Apple MLX and the existing pinned Whisper environments, with CPU as its default. The phoneme
+Apple MLX and the existing pinned Whisper environments. Standalone review defaults
+to CPU. Installed Mac jobs try a GPU lease for each ASR run and use CPU if the GPU
+is busy. The phoneme
 adapter needs the pinned wav2vec2 model and its Python environment. Other hosts
 can supply compatible review adapters in a future change. Build the helper:
 
@@ -84,6 +86,11 @@ should set `INWORLD_REVIEW_DEVICE=gpu` and `INWORLD_REVIEW_GPU_LEASE=1`. Status 
 saved separately in `review-ahead-status.json`; the main worker's status and locks
 are preserved. Re-running skips completed evidence and discovers newly generated
 chapters.
+
+The main worker leases the GPU only for its ASR subprocess, releasing it before
+phoneme checks and subscription review. Its `--auto` wrapper falls back to CPU
+only before GPU work starts. A failed or interrupted GPU run never starts another
+CPU run automatically. Models, precision and evidence checks remain unchanged.
 
 ## Visual redactions
 
@@ -244,6 +251,30 @@ The passage remains held after application. Run the same committed runner with
 `QUEUE --process-only CHAPTER_ID` for fresh full-passage ASR, independent phonemes
 and subscription adjudication. Changed audio cannot reuse the earlier acceptance.
 Publication still requires the normal quality and NAS verification checks.
+
+If fresh QA rejects an older edit that lacked symbol-aware evidence, restore its
+exact retained base audio and receipt with `--rollback REJECTED_PLAN_HASH`.
+The rollback keeps the failed audio, plan and QA. A single `--legacy-correction`
+may then propose a strictly narrower cut inside the rejected interval, from the
+same original child and base. It requires the rollback proof, both raw ASRs and
+unprompted phonemes to preserve required spoken symbols such as `+`. Review its
+new hash before adding `--apply REVIEWED_PLAN_HASH --legacy-correction`.
+Further corrections and cumulative edits are refused.
+
+### Recovering decorative combining overlays
+
+The explicit runner mode `QUEUE --recover-overlays CHAPTER_ID PASSAGE_ID` removes
+only U+0334–U+0338 decorative marks from an exhausted passage's derived requests.
+It uses the same stopped-supervisor, worker and chapter locks and spending ledger.
+Each affected child gets one submission; unaffected child audio stays unchanged.
+The source, queued input and ordinary retake counters remain intact. Fresh whole
+passage dual ASR, independent phonemes and subscription review remain required.
+An unsuccessful recovery cannot purchase another attempt.
+
+New inputs pin `visual-redactions-and-overlays-v1`, removing those overlays before
+rendering full-block redaction runs. UTF-16 maps and hashes bind each change to the
+source. Legacy inputs and previously pinned rendering policies reproduce their
+original hashes. Cached ASR comparison also retains `+` as the spoken word “plus.”
 
 `supervisor-status.json` records stage, heartbeat, retry attempts and final status.
 Its `lanes` object retains each preparation and rendering stage's health, error

@@ -5,9 +5,10 @@ import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 // The local speech service owns GPU arbitration. Never stop or steal its work.
-export async function withReviewGpu({call, command, args=[], renewMs=30000, killMs=3000}) {
+async function withOwnedReview({call, command, args=[], renewMs=30000, killMs=3000, device='gpu'},state={started:false}) {
  const owner=randomUUID();
- await call('/v1/lease',{owner,seconds:120},owner);
+ try{await call('/v1/lease',{owner,seconds:120},owner);}
+ catch(error){throw Object.assign(error,{code:'GPU_REVIEW_UNAVAILABLE'});}
  let child, timer, killTimer, renewal, failure, closing=false;
  const signal=name=>{if(child?.pid)try{process.kill(-child.pid,name);}catch(error){if(error.code!=='ESRCH')throw error;}};
  const stop=()=>{
@@ -28,10 +29,13 @@ export async function withReviewGpu({call, command, args=[], renewMs=30000, kill
  };
  try {
   const status=await call('/v1/status',undefined,owner);
-  if(status.active || status.queued)throw Error('Local GPU has active or queued work');
-  child=spawn(command,args,{stdio:'inherit',detached:true,env:{...process.env,INWORLD_REVIEW_DEVICE:'gpu',INWORLD_REVIEW_GPU_LEASE:'1'}});
+  if(status.active || status.queued)throw Object.assign(Error('Local GPU has active or queued work'),{code:'GPU_REVIEW_UNAVAILABLE'});
+  const env={...process.env,INWORLD_REVIEW_DEVICE:device};
+  if(device==='gpu')env.INWORLD_REVIEW_GPU_LEASE='1';else delete env.INWORLD_REVIEW_GPU_LEASE;
+  child=spawn(command,args,{stdio:'inherit',detached:true,env});
+  state.started=true;
   const finished=new Promise((done,reject)=>{child.once('error',reject);child.once('exit',(code,sig)=>done({code,sig}));});
-  process.once('SIGINT',stop);process.once('SIGTERM',stop);
+  process.on('SIGINT',stop);process.on('SIGTERM',stop);
   timer=setInterval(()=>{
    if(renewal || closing)return;
    renewal=call('/v1/lease',{owner,seconds:120},owner).catch(()=>{
@@ -42,17 +46,36 @@ export async function withReviewGpu({call, command, args=[], renewMs=30000, kill
   if(failure)throw failure;
   if(result.code!==0)throw Error('GPU review failed '+(result.code??result.sig));
  } finally {
-  closing=true;clearInterval(timer);process.removeListener('SIGINT',stop);process.removeListener('SIGTERM',stop);
-  if(renewal)await renewal;
-  try{await drainGroup();}finally{clearTimeout(killTimer);}
-  await call('/v1/lease/release',{owner},owner);
+  closing=true;clearInterval(timer);
+  try{
+   if(renewal)await renewal;
+   try{await drainGroup();}finally{clearTimeout(killTimer);}
+   await call('/v1/lease/release',{owner},owner);
+   if(failure)throw failure;
+  }finally{
+   process.removeListener('SIGINT',stop);process.removeListener('SIGTERM',stop);
+  }
+ }
+}
+
+export async function withReviewGpu(options){return await withOwnedReview(options);}
+
+/** Fall back only before a GPU child starts, never after partial GPU work. */
+export async function withAutomaticReview(options){
+ const state={started:false};
+ try{return await withOwnedReview(options,state);}
+ catch(error){
+  if(error.code!=='GPU_REVIEW_UNAVAILABLE'||state.started)throw error;
+  return await withOwnedReview({...options,device:'cpu',call:async()=>({})});
  }
 }
 
 if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
  try {
-  const [, ,credentialPath,separator,command,...args]=process.argv;
-  if(!credentialPath || separator!=='--' || !command)throw Error('Usage: review-gpu.mjs CREDENTIAL_JSON -- COMMAND [ARGS]');
+  const [credentialPath,...rest]=process.argv.slice(2),automatic=rest[0]==='--auto';
+  if(automatic)rest.shift();
+  const [separator,command,...args]=rest;
+  if(!credentialPath || separator!=='--' || !command)throw Error('Usage: review-gpu.mjs CREDENTIAL_JSON [--auto] -- COMMAND [ARGS]');
   let credential=JSON.parse(await fs.readFile(credentialPath,'utf8'));
   if(Array.isArray(credential))credential={endpoint:'http://127.0.0.1:8788',token:credential[0]?.token};
   const endpoint=new URL(credential.endpoint);
@@ -62,6 +85,6 @@ if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url))
    if(!response.ok)throw Error('Local GPU lease request refused HTTP '+response.status);
    return response.json();
   };
-  await withReviewGpu({call,command,args});
+  await (automatic?withAutomaticReview:withReviewGpu)({call,command,args});
  } catch(error) {console.error(error.message);process.exitCode=1;}
 }

@@ -11,7 +11,7 @@ import unittest
 from typing import Optional
 from unittest.mock import patch
 
-from review import ReviewItem, compare, review_device, review_items, save_json
+from review import ReviewItem, compare, review_device, review_items, save_json, visible_base_text, words
 
 
 class ReviewTests(unittest.TestCase):
@@ -112,6 +112,67 @@ class ReviewTests(unittest.TestCase):
         before = (self.root / 'review' / 'first.json').read_bytes()
         self.calls.clear()
         self.run_review()
+        self.assertEqual(self.calls, [])
+        self.assertEqual((self.root / 'review' / 'first.json').read_bytes(), before)
+
+    def test_plus_qualifier_is_audible_content(self) -> None:
+        self.assertEqual(words('Grade E+.'), ['grade', 'e', 'plus'])
+        self.assertEqual(compare('Grade E+.', 'Grade E plus.')['changes'], [])
+        self.assertTrue(compare('Grade E+.', 'Grade E.')['changes'])
+        self.assertEqual(words('C++ and 2+3'), ['c', 'plus', 'plus', 'and', 'two', 'plus', 'three'])
+        self.assertEqual(words('<break time="+1s"/> Grade E+'), ['grade', 'e', 'plus'])
+
+    def test_combining_overlays_compare_visible_letters_without_omitting_symbols_or_accents(self) -> None:
+        source = 'S\u0334\u0337e\u0335a\u0336l\u0338ed E+ 4\u0338.'
+        self.assertEqual(visible_base_text(source), 'Sealed E+ 4.')
+        self.assertEqual(words(source), ['sealed', 'e', 'plus', 'four'])
+        self.assertEqual(compare(source, 'Sealed E plus four')['changes'], [])
+        self.assertTrue(compare(source, 'Sealed E four')['changes'])
+        unchanged = 'é a\u0301 n\u0303 ? ██'
+        self.assertEqual(visible_base_text(unchanged), unchanged)
+        self.assertEqual(visible_base_text('\u0334“\u0335A\u0336 \u0337B\u0338.”'), '“A B.”')
+
+    def test_legacy_overlay_report_recompares_raw_asr_and_keeps_original_expected(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'S\u0334e\u0337aled E+.'}
+        digest = hashlib.sha256(b'first').hexdigest()
+        (self.root / 'review').mkdir()
+        (self.root / 'review-checkpoints').mkdir()
+        attempts = [{'model': self.models[0], 'transcript': 'Sealed E plus.', 'changes': [{'kind': 'replace'}],
+                     'major': True, 'needsStronger': True, 'wordRecall': 0}]
+        save_json(self.root / 'review' / 'first.json', {'sha256': digest, 'expected': item['spokenText'],
+                  'attempts': attempts, 'severity': 'major', 'comparisonPolicy': 'spoken-plus-v1'})
+        save_json(self.root / 'review-checkpoints' / 'first.json', {'sha256': digest,
+                  'expected': item['spokenText'], 'models': self.models, 'attempts': attempts, 'renderingContext': None})
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, self.transcribe)
+        report = self.read_report('first')
+        self.assertEqual(self.calls, [])
+        self.assertEqual(report['overlayComparisonPolicy'], 'combining-overlay-v1')
+        self.assertEqual(report['expected'], item['spokenText'])
+        self.assertEqual(report['severity'], 'pass')
+
+    def test_legacy_plus_report_recompares_saved_raw_asr_without_repeating_inference(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'Grade E+.'}
+        digest = hashlib.sha256(b'first').hexdigest()
+        (self.root / 'review').mkdir()
+        (self.root / 'review-checkpoints').mkdir()
+        attempts = [{'model': model, 'transcript': 'Grade E.', 'changes': [], 'major': False,
+                     'needsStronger': False, 'wordRecall': 1} for model in self.models]
+        save_json(self.root / 'review' / 'first.json', {'sha256': digest, 'expected': item['spokenText'],
+                  'attempts': attempts, 'severity': 'pass'})
+        save_json(self.root / 'review-checkpoints' / 'first.json', {'sha256': digest,
+                  'expected': item['spokenText'], 'models': self.models, 'attempts': attempts, 'renderingContext': None})
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, self.transcribe)
+        report = self.read_report('first')
+        self.assertEqual(self.calls, [])
+        self.assertEqual(report['comparisonPolicy'], 'spoken-plus-v1')
+        self.assertNotEqual(report['severity'], 'pass')
+        self.assertEqual(report['expected'], 'Grade E+.')
+        self.assertTrue(report['attempts'][-1]['changes'])
+        before = (self.root / 'review' / 'first.json').read_bytes()
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, self.transcribe)
         self.assertEqual(self.calls, [])
         self.assertEqual((self.root / 'review' / 'first.json').read_bytes(), before)
 
@@ -222,6 +283,37 @@ class ReviewTests(unittest.TestCase):
                 self.run_review()
         self.assertEqual(self.calls, [])
         self.assertFalse((self.root / 'review' / 'first.json').exists())
+
+    def test_overlay_recovery_requires_both_fresh_whole_parent_models_even_when_small_matches(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'S\u0334e\u0337aled E+.'}
+        context: dict[str, object] = {'comparisonExpected': 'Sealed E+.',
+                                      'renderingProof': {'policy': 'combining-overlay-v1', 'fingerprint': 'bound-source-proof'}}
+
+        def loader(root: Path, current: ReviewItem, digest: str) -> dict[str, object]:
+            self.assertEqual(current, item)
+            return {**context, 'audioSha256': digest}
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            return 'Sealed E plus.'
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-small'), ('first', 'pinned-large')])
+        report = self.read_report('first')
+        self.assertEqual(report['expected'], item['spokenText'])
+        self.assertEqual(report['comparisonExpected'], 'Sealed E+.')
+        self.assertEqual(report['comparisonPolicy'], 'spoken-plus-v1')
+        self.assertEqual(report['severity'], 'pass')
+        # A one-model report cannot masquerade as completed recovery QA. Reuse
+        # its bound raw checkpoint without rerunning either completed model.
+        report['attempts'] = report['attempts'][:1]
+        save_json(self.root / 'review' / 'first.json', report)
+        self.calls.clear()
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [])
+        self.assertEqual(len(self.read_report('first')['attempts']), 2)
 
     def test_device_defaults_to_cpu_and_requires_gpu_lease_wrapper(self) -> None:
         self.assertEqual(review_device({}), 'cpu')

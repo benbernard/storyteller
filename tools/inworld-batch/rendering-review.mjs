@@ -3,9 +3,11 @@ import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {hash,sha} from './core.mjs';
 import {fingerprint} from '../audiobooks/dist/store.js';
-import {renderVisualRedactions,verifyVisualRedactions,visualRedactionPolicy} from '../audiobooks/dist/spoken-redactions.js';
+import {renderVisualRedactions,verifyVisualRedactions} from '../audiobooks/dist/spoken-redactions.js';
 
-import {buildRenderingRecoveryPlan} from './rendering-recovery.mjs';
+import {buildRenderingRecoveryPlan,renderingPolicy,overlayRecoveryPolicy} from './rendering-recovery.mjs';
+import {renderCombiningOverlays,verifyCombiningOverlays} from '../audiobooks/dist/spoken-overlays.js';
+const rendererFor=policy=>{renderingPolicy(policy);return policy===overlayRecoveryPolicy?{render:renderCombiningOverlays,verify:verifyCombiningOverlays}:{render:renderVisualRedactions,verify:verifyVisualRedactions};};
 import {excisionDirectory,validatePCMExcisionLayer} from './pcm-excision-evidence.mjs';
 
 const read=async path=>JSON.parse(await fs.readFile(path,'utf8'));
@@ -16,14 +18,15 @@ export const renderingFingerprint=fingerprint;
 export function validateRenderingContext({chapter,item,receipt,plan,source,originalReceipt,attempt2Plan,originalAudioSha256,parts}){
  const recovery=receipt?.renderingRecovery;
  if(!recovery)throw Error('Missing visual-redaction recovery proof');
- const path=`rendering-recoveries/${visualRedactionPolicy}/${item.customId}/plan.json`;
- if(recovery.schemaVersion!==1||recovery.rendererVersion!==visualRedactionPolicy||recovery.planPath!==path
+ const policy=recovery.rendererVersion,renderer=rendererFor(policy),details=renderingPolicy(policy);
+ const path=`rendering-recoveries/${policy}/${item.customId}/plan.json`;
+ if(recovery.schemaVersion!==1||recovery.planPath!==path
   ||recovery.planHash!==fingerprint(plan)||recovery.inputHash!==hash(chapter)||recovery.sourceHash!==chapter.source
   ||recovery.originalItemHash!==hash(item)||recovery.audioSha256!==receipt.sha256||receipt.repair?.attempt!==2)
   throw Error('Visual-redaction receipt does not match immutable inputs or audio');
- const rendering=verifyVisualRedactions(item.spokenText,recovery.renderingProof);
- if(!rendering.mapping.some(range=>range.kind==='redaction'))throw Error('Visual-redaction proof has no eligible source spans');
- if(plan.schemaVersion!==1||plan.rendererVersion!==visualRedactionPolicy||plan.chapterId!==chapter.chapterId
+ const rendering=renderer.verify(item.spokenText,recovery.renderingProof);
+ if(!rendering.mapping.some(range=>range.kind===details.rangeKind))throw Error('Visual-redaction proof has no eligible source spans');
+ if(plan.schemaVersion!==1||plan.rendererVersion!==policy||plan.chapterId!==chapter.chapterId
   ||plan.passage!==item.customId||plan.inputHash!==recovery.inputHash||plan.sourceHash!==chapter.source
   ||plan.sourceObjectHash!==fingerprint(source)||plan.canonicalTextSha256!==sha(source.text)
   ||plan.originalItemHash!==hash(item)||plan.originalReceiptHash!==fingerprint(originalReceipt)
@@ -32,7 +35,7 @@ export function validateRenderingContext({chapter,item,receipt,plan,source,origi
   ||plan.attempt2PlanHash!==fingerprint(attempt2Plan)||plan.attempt2ParentPlanHash!==hash(attempt2Plan)
   ||originalReceipt.repair.planHash!==hash(attempt2Plan)||fingerprint(receipt.repair)!==fingerprint(originalReceipt.repair)||fingerprint(plan.renderingProof)!==fingerprint(rendering))
   throw Error('Visual-redaction plan or retained original evidence changed');
- const rebuilt=buildRenderingRecoveryPlan({entry:{chapterId:chapter.chapterId,inputHash:hash(chapter)},chapter,item,source,receipt:originalReceipt,attempt2Plan,parts,render:renderVisualRedactions,verify:verifyVisualRedactions});
+ const rebuilt=buildRenderingRecoveryPlan({entry:{chapterId:chapter.chapterId,inputHash:hash(chapter)},chapter,item,source,receipt:originalReceipt,attempt2Plan,parts,render:renderer.render,verify:renderer.verify,policy});
  if(fingerprint(rebuilt)!==fingerprint(plan))throw Error('Visual-redaction child/source plan differs from deterministic recovery');
  return {comparisonExpected:rendering.text,renderingProof:rendering,renderingRecoveryHash:fingerprint(recovery),
   planHash:recovery.planHash,receiptHash:fingerprint(receipt),inputHash:recovery.inputHash,sourceHash:recovery.sourceHash,
@@ -56,7 +59,8 @@ export async function baseRenderingContext(root,item,receipt,audioPath=join(root
  const chapter=await read(join(root,'input.json'));
  const original=chapter.items?.find(value=>value.customId===item.customId);
  if(!original||hash(original)!==hash(item))throw Error('Visual-redaction review item differs from queued input');
- const directory=join(root,'rendering-recoveries',visualRedactionPolicy,item.customId);
+ const policy=receipt.renderingRecovery.rendererVersion;rendererFor(policy);
+ const directory=join(root,'rendering-recoveries',policy,item.customId);
  const plan=await read(join(directory,'plan.json'));
  const attempt2Plan=await read(join(root,'repairs',item.customId,'attempt-2','plan.json'));
  const originalReceipt=await read(join(directory,'original-receipt.json'));

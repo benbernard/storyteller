@@ -6,16 +6,20 @@ import {dirname,join,resolve} from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
 import {hash,sha,assertBudget} from './core.mjs';
 import {repairItems} from './adjudication.mjs';
-import {buildRenderingRecoveryPlan,recoverVisualRedactionPassage,canonicalHash,recoveryPolicy} from './rendering-recovery.mjs';
+import {buildRenderingRecoveryPlan,recoverVisualRedactionPassage,canonicalHash,recoveryPolicy,overlayRecoveryPolicy} from './rendering-recovery.mjs';
 import {renderVisualRedactions,verifyVisualRedactions} from '../audiobooks/dist/spoken-redactions.js';
+import {renderCombiningOverlays,verifyCombiningOverlays} from '../audiobooks/dist/spoken-overlays.js';
+import {renderingContext} from './rendering-review.mjs';
 
 const read=async(path,fallback)=>{try{return JSON.parse(await fs.readFile(path,'utf8'));}catch(error){if(error.code==='ENOENT'&&fallback!==undefined)return fallback;throw error;}};
 const save=async(path,value)=>{await fs.mkdir(dirname(path),{recursive:true});await fs.writeFile(path,JSON.stringify(value));};
-async function fixture(){
+async function fixture(policy=recoveryPolicy){
+ const render=policy===overlayRecoveryPolicy?renderCombiningOverlays:renderVisualRedactions,verify=policy===overlayRecoveryPolicy?verifyCombiningOverlays:verifyVisualRedactions;
  const root=await fs.mkdtemp(join(tmpdir(),'inworld-rendering-recovery-')),folder=join(root,'chapter');
- const text=['😀 The opening sentence preserves every ordinary word and introduces the record with a calm, measured explanation.',
+ const plain=['😀 The opening sentence preserves every ordinary word and introduces the record with a calm, measured explanation.',
   'The hidden record ██████ remains sealed, while all the visible words around the concealed passage retain their meaning.',
   'The final sentence preserves the rest of this passage so its successful child recording can be reused without another charge.'].join('\n');
+ const text=policy===overlayRecoveryPolicy?plain.replace('opening','o\u0334p\u0335ening').replace('██████','s\u0336e\u0337aled\u0338'):plain;
  const voices={narrator:{voiceId:'saved-female'}},item={customId:'s0000p0',role:'narrator',spokenText:text,request:{text:'[read clearly] '+text,modelId:'inworld-tts-2'}};
  const source={text},chapter={chapterId:'rr-fixture',source:sha(text),items:[item],segments:[{uid:'body',role:item.role,text,spans:[{start:0,end:text.length}],items:[item.customId]}]};
  const entry={chapterId:chapter.chapterId,sequence:285,root:folder,inputHash:hash(chapter)};
@@ -32,7 +36,7 @@ async function fixture(){
  await save(join(folder,'review',item.customId+'.json'),{sha256:receipt.sha256,expected:text,severity:'major'});
  await save(join(folder,'processing.json'),{status:'needs-review',passages:[item.customId]});
  await fs.mkdir(join(folder,'audio'));await fs.writeFile(join(folder,'audio',item.customId+'.wav'),parent);
- const config={root,maxRetakes:2,ceilingUSD:50},args={entry,chapter,item,source,receipt,attempt2Plan,parts,render:renderVisualRedactions,verify:verifyVisualRedactions};
+ const config={root,maxRetakes:2,ceilingUSD:50},args={entry,chapter,item,source,receipt,attempt2Plan,parts,render,verify,policy};
  let paid=0;
  const synthesize=async(recoveryEntry,recoveryChapter,providedVoices,options)=>{
   assert.deepEqual(providedVoices,voices);assert.equal(options.maxSubmissionsPerItem,1);
@@ -53,7 +57,7 @@ async function fixture(){
   for(const line of list.split('\n'))buffers.push(await fs.readFile(line.slice(6,-1)));
   await fs.writeFile(arguments_.at(-1),Buffer.concat(buffers));return '';
  };
- const recovery={entry,chapter,item,config,read,save,run,synthesize,voices,status:async()=>{},render:renderVisualRedactions,verify:verifyVisualRedactions};
+ const recovery={entry,chapter,item,config,read,save,run,synthesize,voices,status:async()=>{},render,verify,policy};
  return {root,folder,args,recovery,paid:()=>paid};
 }
 test('recovery derives exact UTF-16 source ranges and reuses all unaffected attempt-2 children',async()=>{
@@ -165,5 +169,59 @@ const fs=require('fs');let input='';process.stdin.on('data',data=>input+=data);p
   const ledger=await read(join(job.root,'jobs.json'));assert.equal(ledger.length,1);assert.equal(ledger[0].phase,'complete');assert.ok(ledger[0].reservedUSD>0);
   assert.match((await read(join(job.root,'rendering-recovery-status.json'))).reason,/retry limit/);
   assert.equal((await read(join(job.folder,'receipts',job.args.item.customId+'.json'))).sha256,job.args.receipt.sha256);
+ }finally{await fs.rm(job.root,{recursive:true,force:true});}
+});
+
+
+test('overlay migration removes only exact styling, retains unrelated children, and binds full-parent QA context',async()=>{
+ const job=await fixture(overlayRecoveryPolicy);
+ try{
+  const input=await fs.readFile(join(job.folder,'input.json')),source=await fs.readFile(join(job.folder,'source.json'));
+  const plan=buildRenderingRecoveryPlan(job.args),affected=plan.parts.filter(part=>!part.reused);
+  assert.equal(affected.length,2);assert.ok(plan.parts.some(part=>part.reused));
+  for(const part of affected){assert.equal(part.id,part.originalId+'co1');assert.equal(part.replacement.role,'narrator');assert.ok(!/[\u0334-\u0338]/u.test(part.replacement.spokenText));}
+  assert.equal(plan.renderingProof.text,job.args.item.spokenText.replace(/[\u0334-\u0338]/gu,''));
+  assert.equal(await recoverVisualRedactionPassage(job.recovery),true);assert.equal(job.paid(),2);
+  assert.equal(await recoverVisualRedactionPassage(job.recovery),false);assert.equal(job.paid(),2);
+  const receipt=await read(join(job.folder,'receipts',job.args.item.customId+'.json'));
+  assert.equal(receipt.repair.attempt,2);assert.deepEqual(receipt.repair,job.args.receipt.repair);
+  const context=await renderingContext(job.folder,job.args.item);
+  assert.equal(context.comparisonExpected,plan.renderingProof.text);assert.equal(context.renderingProof.policy,overlayRecoveryPolicy);assert.equal(context.audioSha256,receipt.sha256);
+  assert.deepEqual(await fs.readFile(join(job.folder,'input.json')),input);assert.deepEqual(await fs.readFile(join(job.folder,'source.json')),source);
+  const changed=structuredClone(plan);changed.parts[0].renderingProof.text+=' omitted';
+  await save(join(job.folder,receipt.renderingRecovery.planPath),changed);
+  await assert.rejects(renderingContext(job.folder,job.args.item),/receipt|plan|source/i);
+ }finally{await fs.rm(job.root,{recursive:true,force:true});}
+});
+
+test('overlay recovery restart preserves ambiguous paid reservations and a hard one-submission allowance',async()=>{
+ const job=await fixture(overlayRecoveryPolicy);let submissions=0;
+ try{
+  const synthesize=async(entry,chapter,voices,options)=>{
+   assert.equal(options.maxSubmissionsPerItem,1);
+   const ledger=await read(join(job.root,'jobs.json'),[]);if(ledger.length)throw Error('Unknown accepted operation remains reserved');
+   submissions++;await save(join(job.root,'jobs.json'),[{phase:'submitting',reservedUSD:.01,items:chapter.items}]);throw Error('Unknown accepted operation remains reserved');
+  };
+  await assert.rejects(recoverVisualRedactionPassage({...job.recovery,synthesize}),/remains reserved/);
+  const ledger=await fs.readFile(join(job.root,'jobs.json'));
+  await assert.rejects(recoverVisualRedactionPassage({...job.recovery,synthesize}),/remains reserved/);
+  assert.equal(submissions,1);assert.deepEqual(await fs.readFile(join(job.root,'jobs.json')),ledger);
+  assert.equal((await read(join(job.folder,'receipts',job.args.item.customId+'.json'))).sha256,job.args.receipt.sha256);
+ }finally{await fs.rm(job.root,{recursive:true,force:true});}
+});
+
+test('overlay promotion crash resumes once and respects the unchanged shared ceiling',async()=>{
+ const job=await fixture(overlayRecoveryPolicy);let crash=true;
+ try{
+  await save(join(job.root,'jobs.json'),[{phase:'submitting',reservedUSD:50,items:[{customId:'other-book-item'}]}]);
+  await assert.rejects(recoverVisualRedactionPassage(job.recovery),/spending ceiling/i);assert.equal(job.paid(),0);
+  await save(join(job.root,'jobs.json'),[]);
+  const failingSave=async(path,value)=>{if(path===join(job.folder,'receipts',job.args.item.customId+'.json')&&crash){crash=false;throw Error('interrupted promotion');}await save(path,value);};
+  await assert.rejects(recoverVisualRedactionPassage({...job.recovery,save:failingSave}),/interrupted promotion/);
+  assert.equal(job.paid(),2);
+  assert.equal(await recoverVisualRedactionPassage(job.recovery),true);assert.equal(job.paid(),2);
+  assert.equal(await recoverVisualRedactionPassage(job.recovery),false);assert.equal(job.paid(),2);
+  const receipt=await read(join(job.folder,'receipts',job.args.item.customId+'.json'));
+  assert.equal(receipt.sha256,sha(await fs.readFile(join(job.folder,'audio',job.args.item.customId+'.wav'))));assert.equal(receipt.repair.attempt,2);
  }finally{await fs.rm(job.root,{recursive:true,force:true});}
 });

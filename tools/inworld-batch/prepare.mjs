@@ -6,14 +6,22 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {hash,validateCoverage} from './core.mjs';
 import {steeringText} from './pipeline.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
-export async function renderPlanSpoken(plan, selectPolicy=false) {
+export async function renderPlanSpoken(plan, selectPolicy=false, pinnedPolicy) {
  const texts=plan.segments.map(segment=>segment.text);
  if(plan.spokenRendering===undefined&&!selectPolicy)return {texts};
- const renderer=await import(pathToFileURL(join(here,'../audiobooks/dist/spoken-redactions.js')).href);
- if(plan.spokenRendering!==undefined&&(plan.spokenRendering?.policy!==renderer.visualRedactionPolicy||Object.keys(plan.spokenRendering).length!==1))throw Error('Unknown spoken rendering policy');
- const proofs=plan.segments.map(segment=>({uid:segment.uid,rendering:renderer.renderVisualRedactions(segment.text)}));
- for(const [index,proof]of proofs.entries())renderer.verifyVisualRedactions(texts[index],proof.rendering);
- return {texts:proofs.map(proof=>proof.rendering.text),provenance:{policy:renderer.visualRedactionPolicy,segments:proofs.filter(proof=>proof.rendering.mapping.some(range=>range.kind==='redaction'))}};
+ const legacy=await import(pathToFileURL(join(here,'../audiobooks/dist/spoken-redactions.js')).href);
+ const display=await import(pathToFileURL(join(here,'../audiobooks/dist/spoken-display.js')).href);
+ const policies=[legacy.visualRedactionPolicy,display.spokenDisplayPolicy];
+ if(plan.spokenRendering!==undefined&&(!policies.includes(plan.spokenRendering?.policy)||Object.keys(plan.spokenRendering).length!==1))throw Error('Unknown spoken rendering policy');
+ // Explicit existing input provenance reproduces its historical renderer.
+ // New materializations separately pin the composed policy; plan/source stay exact.
+ const policy=pinnedPolicy??(selectPolicy?display.spokenDisplayPolicy:plan.spokenRendering.policy);
+ if(!policies.includes(policy))throw Error('Unknown pinned spoken rendering policy');
+ const render=policy===legacy.visualRedactionPolicy?legacy.renderVisualRedactions:display.renderSpokenDisplay;
+ const verify=policy===legacy.visualRedactionPolicy?legacy.verifyVisualRedactions:display.verifySpokenDisplay;
+ const proofs=plan.segments.map(segment=>({uid:segment.uid,rendering:render(segment.text)}));
+ for(const [index,proof]of proofs.entries())verify(texts[index],proof.rendering);
+ return {texts:proofs.map(proof=>proof.rendering.text),provenance:{policy,segments:proofs.filter((proof,index)=>proof.rendering.text!==texts[index])}};
 }
 export function buildChapter(plan, spoken, config, rendering) {
  if(spoken.length!==plan.segments.length)throw Error('Normalization omitted segments');
@@ -55,7 +63,7 @@ export async function materializeChapter(planRoot, config) {
  // Select the new policy only for a new input, or reproduce its pinned rendering.
  // Legacy queued inputs retain their exact historical normalization and hashes.
  const selected=existing?Boolean(existing.provenance?.spokenRendering):true;
- const spoken=existing&&!selected?{texts:plan.segments.map(segment=>segment.text)}:await renderPlanSpoken(plan,selected);
+ const spoken=existing&&!selected?{texts:plan.segments.map(segment=>segment.text)}:await renderPlanSpoken(plan,selected,existing?.provenance?.spokenRendering?.policy);
  const normalization=spawnSync('python3',[join(here,'normalize.py')],{input:JSON.stringify(spoken.texts),encoding:'utf8',maxBuffer:8e6});
  if(normalization.status!==0)throw Error('Normalization failed: '+normalization.stderr);
  const chapter=buildChapter(plan,JSON.parse(normalization.stdout),config,spoken.provenance);

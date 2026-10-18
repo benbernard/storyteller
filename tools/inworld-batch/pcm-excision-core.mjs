@@ -1,6 +1,7 @@
 /** One bounded, zero-paid PCM deletion. This never decides content fidelity. */
 import {sha,hash,validateCoverage} from './core.mjs';
 import {fingerprint} from '../audiobooks/dist/store.js';
+import {validatePCMSymbols} from './pcm-symbol-evidence.mjs';
 export const pcmExcisionPolicy='pcm-insertion-excision-v1';
 const fail=message=>{throw Error('PCM insertion excision: '+message);};
 const exact=(a,b,message)=>{if(fingerprint(a)!==fingerprint(b))fail(message);};
@@ -22,7 +23,7 @@ export function replacePCM(wav,pcm){
  const result=Buffer.concat([wav.subarray(0,decoded.dataStart),pcm]);
  result.writeUInt32LE(result.length-8,4);result.writeUInt32LE(pcm.length,decoded.dataStart-4);return result;
 }
-export function buildPCMExcision({entry,chapter,item,source,receipt,baseContext,parentAudio,baseReceiptFileSha256,children,childId,candidateAudio,derivation,validation,fullParent}){
+export function buildPCMExcision({entry,chapter,item,source,receipt,baseContext,parentAudio,baseReceiptFileSha256,children,childId,candidateAudio,derivation,validation,fullParent,symbolEvidence}){
  if(hash(chapter)!==entry.inputHash||chapter.chapterId!==entry.chapterId||!chapter.items.some(row=>hash(row)===hash(item)))fail('queued input changed');
  if(receipt.offlinePCMExcision||receipt.repair?.attempt!==2||!receipt.renderingRecovery)fail('requires one unedited exhausted rendering recovery');
  if(baseContext.audioSha256!==receipt.sha256||baseContext.receiptHash!==fingerprint(receipt)||sha(parentAudio)!==receipt.sha256)fail('base rendering/audio proof changed');
@@ -52,9 +53,10 @@ export function buildPCMExcision({entry,chapter,item,source,receipt,baseContext,
  exact(derivation.retainedRanges,ranges,'retained range proof changed');
  exact(derivation.seamValuesPCM16,{leftLastRetained:0,leftFirstRemoved:0,rightLastRemoved:0,rightFirstRetained:0},'seam proof changed');
  exact(validation.derivation,derivation,'timing validation belongs to another derivation');
- if(validation.schemaVersion!==1||validation.productionHoldUnchanged!==true||validation.paidCalls!==0||validation.conclusion?.isolatedTrialRemovesConfirmedInsertion!==true||validation.conclusion?.productionHoldRemains!==true||validation.conclusion?.fullContentResolutionClaimed!==false||!Array.isArray(validation.asr)||validation.asr.length!==2||new Set(validation.asr.map(row=>row.model)).size!==2||!['small','strong'].every(model=>validation.asr.some(row=>row.model===model))||validation.asr.some(row=>row.confirmedUnrelatedWordAbsent!==true||row.recognizedTokensExactlyEqualOriginalMinusConfirmedInsertion!==true||row.sourceTokenImmediatelyBeforeInsertionRecognized!==true||row.sourceTokenImmediatelyAfterInsertionRecognized!==true))fail('independent ASR timing guards are incomplete');
+ const semantics=validatePCMSymbols({validation,child,baseContext,candidateAudio,derivation,symbolEvidence});
+ if(validation.schemaVersion!==1||validation.productionHoldUnchanged!==true||validation.paidCalls!==0||validation.conclusion?.fullContentResolutionClaimed!==false||!(validation.conclusion?.isolatedTrialRemovesConfirmedInsertion===true&&validation.conclusion?.productionHoldRemains===true||validation.conclusion?.requiredPlusPreserved===true&&validation.conclusion?.onlyUnrelatedWordRemoved===true&&validation.conclusion?.sourceGuardChecksPass===true&&validation.conclusion?.productionPromoted===false)||!Array.isArray(validation.asr)||validation.asr.length!==2||new Set(validation.asr.map(row=>row.model)).size!==2||!['small','strong'].every(model=>validation.asr.some(row=>row.model===model))||validation.asr.some(row=>!(row.confirmedUnrelatedWordAbsent===true&&row.recognizedTokensExactlyEqualOriginalMinusConfirmedInsertion===true&&row.sourceTokenImmediatelyBeforeInsertionRecognized===true&&row.sourceTokenImmediatelyAfterInsertionRecognized===true||row.onlyUnrelatedWordRemoved===true&&row.unrelatedWordAbsent===true&&row.requiredPlusAfterCorrectSourceGrade===true&&row.sourceWordFollowingPlusRecognized===true)))fail('independent ASR timing guards are incomplete');
  const ctc=validation.ctc;
- if(ctc?.confirmedUnrelatedPhonemesAbsent!==true||ctc.boundaryCrossingNonblankRuns!==0||ctc.leftNearestEightObservedPhonemeTokensExactlyPreserved!==true||ctc.rightNearestEightObservedPhonemeTokensExactlyPreserved!==true||!Number.isSafeInteger(ctc.leftObservedPhonemeGuardMarginSamples)||ctc.leftObservedPhonemeGuardMarginSamples<480||!Number.isSafeInteger(ctc.rightObservedPhonemeGuardMarginSamples)||ctc.rightObservedPhonemeGuardMarginSamples<480)fail('independent phoneme timing guards are incomplete');
+ if(!(ctc?.confirmedUnrelatedPhonemesAbsent===true&&ctc.boundaryCrossingNonblankRuns===0&&ctc.leftNearestEightObservedPhonemeTokensExactlyPreserved===true&&ctc.rightNearestEightObservedPhonemeTokensExactlyPreserved===true&&Number.isSafeInteger(ctc.leftObservedPhonemeGuardMarginSamples)&&ctc.leftObservedPhonemeGuardMarginSamples>=480&&Number.isSafeInteger(ctc.rightObservedPhonemeGuardMarginSamples)&&ctc.rightObservedPhonemeGuardMarginSamples>=480||ctc?.requiredSymbolsPreserved===true&&ctc.unrelatedWordPhonemesAbsent===true&&ctc.leftNearestEightPhonemeTokensPreserved===true&&ctc.rightNearestEightPhonemeTokensPreserved===true&&ctc.boundaryCrossingNonblankRuns===0))fail('independent phoneme timing guards are incomplete');
  const parentStart=mapped[index].startFrameWithinParent+start,parentEnd=mapped[index].startFrameWithinParent+end;
  const pcm=Buffer.concat([parent.pcm.subarray(0,parentStart*2),parent.pcm.subarray(parentEnd*2)]);
  const combined=Buffer.concat(decoded.map((value,i)=>i===index?candidate.pcm:value.pcm));if(!combined.equals(pcm))fail('parent requires more than one deletion');
@@ -63,5 +65,5 @@ export function buildPCMExcision({entry,chapter,item,source,receipt,baseContext,
  const range=fullParent.oneGlobalRemovalRangeHalfOpen;
  if(range?.startFrame!==parentStart||range.endFrame!==parentEnd||range.removedFrames!==removed)fail('full-parent deletion range changed');
  const audio=replacePCM(parentAudio,pcm),plan={schemaVersion:1,policy:pcmExcisionPolicy,chapterId:chapter.chapterId,passage:item.customId,childId,inputHash:entry.inputHash,sourceHash:chapter.source,sourceObjectHash:fingerprint(source),itemHash:hash(item),baseReceiptHash:fingerprint(receipt),baseReceiptFileSha256,baseAudioSha256:receipt.sha256,basePCMSha256:sha(parent.pcm),baseContextHash:fingerprint(baseContext),derivationHash:fingerprint(derivation),timingValidationHash:fingerprint(validation),fullParentValidationHash:fingerprint(fullParent),candidateChildAudioSha256:sha(candidateAudio),childReceiptHash:fingerprint(child.receipt),childAudioSha256:sha(child.audio),children:mapped,removedChildRange:{start,end},removedParentRange:{start:parentStart,end:parentEnd},removedFrames:removed,originalFrames:parent.frames,frames:pcm.length/2,pcmSha256:sha(pcm),audioSha256:sha(audio),freshFullQARequired:true,paidCalls:0};
- return {plan,audio};
+ plan.symbolPreservation=semantics;return {plan,audio};
 }

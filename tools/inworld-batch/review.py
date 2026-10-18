@@ -32,10 +32,21 @@ class PendingReview(TypedDict):
 
 Transcriber = Callable[[Path, str], str]
 ContextLoader = Callable[[Path, ReviewItem, str], Optional[dict[str, object]]]
+SPOKEN_PLUS_POLICY = 'spoken-plus-v1'
+COMBINING_OVERLAY_POLICY = 'combining-overlay-v1'
+
+
+def visible_base_text(text: str) -> str:
+    # Exact parity with spoken-overlays.ts; no other accents/symbols change.
+    return re.sub(r'[\u0334-\u0338]+', '', text)
 
 
 def words(text: str) -> list[str]:
-    text = re.sub(r'<[^>]*>', ' ', text).lower().replace('’', "'")
+    text = visible_base_text(re.sub(r'<[^>]*>', ' ', text)).lower().replace('’', "'")
+    # A grade qualifier and an arithmetic operator are audible source content.
+    # Keep each symbol, including repeated operators, rather than treating it
+    # as punctuation and accidentally approving an omitted qualifier.
+    text = text.replace('+', ' plus ')
     text = re.sub(r'\d[\d,]*(?:\.\d+)?', lambda m: number(m[0]), text)
     text = re.sub(r'\b(?:[a-z]\s+){1,}[a-z]\b', lambda m: m[0].replace(' ', ''), text)
     return re.findall(r'[a-z]+', text)
@@ -82,6 +93,13 @@ def save_json(path: Path, value: object) -> None:
     temporary.replace(path)
 
 
+def requires_dual_asr(context: dict[str, object] | None) -> bool:
+    if context is None:
+        return False
+    proof = context.get('renderingProof')
+    return bool(context.get('offlinePCMExcision')) or (isinstance(proof, dict) and proof.get('policy') == COMBINING_OVERLAY_POLICY)
+
+
 def cached_attempts(path: Path, digest: str, expected: str, models: list[str], comparison_expected: str, context: dict[str, object] | None) -> list[dict[str, object]]:
     if not path.exists():
         return []
@@ -101,7 +119,7 @@ def cached_attempts(path: Path, digest: str, expected: str, models: list[str], c
         metrics = compare(comparison_expected, transcript)
         # A surgical offline edit needs both whole-passage recognizers, even
         # when the first recognizer reports an exact match.
-        if index == 0 and context is not None and context.get('offlinePCMExcision'):
+        if index == 0 and requires_dual_asr(context):
             metrics['needsStronger'] = True
         attempts.append({'model': models[index], 'transcript': transcript, **metrics})
     return attempts
@@ -129,9 +147,14 @@ def rendering_context(root: Path, item: ReviewItem, digest: str) -> dict[str, ob
 def matching_report(report: object, digest: str, expected: str, context: dict[str, object] | None) -> bool:
     if not isinstance(report, dict) or report.get('sha256') != digest or report.get('expected') != expected:
         return False
+    comparison_expected = str(context['comparisonExpected']) if context is not None else expected
+    if '+' in comparison_expected and report.get('comparisonPolicy') != SPOKEN_PLUS_POLICY:
+        return False
+    if visible_base_text(comparison_expected) != comparison_expected and report.get('overlayComparisonPolicy') != COMBINING_OVERLAY_POLICY:
+        return False
     if context is None:
         return 'renderingContext' not in report and 'comparisonExpected' not in report
-    if context.get('offlinePCMExcision') and (not isinstance(report.get('attempts'), list)
+    if requires_dual_asr(context) and (not isinstance(report.get('attempts'), list)
                                             or len(report['attempts']) != 2):
         return False
     return report.get('renderingContext') == context and report.get('comparisonExpected') == context['comparisonExpected']
@@ -177,7 +200,7 @@ def review_items(root: Path, items: list[ReviewItem], models: list[str], transcr
             if hashlib.sha256(entry['audio'].read_bytes()).hexdigest() != entry['sha256']:
                 raise ValueError('Audio changed during independent review')
             metrics = compare(entry['comparisonExpected'], transcript)
-            if index == 0 and entry['renderingContext'] is not None and entry['renderingContext'].get('offlinePCMExcision'):
+            if index == 0 and requires_dual_asr(entry['renderingContext']):
                 metrics['needsStronger'] = True
             attempts.append({'model': model, 'transcript': transcript, **metrics})
             save_json(checkpoints / (item['customId'] + '.json'),
@@ -205,6 +228,10 @@ def finish_review(out: Path, entry: PendingReview) -> None:
     report = {'sha256': entry['sha256'], 'expected': entry['item']['spokenText'], 'attempts': attempts,
               'severity': 'major' if final['major'] else 'minor' if final['changes'] else 'pass',
               'limitation': 'Automated ASR is fallible; it does not verify subjective acting or voice identity.'}
+    if '+' in entry['comparisonExpected']:
+        report['comparisonPolicy'] = SPOKEN_PLUS_POLICY
+    if visible_base_text(entry['comparisonExpected']) != entry['comparisonExpected']:
+        report['overlayComparisonPolicy'] = COMBINING_OVERLAY_POLICY
     if entry['renderingContext'] is not None:
         report['comparisonExpected'] = entry['comparisonExpected']
         report['renderingContext'] = entry['renderingContext']
