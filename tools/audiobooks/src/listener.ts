@@ -1,3 +1,4 @@
+import { ownerPermissions, bookOrbitUrl, type ListenerIntegrations } from './integrations.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
@@ -36,7 +37,7 @@ async function body(request: IncomingMessage): Promise<unknown> {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('bad_request'); }
 }
 
-export function createListener(fictions: string, state: Store, browserOwner: BrowserOwner, origin = 'https://listener.example.org', archive = process.env.ROYAL_ROAD_ARCHIVE ?? '/archive', basicChallenge = false) {
+export function createListener(fictions: string, state: Store, browserOwner: BrowserOwner, origin = 'https://listener.example.org', archive = process.env.ROYAL_ROAD_ARCHIVE ?? '/archive', basicChallenge = false, integrations: ListenerIntegrations = {}) {
   const history = new ListeningHistory(state.root);
   const libraryQueue = new LibraryQueue(state.root);
   // All record mutations are serialized in the sole server process and atomically persisted.
@@ -119,6 +120,20 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         }); return;
       }
       if (!owner) { json(response, 401, { error: 'Connect your account.' }); return; }
+      const permissions = integrations.permissions?.(owner) ?? ownerPermissions;
+      if (route === '/capabilities' && method === 'GET') {
+        json(response, 200, { schemaVersion: 1, accountKey: sha(owner), permissions,
+          sources: integrations.capabilities?.sources ?? ['royal-road', 'file'],
+          generation: integrations.capabilities?.generation ?? [],
+          updates: integrations.capabilities?.updates ?? 'manual', revision: integrations.revision ?? null }); return;
+      }
+      if (!permissions.listen || (['/audio', '/follow', '/check', '/jobs', '/issues/resolve'].includes(route) && method === 'POST' && !permissions.manageLibrary)) {
+        json(response, 403, { error: 'This account does not have permission for this action.' }); return;
+      }
+      // Generation routes can enqueue resumable work. Check before any queue mutation.
+      if (['/audio', '/check', '/jobs'].includes(route) && method === 'POST' && !permissions.generate) {
+        json(response, 403, { error: 'Audio generation is disabled for this account.' }); return;
+      }
       const userPath = `users/${sha(owner)}.json`;
       if (web && route === '/pair/approve' && method === 'POST') {
         const input = z.object({ code: z.string().regex(/^[A-F0-9]{10}$/) }).strict().parse(await body(request));
@@ -158,7 +173,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
             const follow = follows.find(f => f.story === selection.story), job = jobs.find(j => j.story === selection.story);
             stories.push({ id: selection.story, title: selection.title, author: selection.author,
               description: selection.reason ?? 'Available from your BookOrbit library', status: selection.supported ? 'Available for audio' : 'Unsupported file',
-              url: `https://books.example.org/book/${selection.source.bookId}`, checkedAt: '', hasCover: false, chapters,
+              url: bookOrbitUrl(selection.source.bookId), checkedAt: '', hasCover: false, chapters,
               follow: follow ? { enabled: follow.enabled, mode: follow.mode, buffer: follow.buffer, intervalHours: follow.intervalHours, nextCheck: follow.nextCheck } : null,
               job: job ? publicJob(job) : null });
           }
@@ -184,6 +199,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       }
       if (route === '/follow' && method === 'POST') {
         const input = followSchema.parse(await body(request));
+        if (input.enabled && input.mode !== 'download' && !permissions.generate) { json(response, 403, { error: 'Audio generation is disabled for this account.' }); return; }
         libraryQueue.follow(sha(owner), input); json(response, 200, { saved: true }); return;
       }
       if (route === '/check' && method === 'POST') {
@@ -292,6 +308,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     uid: process.env.AUTHENTIK_USER_UID ?? '', email: process.env.AUTHENTIK_OWNER_EMAIL ?? '',
     accountEmail: process.env.LISTENER_ACCOUNT_EMAIL ?? '', peers: process.env.AUTHENTIK_PROXY_PEERS ?? '',
   });
-  createListener(process.env.AUDIOBOOK_FICTIONS ?? '/fictions', new Store(process.env.LISTENER_STATE ?? '/listener'), identity, origin, process.env.ROYAL_ROAD_ARCHIVE ?? '/archive', mode === 'basic')
+  createListener(process.env.AUDIOBOOK_FICTIONS ?? '/fictions', new Store(process.env.LISTENER_STATE ?? '/listener'), identity, origin, process.env.ROYAL_ROAD_ARCHIVE ?? '/archive', mode === 'basic', { capabilities: { sources: ['royal-road', 'file', ...(process.env.BOOKORBIT_PUBLIC_URL ? ['bookorbit'] : [])], generation: (process.env.LISTENER_GENERATION ?? '').split(',').filter(Boolean) }, revision: process.env.STORYTELLER_REVISION })
     .listen(Number(process.env.PORT ?? 8080), '0.0.0.0');
 }

@@ -121,3 +121,5 @@ progress together.
 providers have their own terms. See [third-party notices](THIRD_PARTY.md).
 The sample's [source and rights notes](samples/maltese-falcon/README.md#source-and-rights)
 credit the 1930 text and the new synthetic recordings.
+
+Running a private deployment or preserving an existing Android installation? See [integration contracts and composition](docs/integrations.md).

@@ -3,6 +3,7 @@ import { mkdirSync, chmodSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { bookOrbitId, bookOrbitUrl } from './integrations.js';
 import type { AudioSelection, BookOrbitSource } from './bookorbit-selection.js';
 
 export function royalRoadUrl(value: string) {
@@ -37,9 +38,9 @@ export class LibraryQueue {
   }
   private saveFollow(follow: Follow) { this.db.prepare('INSERT INTO follows(owner,story,body) VALUES(?,?,?) ON CONFLICT(owner,story) DO UPDATE SET body=excluded.body').run(follow.owner, follow.story, JSON.stringify(follow)); }
   follow(owner: string, input: z.infer<typeof followSchema>) {
-    const book = /^https:\/\/books\.example\.org\/book\/(\d+)$/.exec(input.url);
-    const known = book && this.follows(owner).find(f => f.bookorbit?.bookId === Number(book[1]));
-    const identity = book ? { story: known ? known.story : `bo-${book[1]}`, url: known ? known.url : input.url } : royalRoadUrl(input.url);
+    const book = bookOrbitId(input.url);
+    const known = book && this.follows(owner).find(f => f.bookorbit?.bookId === book);
+    const identity = book ? { story: known ? known.story : `bo-${book}`, url: known ? known.url : input.url } : royalRoadUrl(input.url);
     if (book && !this.follows(owner).some(f => f.story === identity.story && f.bookorbit?.files.length)) throw new Error('bad_request');
     return this.transaction(() => {
       const previous = this.follows(owner).find(f => f.story === identity.story);
@@ -63,7 +64,7 @@ export class LibraryQueue {
     return this.transaction(() => {
       const old = this.follows(owner).find(f => f.story === selection.story);
       const follow: Follow = { mode: old?.mode === 'buffer' ? 'buffer' : 'all', buffer: old?.buffer ?? 5, intervalHours: old?.intervalHours ?? 6,
-        url: selection.story.startsWith('rr-') ? `https://www.royalroad.com/fiction/${selection.story.slice(3)}` : `https://books.example.org/book/${selection.source.bookId}`,
+        url: selection.story.startsWith('rr-') ? `https://www.royalroad.com/fiction/${selection.story.slice(3)}` : bookOrbitUrl(selection.source.bookId),
         story: selection.story, owner, enabled, listenerSelected: enabled, bookorbit: selection.source, nextCheck: Date.now(), updatedAt: now() };
       this.saveFollow(follow);
       const active = this.active(owner, selection.story);
@@ -124,7 +125,7 @@ export class LibraryQueue {
       for (const selection of selections.filter(s => s.supported)) {
         const old = prior.find(f => f.story === selection.story);
         if (selection.source.selected === false && old?.listenerSelected === undefined) continue;
-        const follow: Follow = { url: selection.story.startsWith('rr-') ? `https://www.royalroad.com/fiction/${selection.story.slice(3)}` : `https://books.example.org/book/${selection.source.bookId}`,
+        const follow: Follow = { url: selection.story.startsWith('rr-') ? `https://www.royalroad.com/fiction/${selection.story.slice(3)}` : bookOrbitUrl(selection.source.bookId),
           mode: old?.mode ?? 'all', buffer: old?.buffer ?? 5, intervalHours: old?.intervalHours ?? 6,
           story: selection.story, owner, enabled: old?.bookorbit ? old.enabled : true,
           ...(old?.listenerSelected !== undefined ? { listenerSelected: old.listenerSelected } : {}),

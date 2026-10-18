@@ -1,3 +1,4 @@
+import { bookOrbitUrl } from './integrations.js';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { posix } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -55,5 +56,5 @@ export async function bookOrbitChapters(source: BookOrbitSource, story: string):
   }
   const retrievedAt = new Date().toISOString();
   return entries.map((entry, i) => ({ schemaVersion: 1, fictionId: story, chapterId: `chapter-${sha(entry.key).slice(0, 24)}`, sequence: i + 1,
-    url: `https://books.example.org/book/${source.bookId}#${encodeURIComponent(entry.key)}`, title: entry.title, text: entry.text, contentHash: sha(entry.text), retrievedAt }));
+    url: `${bookOrbitUrl(source.bookId)}#${encodeURIComponent(entry.key)}`, title: entry.title, text: entry.text, contentHash: sha(entry.text), retrievedAt }));
 }
