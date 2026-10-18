@@ -22,7 +22,7 @@ for(const mode of ['credit','ambiguous','accepted'])test(`runner ${mode} failure
  await fs.writeFile(join(bin,'ssh'),stub,{mode:0o755});await fs.writeFile(join(bin,'rsync'),'#!/bin/sh\nexit 0\n',{mode:0o755});
  const voices={narrator:{voiceId:'saved-female'}},chapters=[];
  for(const sequence of [261,262]){const dir=join(root,String(sequence));await fs.mkdir(dir);const input={chapterId:'rr-'+sequence,items:[{customId:'s0000p0',role:'narrator',spokenText:'Hello',request:{text:'Hello',modelId:'inworld-tts-2'}}]};await fs.writeFile(join(dir,'input.json'),JSON.stringify(input));chapters.push({chapterId:input.chapterId,sequence,title:'Fixture',root:dir,inputHash:hash(input)});}
- const config={root,host:'test',archive:'/test',chapters,originalVoices:voices,maxBatchCharacters:9500,ceilingUSD:1,maxRetakes:2,pollSeconds:0.001};
+ const config={root,host:'test',archive:'/test',selectedChapterIds:chapters.map(entry=>entry.chapterId),preparationComplete:false,chapters:chapters.slice(0,1),originalVoices:voices,maxBatchCharacters:9500,ceilingUSD:1,maxRetakes:2,pollSeconds:0.001};
  await fs.writeFile(join(root,'voices.json'),JSON.stringify(voices));await fs.writeFile(join(root,'voice-profiles.json'),'{}');await fs.writeFile(join(root,'queue.json'),JSON.stringify(config));
  const env={...process.env,PATH:bin+':'+process.env.PATH,MODE:mode,CALLS:join(root,'calls')};const runner=resolve('tools/inworld-batch/runner.mjs');
  try{
@@ -31,7 +31,12 @@ for(const mode of ['credit','ambiguous','accepted'])test(`runner ${mode} failure
   let calls=(await fs.readFile(env.CALLS,'utf8')).trim().split('\n').map(JSON.parse);assert.equal(calls.filter(c=>c.method==='POST').length,1);
   let jobs=JSON.parse(await fs.readFile(join(root,'jobs.json'),'utf8'));assert.equal(jobs.length,1);assert.equal(jobs[0].chapter,'rr-261');assert.equal(jobs[0].items[0].request.voiceId,'saved-female');
   assert.equal(JSON.parse(await fs.readFile(join(root,'status.json'),'utf8')).status,'held');
-  if(mode!=='credit'){run=spawnSync(process.execPath,[runner,join(root,'queue.json')],{env,encoding:'utf8',timeout:20000});assert.equal(run.status,0);calls=(await fs.readFile(env.CALLS,'utf8')).trim().split('\n').map(JSON.parse);assert.equal(calls.filter(c=>c.method==='POST').length,1);}
+  if(mode!=='credit'){
+   await fs.writeFile(join(root,'queue.json'),JSON.stringify({...config,chapters,preparationComplete:true}));
+   run=spawnSync(process.execPath,[runner,join(root,'queue.json')],{env,encoding:'utf8',timeout:20000});assert.equal(run.status,0);
+   calls=(await fs.readFile(env.CALLS,'utf8')).trim().split('\n').map(JSON.parse);assert.equal(calls.filter(c=>c.method==='POST').length,1);
+   const retained=JSON.parse(await fs.readFile(join(root,'jobs.json'),'utf8'));assert.equal(retained.length,1);assert.equal(retained[0].id,jobs[0].id);assert.equal(retained[0].reservedUSD,jobs[0].reservedUSD);
+  }
  }finally{await fs.rm(root,{recursive:true,force:true});}
 });
 

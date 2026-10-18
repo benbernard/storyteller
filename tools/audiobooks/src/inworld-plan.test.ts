@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { segmentsFor } from './inworld-plan.js';
+import { segmentsFor, prepareChapter } from './inworld-plan.js';
 import { type Chapter, type Analysis } from './schema.js';
-import { sha } from './store.js';
+import { sha, Store } from './store.js';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 test('Inworld preparation preserves every source offset and keeps thoughts with the narrator', () => {
   const text = 'Mira waited. “Go!” she thought. “Stay,” she said.';
   const chapter: Chapter = { schemaVersion: 1, chapterId: 'chapter-1', fictionId: 'book-1', sequence: 1, title: 'Chapter One', url: 'https://example.org/1', retrievedAt: new Date().toISOString(), text, contentHash: sha(text) };
@@ -18,4 +21,44 @@ test('Inworld preparation preserves every source offset and keeps thoughts with 
   assert.equal(body.find(s => s.text === '“Stay,”')?.role, 'mira');
   assert.deepEqual(segments.filter(s => s.presentation).map(s => s.role), ['narrator', 'author-note', 'author-note']);
   assert.throws(() => segmentsFor(chapter, { ...analysis, spans: analysis.spans.slice(1) }, { before: '', after: '' }), /coverage/);
+});
+test('ordered attribution checkpoints identity once while independent direction workers resume without shared cast writes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'inworld-phases-')), state = new Store(join(root, 'state')), output = new Store(join(root, 'prepared'));
+  try {
+    const pieces = Array.from({ length: 26 }, (_, i) => `“Line ${i} ${'word '.repeat(300)}”\n`), text = pieces.join('');
+    const chapter: Chapter = { schemaVersion: 1, chapterId: 'chapter-2', fictionId: 'book-1', sequence: 2, title: 'Chapter Two', url: 'https://example.org/2', retrievedAt: new Date().toISOString(), text, contentHash: sha(text) };
+    const profile = { id: 'actor', name: 'Actor', aliases: [], portrayal: 'Established female actor', importance: 'minor' as const, tags: ['female'], evidence: text, continuityFrom: null };
+    let start = 0;
+    const analysis: Analysis = { schemaVersion: 1, source: chapter.contentHash, fingerprint: '', model: 'fixture', promptVersion: 'test', characters: [], aliasUpdates: [], summary: 'Chapter two context', spans: pieces.map((piece, i) => {
+      const span = { uid: `span-${i}`, start, end: start + piece.length, text: piece, kind: 'dialogue' as const, speaker: 'actor', certainty: 'attributed' as const, confidence: 1, reason: 'Fixture' }; start = span.end; return span;
+    }) };
+    await state.write('cast.json', { schemaVersion: 1, members: [{ id: 'actor', name: 'Actor', aliases: [], first: { chapter: 1, offset: 0 }, evidence: 'Earlier source', portrayal: profile.portrayal, importance: 'minor', voices: [] }] });
+    await state.write('index.json', { chapters: [{ id: chapter.chapterId, current: chapter.contentHash }] });
+    await state.write(`sources/${chapter.contentHash}.json`, chapter);
+    await output.write('config.json', { state: state.root, directory: output.root, model: 'fixture', context: 'Previous context', chapterIds: ['missing-previous', chapter.chapterId] });
+    await assert.rejects(prepareChapter(output.path('config.json'), chapter.chapterId, 'attribute'), /Previous selected chapter/);
+    await output.write('config.json', { state: state.root, directory: output.root, model: 'fixture', context: 'Previous context', chapterIds: [chapter.chapterId] });
+    let attributionCalls = 0;
+    await prepareChapter(output.path('config.json'), chapter.chapterId, 'attribute', { analyze: async () => { attributionCalls++; return { analysis, profiles: [profile] }; }, direct: async () => { throw Error('Attribution cannot request directions'); } });
+    assert.equal(attributionCalls, 1);
+    assert.equal(await output.read(`plans/${chapter.chapterId}/plan.json`), undefined);
+    const originalCast = await state.read('cast.json');
+    let directionCalls = 0, fail = true;
+    const direct: NonNullable<Parameters<typeof prepareChapter>[3]>['direct'] = async request => {
+      directionCalls++;
+      assert.equal(request.reasoningEffort, 'medium'); assert.equal(request.timeoutMs, 480000);
+      const selected = (JSON.parse(request.input) as { segments: { uid: string }[] }).segments;
+      assert.ok(selected.length <= 12);
+      if (fail && directionCalls === 2) throw Error('Interrupted direction request');
+      return { authentication: 'chatgpt', usage: {}, value: { directions: selected.map(segment => ({ uid: segment.uid, instruction: 'Speak with natural restraint.', rationale: 'Scene context' })) } };
+    };
+    await assert.rejects(prepareChapter(output.path('config.json'), chapter.chapterId, 'directions', { direct }), /Interrupted/);
+    fail = false;
+    await prepareChapter(output.path('config.json'), chapter.chapterId, 'directions', { direct, analyze: async () => { throw Error('Directions cannot reattribute'); } });
+    assert.equal(directionCalls, 4); // The first twelve directions survive interruption.
+    assert.deepEqual(await state.read('cast.json'), originalCast);
+    const plan = (await output.read<{ segments: { text: string; presentation?: string }[]; directions: unknown[] }>(`plans/${chapter.chapterId}/plan.json`))!;
+    assert.equal(plan.segments.filter(segment => !segment.presentation).map(segment => segment.text).join(''), text);
+    assert.equal(plan.directions.length, 27); // Title plus every source segment.
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

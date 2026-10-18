@@ -28,13 +28,14 @@ test('provider plans retain source coverage, distinct note voices, acting and th
  assert.throws(()=>buildChapter({...plan,directions:plan.directions.slice(1)},plan.segments.map(s=>s.text),{}));
 });
 
-test('persistent supervisor recovers an initial SSH outage and publishes the immutable cached assembly without speech',async()=>{
+for(const streaming of [false,true])test(`persistent supervisor recovers an initial SSH outage and publishes the immutable cached assembly without speech (${streaming?'streaming':'legacy'})`,async()=>{
  const root=await fs.mkdtemp(join(tmpdir(),'inworld-supervisor-test-')),dir=join(root,'1'),bin=join(root,'bin');
  const write=async(path,value)=>{await fs.mkdir(join(path,'..'),{recursive:true});await fs.writeFile(path,JSON.stringify(value));};
  const chapter={chapterId:'chapter-1',source:'source',items:[]},entry={chapterId:chapter.chapterId,sequence:1,root:dir,inputHash:hash(chapter)};
  await write(join(dir,'input.json'),chapter);await write(join(dir,'assembly.json'),{assembly:{id:'saved-assembly',plan:'saved-plan',source:'source'},batch:'saved-batch'});
  await write(join(dir,'publication/plans/saved-plan.json'),{inputHash:entry.inputHash});
- const config={root,host:'fixture',archive:'/fixture',chapterIds:[chapter.chapterId],chapters:[entry],originalVoices:{narrator:{voiceId:'saved-female'}},narratorPolicy:{gender:'female'},automaticRepair:true,maxRecoveryAttempts:2,retrySeconds:0.001};
+ const config={root,host:'fixture',archive:'/fixture',plans:join(root,'plans'),chapterIds:[chapter.chapterId],chapters:[entry],originalVoices:{narrator:{voiceId:'saved-female'}},narratorPolicy:{gender:'female'},automaticRepair:true,maxRecoveryAttempts:2,retrySeconds:0.001,...(streaming?{selectedChapterIds:[chapter.chapterId],preparationComplete:false}:{})};
+ if(streaming)await write(join(root,'plans/plans',chapter.chapterId,'plan.json'),{cached:true});
  await write(join(root,'config.json'),config);await write(join(root,'queue.json'),config);await write(join(root,'voices.json'),config.originalVoices);await write(join(root,'voice-profiles.json'),{});await fs.mkdir(bin);
  await fs.writeFile(join(bin,'rsync'),'#!/bin/sh\nexit 0\n',{mode:0o755});
  await fs.writeFile(join(bin,'ssh'),`#!/usr/bin/env node

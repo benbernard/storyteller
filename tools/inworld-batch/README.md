@@ -68,9 +68,10 @@ The supervisor JSON contains:
 node tools/inworld-batch/supervisor.mjs /private/job/config.json
 ```
 
-The supervisor prepares every selected chapter before rendering. It writes
-`queue.json` once, then resumes that queue. Inputs cannot silently change after
-preparation. The speech ceiling covers generation and retakes together; voice
+The supervisor sends ready chapters to one Inworld worker while preparation
+continues. It appends chapters in source order to `queue.json`; queued inputs,
+selected chapters and billing settings cannot change. The speech ceiling covers
+generation and retakes together; voice
 design previews are separate provider charges. Confirm the current account price
 and limits before setting the ceiling. Signed result URLs stay in private files.
 
@@ -78,6 +79,14 @@ Long chapter attribution uses bounded subscription requests with the full chapte
 as context. Validated windows are checkpointed and reused after interruptions.
 The merged result must cover the exact source and preserve speaker identities;
 speech tags are checked across window boundaries before preparation continues.
+
+Character discovery runs in source order so each chapter receives the preceding
+summary and established identities. It records new characters and supported
+aliases in `state/inworld-character-registry/events/`. Direction workers use
+immutable attribution snapshots and share those established IDs. Two direction
+workers run by default (`directionConcurrency`, from one to four), each making
+bounded subscription requests. The paid worker serializes generation and retakes
+against the same reservations and spending ledger.
 
 Install a clean committed runtime on macOS with:
 
@@ -92,6 +101,12 @@ previous LaunchAgent. It refuses an active supervisor or renderer. The job uses
 `caffeinate`, `RunAtLoad`, an unsuccessful-exit restart policy and a periodic start
 interval so a reboot or network outage does not require an open chat. Avoid a
 second supervisor for the same job. Pin and record its source commit.
+
+Before upgrading an active job, create `pause.requested` and wait for `status.json`
+to say `paused` and for `worker.lock` to disappear. The worker reconciles accepted
+provider operations and drains review before pausing. Then stop that job's
+LaunchAgent, install the committed runtime, create `resume.requested`, and start
+the LaunchAgent. Never kill an in-flight paid request to speed up an upgrade.
 
 ## Recovery and AI follow-up
 

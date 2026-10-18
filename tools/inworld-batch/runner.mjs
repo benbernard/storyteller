@@ -9,6 +9,7 @@ import {sha, hash, pack, checkResults, assertBudget, validateCoverage} from './c
 import {effectiveReview, processingOnlyEntry} from './owner-review.mjs';
 import {PaidLane,belongsToEntry,evidenceRow,modelReview,needsModelReview,reviewInstructions,reviewSchema,validateReview} from './adjudication.mjs';
 import {repairPassage,recoverRepairs} from './repair.mjs';
+import {validateQueueUpdate,queuePreparationComplete,archiveExcludes} from './queue.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
@@ -38,7 +39,7 @@ let current={status:'starting'};
 const laneContext=new AsyncLocalStorage(), processing=new ProcessingLane(), paid=new PaidLane();
 async function status(value){if(processOnly){current={...current,...value,updatedAt:new Date().toISOString(),pid:process.pid};await save(join(reviewEntry.root,'owner-processing-status.json'),current);return;}if(laneContext.getStore()){const prior=await read(join(root,'processing-status.json'),{});await save(join(root,'processing-status.json'),{...prior,...value,updatedAt:new Date().toISOString(),pid:process.pid});return;}current={...current,...value,updatedAt:new Date().toISOString(),pid:process.pid};await save(join(root,'status.json'),current);console.log(JSON.stringify(current));}
 let archiveTail=Promise.resolve();
-async function archive(){const from=processOnly?reviewEntry.root:root,to=processOnly?config.archive+'/chapters/'+reviewEntry.sequence:config.archive;const task=archiveTail.catch(()=>{}).then(()=>run('rsync',['-a','--chmod=Du=rwx,Dgo=,Fu=rw,Fgo=','--exclude=worker.lock','--exclude=owner-review.lock','--exclude=assembly-temp','--exclude=runtime','--exclude=worker.log',from+'/',config.host+':'+to+'/'],{timeout:600000}));archiveTail=task;await task;}
+async function archive(){const from=processOnly?reviewEntry.root:root,to=processOnly?config.archive+'/chapters/'+reviewEntry.sequence:config.archive;const task=archiveTail.catch(()=>{}).then(()=>run('rsync',['-a','--chmod=Du=rwx,Dgo=,Fu=rw,Fgo=',...archiveExcludes.map(pattern=>'--exclude='+pattern),from+'/',config.host+':'+to+'/'],{timeout:600000}));archiveTail=task;await task;}
 async function download(url,file){
  const u=new URL(url);if(u.protocol!=='https:')throw Error('Unexpected result URL');
  const response=await fetch(u,{signal:AbortSignal.timeout(180000)});if(!response.ok)throw Error('Result download failed '+response.status);
@@ -100,7 +101,7 @@ async function finishJob(job,chapter){
  job.phase='complete';await writeJob(job);await archive();
  if(results.some(r=>r.error&&[7,8,16].includes(Number(r.error.code))))throw Error('Batch item credit/quota/access error; saved completed items');
 }
-async function synthesize(entry,chapter,voices){
+async function synthesize(entry,chapter,voices,pauseBetweenGroups=false){
  const items=chapter.items.map(i=>({...i,request:{...i.request,voiceId:voices[i.role].voiceId}}));
  for(const job of (await jobs()).filter(j=>belongsToEntry(j,entry,config)&&!['complete','rejected'].includes(j.phase))){
   if(job.phase==='submitting')throw Error('Ambiguous submission: inspect batch operations before resuming');
@@ -110,7 +111,10 @@ async function synthesize(entry,chapter,voices){
  while(true){
   const missing=[];
   for(const item of items){const r=await read(join(entry.root,'receipts',item.customId+'.json'),null);if(!r)missing.push(item);else if(r.requestHash!==hash(item.request)||sha(await fs.readFile(join(entry.root,'audio',item.customId+'.wav')))!==r.sha256)throw Error('Saved speech no longer matches the request');}
-  if(!missing.length)return;
+  if(!missing.length)return true;
+  // Finish and checkpoint accepted work before honoring an upgrade pause. Retakes
+  // already queued in the processing lane can finish while generation is paused.
+  if(pauseBetweenGroups&&await exists(join(root,'pause.requested')))return false;
   const group=pack(missing,config.maxBatchCharacters)[0],all=await jobs();
   for(const item of group)if(all.filter(j=>belongsToEntry(j,entry,config)&&j.phase!=='rejected'&&j.items.some(i=>i.customId===item.customId)).length>=1+config.maxRetakes)throw Error('Passage retry limit reached');
   const characters=group.reduce((n,i)=>n+i.request.text.length,0);assertBudget(all,characters,config.ceilingUSD,config.usdPerMillion??20);
@@ -279,24 +283,39 @@ try{
  try{lock=await fs.open(join(root,'worker.lock'),'wx');await lock.writeFile(String(process.pid));await lock.close();}catch(e){if(e.code!=='EEXIST')throw e;const pid=Number(await fs.readFile(join(root,'worker.lock'),'utf8'));try{process.kill(pid,0);throw Error('Runner already active');}catch(error){if(error.code!=='ESRCH')throw error;}await fs.unlink(join(root,'worker.lock'));lock=await fs.open(join(root,'worker.lock'),'wx');await lock.writeFile(String(process.pid));await lock.close();}
  await run('ssh',[config.host,'mkdir -p '+quote(config.archive)]);
  await status({status:'running',completed:[]});
- for(const entry of config.chapters){
+ const queueCheckpoint=join(root,'queue-accepted.json');
+ let queue=validateQueueUpdate(await read(queueCheckpoint,null),config),nextChapter=0,paused=false;
+ await save(queueCheckpoint,queue);
+ while(true){
+  const next=validateQueueUpdate(queue,await read(process.argv[2]));
+  if(hash(queue)!==hash(next))await save(queueCheckpoint,next);
+  queue=next;config.chapters=next.chapters;
+  if(paid.error)throw paid.error;
+  if(await exists(join(root,'pause.requested'))){paused=true;break;}
+  if(nextChapter>=config.chapters.length){
+   if(queuePreparationComplete(queue))break;
+   await status({status:'running',stage:'waiting-for-prepared-chapters',prepared:config.chapters.length,total:queue.selectedChapterIds.length,operation:null});
+   await sleep((config.queuePollSeconds??5)*1000);continue;
+  }
+  const entry=config.chapters[nextChapter++];
   const chapter=await read(join(entry.root,'input.json'));if(hash(chapter)!==entry.inputHash)throw Error('Input changed after preparation');
   const done=await read(join(entry.root,'published.json'),null);
   if(done){if(done.assembly!==(await read(join(entry.root,'assembly.json'))).assembly.id)throw Error('Published receipt mismatch');current.completed.push(entry.chapterId);continue;}
   await status({chapter:entry.chapterId,title:entry.title,stage:'preparing',role:null});
   await recoverRepairs(entry,read,save);
-  await paid.run(async()=>{const voices=await voicesFor(chapter);await synthesize(entry,chapter,voices);});
+  const generated=await paid.run(async()=>{const voices=await voicesFor(chapter);return await synthesize(entry,chapter,voices,true);});
+  if(!generated){paused=true;break;}
   await save(join(entry.root,'generated.json'),{chapter:entry.chapterId,inputHash:entry.inputHash,items:chapter.items.length,completedAt:new Date().toISOString()});
   current.completed.push(entry.chapterId);await status({stage:'chapter-generated'});
   processing.enqueue(entry.chapterId,()=>laneContext.run(true,()=>processChapter(entry,chapter)),async error=>{
    await save(join(entry.root,'processing.json'),{status:'needs-attention',reason:String(error.message)});
   });
  }
- await status({stage:'generation-complete-processing-remaining',operation:null});
+ await status({stage:paused?'pausing-processing-remaining':'generation-complete-processing-remaining',operation:null});
  await processing.drain();
  const pending=[];for(const entry of config.chapters)if(!await exists(join(entry.root,'published.json')))pending.push(entry.chapterId);
  if(paid.error)throw paid.error;
- await status({status:pending.length?'complete-with-review-backlog':'complete',stage:'complete',pending,processingErrors:processing.errors,operation:null});await archive();
+ await status({status:paused?'paused':pending.length?'complete-with-review-backlog':'complete',stage:paused?'paused':'complete',pending,processingErrors:processing.errors,operation:null});await archive();
  if(processing.errors.length)process.exitCode=1; // Launchd retries cached work after transient review or publication failures.
 }catch(error){await processing.drain();if(!lock){console.error(error.message);process.exit(0);}await status({status:'held',reason:String(error.message),stage:current.stage});if(error.retryable)process.exitCode=1;try{await archive();}catch{console.error('Archive unavailable; local checkpoints retained');}}
 finally{if(lock)await fs.unlink(join(root,'worker.lock')).catch(()=>{});}

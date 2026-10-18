@@ -7,12 +7,13 @@ import {join,dirname,resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {materializeChapter} from './prepare.mjs';
 import {hash} from './core.mjs';
+import {prepareConcurrently} from './preparation-lanes.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
 export function recoveryAction(status) {
  if(status.status==='complete')return 'complete';
  if(status.status==='complete-with-review-backlog')return 'review';
  const reason=status.reason??'';
- if(/HTTP (?:401|402|403)|ambiguous|uncertain.*submi|submission.*uncertain|credit|quota|access error|spending ceiling|budget|previously failed operation|retry limit|source.*changed|checksum mismatch/i.test(reason))return 'attention';
+ if(/HTTP (?:401|402|403)|ambiguous|uncertain.*submi|submission.*uncertain|credit|quota|access error|spending ceiling|budget|previously failed operation|retry limit|source.*changed|checksum mismatch|queue operational settings|prepared chapter.*(?:changed|deleted)|selected chapter order|preparation completion/i.test(reason))return 'attention';
  return 'retry';
 }
 const read=async(path,fallback)=>{try{return JSON.parse(await fs.readFile(path,'utf8'));}catch(e){if(e.code==='ENOENT')return fallback;throw e;}};
@@ -28,20 +29,22 @@ export async function supervise(path) {
  try {const pid=Number(await fs.readFile(lockPath,'utf8'));process.kill(pid,0);throw Error('Supervisor already active');}
  catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;}
  await fs.writeFile(lockPath,String(process.pid),{flag:'w',mode:0o600});
- let child;const stopping=new AbortController();
- const status=async value=>{prior={...prior,...value,pid:process.pid,updatedAt:new Date().toISOString()};await save(statusPath,prior);};
- const stop=()=>{stopping.abort();child?.kill('SIGTERM');};process.on('SIGTERM',stop);process.on('SIGINT',stop);
- const heartbeat=setInterval(()=>{void status({childPid:child?.pid??null}).catch(()=>{});},15000);
- const command=async args=>new Promise((done,fail)=>{
-  child=spawn(process.execPath,args,{env:process.env,stdio:['ignore','pipe','pipe']});let error='';
+ const children=new Map(),stopping=new AbortController();let interrupted=false,statusTail=Promise.resolve();
+ const status=value=>{const task=statusTail.then(async()=>{prior={...prior,...value,pid:process.pid,updatedAt:new Date().toISOString()};await save(statusPath,prior);});statusTail=task.catch(()=>{});return task;};
+ const terminatePreparation=()=>{for(const [pid,lane]of children)if(lane!=='render')try{process.kill(-pid,'SIGTERM');}catch(error){if(error.code!=='ESRCH')throw error;}};
+ const stop=()=>{interrupted=true;stopping.abort();void save(join(root,'pause.requested'),{at:new Date().toISOString()});terminatePreparation();};process.on('SIGTERM',stop);process.on('SIGINT',stop);
+ const heartbeat=setInterval(()=>{void status({childPid:children.keys().next().value??null,children:[...children].map(([pid,lane])=>({pid,lane}))}).catch(()=>{});},15000);
+ const command=async(args,lane='prepare')=>new Promise((done,fail)=>{
+  if(stopping.signal.aborted){fail(Error('Supervision stopped'));return;}
+  const child=spawn(process.execPath,args,{env:process.env,stdio:['ignore','pipe','pipe'],detached:true});children.set(child.pid,lane);let error='';
   const output=fs.open(join(root,'supervisor.log'),'a');
   child.stdout.on('data',data=>{void output.then(f=>f.write(data));});
   child.stderr.on('data',data=>{error=(error+data).slice(-1500);void output.then(f=>f.write(data));});
-  child.once('error',fail);child.once('close',code=>{child=undefined;void output.then(f=>f.close());code===0?done():fail(Error('Child exited '+code+': '+error));});
+  child.once('error',fail);child.once('close',code=>{children.delete(child.pid);void output.then(f=>f.close());code===0?done():fail(Error('Child exited '+code+': '+error));});
  });
- const retry=async(stage,work)=>{
+ const retry=async(stage,work,lane='prepare')=>{
   for(let attempt=0;;attempt++){
-   try{await status({status:'running',stage,attempt:attempt+1,reason:null});return await work();}
+   try{if(stopping.signal.aborted)throw Error('Supervision stopped');await status({status:'running',stage,attempt:attempt+1,reason:null,nextAttemptAt:null,[lane+'Stage']:stage});return await work();}
    catch(error){
     if(stopping.signal.aborted)throw error;
     const reason=String(error.message);
@@ -55,12 +58,20 @@ export async function supervise(path) {
  try {
   // Explicit attention stops are durable. A monitoring agent reconciles evidence before resuming.
   if(['needs-attention','review-backlog'].includes(prior.status)){
-   try{await fs.unlink(join(root,'resume.requested'));}catch(error){if(error.code==='ENOENT')return;throw error;}
+   try{await fs.access(join(root,'resume.requested'));}catch(error){if(error.code==='ENOENT')return;throw error;}
   }
   if(prior.status==='complete')return;
+  let resumed=false;try{await fs.unlink(join(root,'resume.requested'));resumed=true;}catch(error){if(error.code!=='ENOENT')throw error;}
+  if(resumed)await fs.rm(join(root,'pause.requested'),{force:true});
+  else try{await fs.access(join(root,'pause.requested'));await status({status:'paused'});return;}catch(error){if(error.code!=='ENOENT')throw error;}
   const dependency=hash({chapterIds:config.chapterIds,voices:config.originalVoices,narrator:config.narratorPolicy});
   if(prior.dependency&&prior.dependency!==dependency)throw Error('Supervised inputs changed');
   await status({dependency});
+  if(config.plannerConfig){
+   const planner=await read(config.plannerConfig);
+   if(planner.chapterIds&&hash(planner.chapterIds)!==hash(config.chapterIds))throw Error('Selected chapter order changed in planner');
+   if(!planner.chapterIds)await save(config.plannerConfig,{...planner,chapterIds:config.chapterIds});
+  }
   if(config.priorQueue){
    const planner=await read(config.plannerConfig),index=await read(join(planner.state,'index.json'));
    const firstSequence=Math.min(...config.chapterIds.map(id=>index.chapters.find(c=>c.id===id)?.sequence??NaN));
@@ -70,35 +81,76 @@ export async function supervise(path) {
   }
   let queue=await read(join(root,'queue.json'),null);
   if(!queue){
-   const profiles={},chapters=[];
-   for(const chapterId of config.chapterIds){
-    await retry('prepare-'+chapterId,()=>command([config.planner,config.plannerConfig,chapterId]));
-    const prepared=await materializeChapter(join(config.plans,'plans',chapterId),config);
-    for(const profile of prepared.profiles){if(profiles[profile.id])continue;
-     const gender=profile.tags.includes('female')?'female':profile.tags.includes('male')?'male':'androgynous';
-     profiles[profile.id]={role:profile.id,gender,tags:profile.tags,evidence:profile.evidence,designPrompt:`A distinct ${gender} English audiobook character voice. ${profile.portrayal}. ${profile.tags.join(', ')}. Consistent natural identity, clear close-mic studio recording.`,previewText:'We have time to consider what happens next. Tell me what you found, and we will work through it together.'};
-    }
-    chapters.push(prepared.entry);await status({prepared:chapters.length,total:config.chapterIds.length});
-   }
-   queue={...config,chapters,estimate:{submittedCharacters:0,speechUSD:0}};
-   for(const entry of chapters){const c=await read(join(entry.root,'input.json'));queue.estimate.submittedCharacters+=c.items.reduce((n,i)=>n+i.request.text.length,0);}
-   queue.estimate.speechUSD=queue.estimate.submittedCharacters*(queue.usdPerMillion??20)/1e6;
-   if(queue.estimate.speechUSD>queue.ceilingUSD)throw Error('Prepared speech exceeds budget ceiling');
-   await save(join(root,'voices.json'),config.originalVoices);await save(join(root,'voice-profiles.json'),profiles);await save(join(root,'queue.json'),queue);
+   const voices=await read(join(root,'voices.json'),config.originalVoices);
+   for(const [role,voice]of Object.entries(config.originalVoices))if(voices[role]?.voiceId!==voice.voiceId)throw Error('Original voice changed: '+role);
+   await save(join(root,'voices.json'),voices);
+   await save(join(root,'voice-profiles.json'),await read(join(root,'voice-profiles.json'),{}));
+   queue={...config,selectedChapterIds:config.chapterIds,preparationComplete:false,chapters:[],estimate:{submittedCharacters:0,speechUSD:0}};
   }
-  await retry('render-review-publish',async()=>{
-   let failed;try{await command([join(here,'runner.mjs'),join(root,'queue.json')]);}catch(error){failed=error;}
+  // Runtime upgrades may update executable paths, never queue entries or billing inputs.
+  for(const field of ['sourceCommit','sourceRepository','sourceRoot','planner','analysisModule'])if(config[field]!==undefined)queue[field]=config[field];
+  await save(join(root,'queue.json'),queue);
+  let appendTail=Promise.resolve();
+  const appendReady=()=>{
+   const task=appendTail.then(async()=>{
+    const profiles=await read(join(root,'voice-profiles.json'),{});let changed=false;
+    while(queue.chapters.length<config.chapterIds.length){
+     const id=config.chapterIds[queue.chapters.length],planRoot=join(config.plans,'plans',id);
+     if(!await read(join(planRoot,'plan.json'),null))break;
+     const prepared=await materializeChapter(planRoot,config);
+     if(prepared.entry.chapterId!==id)throw Error('Prepared chapter identity changed');
+     for(const profile of prepared.profiles){if(profiles[profile.id])continue;
+      const gender=profile.tags.includes('female')?'female':profile.tags.includes('male')?'male':'androgynous';
+      profiles[profile.id]={role:profile.id,gender,tags:profile.tags,evidence:profile.evidence,designPrompt:`A distinct ${gender} English audiobook character voice. ${profile.portrayal}. ${profile.tags.join(', ')}. Consistent natural identity, clear close-mic studio recording.`,previewText:'We have time to consider what happens next. Tell me what you found, and we will work through it together.'};
+     }
+     queue.chapters.push(prepared.entry);changed=true;
+    }
+    if(changed){
+     queue.estimate={submittedCharacters:0,speechUSD:0};
+     for(const entry of queue.chapters){const chapter=await read(join(entry.root,'input.json'));queue.estimate.submittedCharacters+=chapter.items.reduce((n,i)=>n+i.request.text.length,0);}
+     queue.estimate.speechUSD=queue.estimate.submittedCharacters*(queue.usdPerMillion??20)/1e6;
+     if(queue.estimate.speechUSD>queue.ceilingUSD)throw Error('Prepared speech exceeds budget ceiling');
+     await save(join(root,'voice-profiles.json'),profiles);await save(join(root,'queue.json'),queue);
+    }
+    await status({prepared:queue.chapters.length,total:config.chapterIds.length});
+   });appendTail=task.catch(()=>{});return task;
+  };
+  if(queue.selectedChapterIds)await appendReady();
+  const preparation=async()=>{
+   if(!queue.selectedChapterIds||queue.preparationComplete)return;
+   await prepareConcurrently(config.chapterIds,{
+    attribute:async id=>{
+     if(await read(join(config.plans,'plans',id,'plan.json'),null))return;
+     await retry('attribute-'+id,()=>command([config.planner,config.plannerConfig,id,'attribute'],'attribute'),'attribute');
+    },
+    direct:async id=>{
+     if(await read(join(config.plans,'plans',id,'plan.json'),null))return;
+     await retry('directions-'+id,()=>command([config.planner,config.plannerConfig,id,'directions'],'directions'),'directions');
+    },ready:appendReady,
+   },config.directionConcurrency??2);
+   if(queue.chapters.length!==config.chapterIds.length)throw Error('Selected preparation incomplete');
+   queue.preparationComplete=true;await save(join(root,'queue.json'),queue);
+  };
+  const rendering=()=>retry('render-review-publish',async()=>{
+   let failed;try{await command([join(here,'runner.mjs'),join(root,'queue.json')],'render');}catch(error){failed=error;}
    const state=await read(join(root,'status.json'),{}),action=recoveryAction(state);
    if(action==='complete')return;
    if(action==='review'){await status({status:'review-backlog',pending:state.pending});return;}
+   if(state.status==='paused')return;
    if(action==='attention'){await status({status:'needs-attention',reason:state.reason});throw Error(state.reason);}
    throw failed??Error(state.reason??'Runner did not complete');
-  });
-  if(prior.status==='review-backlog')return;
+  },'render');
+  let failure;
+  const tasks=[preparation(),rendering()].map(task=>task.catch(async error=>{
+   failure??=error;stopping.abort();terminatePreparation();await save(join(root,'pause.requested'),{at:new Date().toISOString(),reason:'A supervised lane requires attention'});
+  }));
+  await Promise.all(tasks);if(failure)throw failure;
   const state=await read(join(root,'status.json'));
+  if(recoveryAction(state)==='review'){await status({status:'review-backlog',pending:state.pending});return;}
+  if(state.status==='paused'){await status({status:interrupted?'interrupted':'paused'});return;}
   if(state.status!=='complete')throw Error(state.reason??'Runner incomplete');
   await status({status:'complete',stage:'verified-publication',chapters:queue.chapters.length,reason:null});
- }catch(error){await status({status:stopping.signal.aborted?'interrupted':'needs-attention',reason:String(error.message)});}
+ }catch(error){await status({status:interrupted?'interrupted':'needs-attention',reason:String(error.message)});}
  finally{clearInterval(heartbeat);process.off('SIGTERM',stop);process.off('SIGINT',stop);await fs.unlink(lockPath);}
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
