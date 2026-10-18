@@ -45,6 +45,10 @@ The supervisor JSON contains:
 - `root`, `fiction`, `edition`, and ordered `chapterIds`.
 - `planner` (absolute path to `tools/audiobooks/dist/inworld-plan.js`),
   `plannerConfig`, and `plans` (the planner's `directory`).
+- Optional `priorQueue`, pointing to an earlier completed batch queue. Its source
+  evidence restores previously voiced speakers missing from the source roster,
+  without exposing later-chapter identities. A saved voice without identity
+  evidence stops preparation rather than receiving a new identity.
 - `originalVoices` copied from the previously accepted Inworld cast, and
   `narratorPolicy` recording the source-supported gender and casting decision.
 - `host`, `credentialFile`, `archive` (remote checkpoint directory), and

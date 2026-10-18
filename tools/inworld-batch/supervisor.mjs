@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {setTimeout as wait} from 'node:timers/promises';
 import {spawn} from 'node:child_process';
 import {join,dirname,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {materializeChapter} from './prepare.mjs';
 import {hash} from './core.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
@@ -61,6 +61,13 @@ export async function supervise(path) {
   const dependency=hash({chapterIds:config.chapterIds,voices:config.originalVoices,narrator:config.narratorPolicy});
   if(prior.dependency&&prior.dependency!==dependency)throw Error('Supervised inputs changed');
   await status({dependency});
+  if(config.priorQueue){
+   const planner=await read(config.plannerConfig),index=await read(join(planner.state,'index.json'));
+   const firstSequence=Math.min(...config.chapterIds.map(id=>index.chapters.find(c=>c.id===id)?.sequence??NaN));
+   if(!Number.isInteger(firstSequence))throw Error('Selected chapter missing from source index');
+   const {seedHistoricalCast}=await import(pathToFileURL(join(dirname(config.planner),'inworld-history.js')).href);
+   await seedHistoricalCast(config.priorQueue,planner.state,firstSequence);
+  }
   let queue=await read(join(root,'queue.json'),null);
   if(!queue){
    const profiles={},chapters=[];
