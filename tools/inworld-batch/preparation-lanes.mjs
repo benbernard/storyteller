@@ -6,6 +6,7 @@ export async function prepareConcurrently(chapterIds, work, concurrency=2) {
   for(const id of chapterIds){
    if(failure)throw failure;
    await work.attribute(id);
+   if(failure)throw failure;
    while(active.size>=concurrency){await Promise.race(active);if(failure)throw failure;}
    let task;
    task=(async()=>{await work.direct(id);await work.ready();})().catch(error=>{failure??=error;}).finally(()=>active.delete(task));

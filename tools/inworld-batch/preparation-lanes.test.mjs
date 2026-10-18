@@ -23,3 +23,11 @@ test('a failed direction worker stops new discovery and drains active work witho
  },2);
  await assert.rejects(task,/Source needs review/);assert(!seen.includes('four'));
 });
+test('a direction failure during attribution does not start another direction request',async()=>{
+ const release=deferred(),directed=[];
+ const task=prepareConcurrently(['one','two','three'],{
+  attribute:async id=>{if(id==='three'){release.resolve();await new Promise(done=>setImmediate(done));}},
+  direct:async id=>{directed.push(id);if(id==='one'){await release.promise;throw Error('Direction failed during attribution');}},ready:async()=>{},
+ },2);
+ await assert.rejects(task,/Direction failed during attribution/);assert.deepEqual(directed,['one','two']);
+});
