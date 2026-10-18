@@ -22,9 +22,10 @@ jobs:
           pnpm -C tools/royal-road install --frozen-lockfile
           pnpm -C tools/mac-tts install --frozen-lockfile
           pnpm test
+          node --test tools/inworld-batch/*.test.mjs
       - run: |
           python -m pip install -r tools/python-quality/requirements.txt
-          python -m ruff check tools/mac-tts
+          python -m ruff check tools/mac-tts tools/inworld-batch
           cd tools/mac-tts
           python -m unittest test_local_book test_review_local_book test_retake_local_book test_audition_cache
           cd acting-auditions

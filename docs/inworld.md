@@ -136,3 +136,13 @@ recast characters. There is no automatic provider fallback.
 Tests use injected API responses and synthetic audio. They check request headers,
 UTF-16 limits, response decoding, usage, budgets, cache reuse, and publication.
 They do not establish live account access, current prices, or speech quality.
+
+## Supervised batch API workflow
+
+The separate [batch supervisor](../tools/inworld-batch/README.md) supports Inworld's
+asynchronous batch API, saved synthetic voices, subscription-based source
+attribution and acting directions, independent transcript review, and bounded
+short retakes. It checkpoints paid requests before submission, retries temporary
+transport failures and publishes verified chapters. Install it under a persistent
+process manager and pair it with an AI monitoring task for software diagnosis and
+review backlogs. This workflow currently uses Apple MLX for CPU ASR.
