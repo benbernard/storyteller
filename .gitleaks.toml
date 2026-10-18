@@ -12,3 +12,15 @@ regexes = [
   '''^3b22b5958c15f807e3ca8faae2cc3b7cc4b74552$''',
   '''^175578e703e743eb93f5bdcb0e695892521d7734$''',
 ]
+
+# Public SHA256 checksums for the pinned wav2vec2 tokenizer files.
+# Verified against facebook/wav2vec2-lv-60-espeak-cv-ft at ae45363bf3413b374fecd9dc8bc1df0e24c3b7f4.
+# Match only these exact public values in the phoneme snapshot manifest.
+[[allowlists]]
+condition = "AND"
+paths = ['''^tools/inworld-batch/phonemes\.py$''']
+regexTarget = "secret"
+regexes = [
+  '''^bb7068de1150661a10b55f9e4b12a0e77af8bf91f5e45e1b58afaf1d0e17f675$''',
+  '''^1273ec458332cc55226ec596904bae811420755ace7e5d69462b61c4f480b457$''',
+]
