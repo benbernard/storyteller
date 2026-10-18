@@ -6,6 +6,7 @@ import {fingerprint} from '../audiobooks/dist/store.js';
 import {renderVisualRedactions,verifyVisualRedactions,visualRedactionPolicy} from '../audiobooks/dist/spoken-redactions.js';
 
 import {buildRenderingRecoveryPlan} from './rendering-recovery.mjs';
+import {excisionDirectory,validatePCMExcisionLayer} from './pcm-excision-evidence.mjs';
 
 const read=async path=>JSON.parse(await fs.readFile(path,'utf8'));
 export const renderingFingerprint=fingerprint;
@@ -42,6 +43,14 @@ export async function renderingContext(root,item){
  let receipt;
  try{receipt=await read(join(root,'receipts',item.customId+'.json'));}
  catch(error){if(error.code==='ENOENT')return null;throw error;}
+ if(receipt.offlinePCMExcision){
+  const directory=excisionDirectory(root,item),base=await read(join(directory,'base-receipt.json'));
+  const context=await baseRenderingContext(root,item,base,join(directory,'base.wav'));
+  return await validatePCMExcisionLayer(root,item,receipt,context);
+ }
+ return await baseRenderingContext(root,item,receipt);
+}
+export async function baseRenderingContext(root,item,receipt,audioPath=join(root,'audio',item.customId+'.wav')){
  if(!receipt.renderingRecovery)return null;
  if(!/^[A-Za-z0-9_-]+$/.test(item.customId))throw Error('Invalid visual-redaction passage ID');
  const chapter=await read(join(root,'input.json'));
@@ -73,7 +82,7 @@ export async function renderingContext(root,item){
   const final={id:part.id,root:part.root,sha256:digest,job:proof.job,reused:part.reused};
   if(fingerprint(final)!==fingerprint(receipt.renderingRecovery.parts[index]))throw Error('Recovery final child provenance changed');
  }
- if(sha(await fs.readFile(join(root,'audio',item.customId+'.wav')))!==context.audioSha256)throw Error('Visual-redaction audio no longer matches its receipt');
+ if(sha(await fs.readFile(audioPath))!==context.audioSha256)throw Error('Visual-redaction audio no longer matches its receipt');
  return context;
 }
 

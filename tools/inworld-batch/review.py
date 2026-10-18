@@ -98,7 +98,12 @@ def cached_attempts(path: Path, digest: str, expected: str, models: list[str], c
         if attempts and not attempts[-1]['needsStronger']:
             return []
         transcript = attempt['transcript']
-        attempts.append({'model': models[index], 'transcript': transcript, **compare(comparison_expected, transcript)})
+        metrics = compare(comparison_expected, transcript)
+        # A surgical offline edit needs both whole-passage recognizers, even
+        # when the first recognizer reports an exact match.
+        if index == 0 and context is not None and context.get('offlinePCMExcision'):
+            metrics['needsStronger'] = True
+        attempts.append({'model': models[index], 'transcript': transcript, **metrics})
     return attempts
 
 
@@ -126,6 +131,9 @@ def matching_report(report: object, digest: str, expected: str, context: dict[st
         return False
     if context is None:
         return 'renderingContext' not in report and 'comparisonExpected' not in report
+    if context.get('offlinePCMExcision') and (not isinstance(report.get('attempts'), list)
+                                            or len(report['attempts']) != 2):
+        return False
     return report.get('renderingContext') == context and report.get('comparisonExpected') == context['comparisonExpected']
 
 
@@ -168,7 +176,10 @@ def review_items(root: Path, items: list[ReviewItem], models: list[str], transcr
                 raise ValueError('Missing transcript')
             if hashlib.sha256(entry['audio'].read_bytes()).hexdigest() != entry['sha256']:
                 raise ValueError('Audio changed during independent review')
-            attempts.append({'model': model, 'transcript': transcript, **compare(entry['comparisonExpected'], transcript)})
+            metrics = compare(entry['comparisonExpected'], transcript)
+            if index == 0 and entry['renderingContext'] is not None and entry['renderingContext'].get('offlinePCMExcision'):
+                metrics['needsStronger'] = True
+            attempts.append({'model': model, 'transcript': transcript, **metrics})
             save_json(checkpoints / (item['customId'] + '.json'),
                       {'sha256': entry['sha256'], 'expected': item['spokenText'], 'models': models, 'attempts': attempts, 'renderingContext': entry['renderingContext']})
             if not attempts[-1]['needsStronger'] or index == len(models) - 1:

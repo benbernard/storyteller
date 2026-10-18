@@ -180,6 +180,39 @@ class ReviewTests(unittest.TestCase):
         self.assertIn(('first', 'pinned-small'), self.calls)
         self.assertNotIn('comparisonExpected', self.read_report('first'))
 
+    def test_offline_pcm_layer_requires_fresh_small_and_strong_asr_for_the_entire_original_expected(self) -> None:
+        item = self.items[0]
+        item['spokenText'] = 'one ██ two three four five six'
+        context: dict[str, object] = {'comparisonExpected': 'one redacted two three four five six',
+                                      'offlinePCMExcision': {'planHash': 'first-proof'}}
+
+        def loader(root: Path, current: ReviewItem, digest: str) -> dict[str, object]:
+            self.assertEqual(current, item)
+            self.assertEqual(root, self.root)
+            return {**context, 'audioSha256': digest}
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            if model == self.models[1] and (self.root / 'review/first.json').exists():
+                self.assertNotEqual(self.read_report('first')['sha256'], hashlib.sha256(audio.read_bytes()).hexdigest())
+            return str(context['comparisonExpected'])
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-small'), ('first', 'pinned-large')])
+        original = self.read_report('first')
+        self.calls.clear()
+        (self.root / 'audio/first.wav').write_bytes(b'exact-offline-pcm-edit')
+        context['offlinePCMExcision'] = {'planHash': 'new-exact-proof'}
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        report = self.read_report('first')
+        self.assertEqual(self.calls, [('first', 'pinned-small'), ('first', 'pinned-large')])
+        self.assertEqual(report['expected'], item['spokenText'])
+        self.assertEqual(report['comparisonExpected'], context['comparisonExpected'])
+        self.assertNotEqual(report['sha256'], original['sha256'])
+        self.assertEqual(report['renderingContext']['offlinePCMExcision'], {'planHash': 'new-exact-proof'})
+
     def test_invalid_receipt_rendering_proof_holds_before_inference(self) -> None:
         (self.root / 'receipts').mkdir()
         save_json(self.root / 'receipts' / 'first.json', {'renderingRecovery': {'forged': True}})

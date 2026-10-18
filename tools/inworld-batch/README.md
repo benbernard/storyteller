@@ -215,6 +215,36 @@ identities, hidden identity evidence and paid reservations remain intact.
 
 ## Recovery and AI follow-up
 
+### Removing a proven insertion without another TTS call
+
+`pcm-excision.mjs` supports one reviewed edit to a held passage whose ordinary
+retakes and visual-redaction recovery are exhausted. Both independent ASRs and
+unprompted phoneme timing must locate the insertion and preserve the adjacent
+source words. The helper permits one deletion of at most two seconds and 20% of
+one reused child clip, with zero-valued seams. Every retained PCM sample stays
+byte-identical. It does not change source text, voices, paid reservations or
+retake counters.
+
+The default command only builds a plan from the saved candidate evidence:
+
+```sh
+node tools/inworld-batch/pcm-excision.mjs /private/job/config.json \
+  chapter-1 s0001p0 s0001p0r2p2 /private/candidate
+```
+
+Review the plan and its hashes before adding `--apply REVIEWED_PLAN_HASH`.
+Application requires an installed committed runtime with the matching chapter
+locks. Generation, quality checks and recovery share those locks; work on other
+chapters can continue. The helper retains the original parent, every child and
+all original receipts, then adds a separate derivation proof. It refuses a second
+edit, changed evidence, or an assembled or published chapter. An interrupted
+promotion can finish only from its exact saved plan and old or new audio hashes.
+
+The passage remains held after application. Run the same committed runner with
+`QUEUE --process-only CHAPTER_ID` for fresh full-passage ASR, independent phonemes
+and subscription adjudication. Changed audio cannot reuse the earlier acceptance.
+Publication still requires the normal quality and NAS verification checks.
+
 `supervisor-status.json` records stage, heartbeat, retry attempts and final status.
 Its `lanes` object retains each preparation and rendering stage's health, error
 and next retry time. Check these records alongside the overall status: another

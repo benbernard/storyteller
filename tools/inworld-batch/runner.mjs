@@ -14,6 +14,7 @@ import {voiceDesignPrompt} from './voice-design.mjs';
 import {batchWindowSize,explicitProviderRejection,classifyBatchResponse,providerBlockingCodes,runBatchWindow,reconcileBatchJobs} from './batch-window.mjs';
 import {recoverVisualRedactionPassage} from './rendering-recovery.mjs';
 import {renderingContext} from './rendering-review.mjs';
+import {withChapterProcessingLock} from './chapter-processing-lock.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
@@ -214,6 +215,21 @@ async function quality(entry,chapter){
  await save(join(entry.root,'quality.json'),{major,minor,status:major.length?'needs-review':minor?'provisional':'reviewed'});return major;
 }
 async function processChapter(entry,chapter){
+ if(processOnly)return await processChapterLocked(entry,chapter);
+ return await mainChapterWork(entry,async()=>{
+  if(await exists(join(entry.root,'published.json')))return;
+  return await processChapterLocked(entry,chapter);
+ });
+}
+async function mainChapterWork(entry,work){
+ try{return await withChapterProcessingLock(entry.root,work,{shouldAcquire:async()=>!await exists(join(root,'pause.requested'))});}
+ catch(error){
+  if(error.code!=='CHAPTER_PROCESSING_PAUSED')throw error;
+  await save(join(entry.root,'processing.json'),{status:'queued-for-resume',chapter:entry.chapterId,inputHash:entry.inputHash,updatedAt:new Date().toISOString()});
+  return false;
+ }
+}
+async function processChapterLocked(entry,chapter){
  await status({status:'running',chapter:entry.chapterId,title:entry.title});
  // Retry the same immutable publication after a crash or a lost verification response.
  // Reassembling here could change its ID as later character voices are added.
@@ -271,9 +287,16 @@ async function assemble(entry,chapter){
  await run('ffmpeg',['-v','error','-i',audio,'-f','null','-'],{timeout:600000});
  const duration=Number((await run('ffprobe',['-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',audio])).trim());
  if(Math.abs(duration-offset)>.2)throw Error('Final duration differs from passage timeline');
- const renderingRecoveries=[];
- for(const item of chapter.items){const receipt=await read(join(entry.root,'receipts',item.customId+'.json'));if(receipt.renderingRecovery){const recovery=receipt.renderingRecovery;renderingRecoveries.push({passage:item.customId,rendererVersion:recovery.rendererVersion,planHash:recovery.planHash,renderingFingerprint:recovery.renderingProof.fingerprint,audioSha256:receipt.sha256});}}
- const plan={policy:{model:'inworld-tts-2'},quality:await read(join(entry.root,'quality.json')),inputHash:entry.inputHash,voiceIds:Object.fromEntries(Object.entries(await read(join(root,'voices.json'))).map(([k,v])=>[k,v.voiceId])),...(renderingRecoveries.length?{renderingRecoveries}:{})};
+ const renderingRecoveries=[],offlinePCMExcisions=[];
+ for(const item of chapter.items){
+  const receipt=await read(join(entry.root,'receipts',item.customId+'.json'));
+  if(receipt.renderingRecovery){const recovery=receipt.renderingRecovery;renderingRecoveries.push({passage:item.customId,rendererVersion:recovery.rendererVersion,planHash:recovery.planHash,renderingFingerprint:recovery.renderingProof.fingerprint,audioSha256:receipt.sha256});}
+  if(receipt.offlinePCMExcision){
+   const context=await renderingContext(entry.root,item);if(context?.audioSha256!==receipt.sha256||!context.offlinePCMExcision)throw Error('PCM publication proof changed');
+   offlinePCMExcisions.push({passage:item.customId,...context.offlinePCMExcision});
+  }
+ }
+ const plan={policy:{model:'inworld-tts-2'},quality:await read(join(entry.root,'quality.json')),inputHash:entry.inputHash,voiceIds:Object.fromEntries(Object.entries(await read(join(root,'voices.json'))).map(([k,v])=>[k,v.voiceId])),...(renderingRecoveries.length?{renderingRecoveries}:{}),...(offlinePCMExcisions.length?{offlinePCMExcisions}:{})};
  const planId=hash(plan), data={schemaVersion:1,chapterId:chapter.chapterId,sequence:chapter.sequence,source:chapter.source,analysis:chapter.analysis,plan:planId,checksum:sha(await fs.readFile(audio)),duration,timeline};const assembly={...data,id:hash(data)};
  const bundle=join(entry.root,'publication');await save(join(bundle,'plans',planId+'.json'),plan);await save(join(bundle,'assemblies',assembly.id,'metadata.json'),assembly);await fs.copyFile(audio,join(bundle,'assemblies',assembly.id,'chapter.mp3'));
  // Reader state is immutable and content addressed; install only missing, byte-identical objects.
@@ -327,15 +350,13 @@ if(renderingOnly){
  }catch(error){await status({status:'held',reason:String(error.message)});process.exitCode=1;}
  finally{if(renderingOwnerLock)await fs.unlink(renderingOwnerLock).catch(()=>{});if(lock)await fs.unlink(join(root,'worker.lock')).catch(()=>{});}
 }else if(processOnly){
- const lockPath=join(reviewEntry.root,'owner-review.lock');
- let ownLock=false;
  try{
-  const chapter=await read(join(reviewEntry.root,'input.json'));
-  processingOnlyEntry(config,processOnly,await read(join(reviewEntry.root,'processing.json'),null),await read(join(reviewEntry.root,'generated.json'),null),chapter);
-  const handle=await fs.open(lockPath,'wx');ownLock=true;await handle.writeFile(String(process.pid));await handle.close();
-  await processChapter(reviewEntry,chapter);
+  await withChapterProcessingLock(reviewEntry.root,async()=>{
+   const chapter=await read(join(reviewEntry.root,'input.json'));
+   processingOnlyEntry(config,processOnly,await read(join(reviewEntry.root,'processing.json'),null),await read(join(reviewEntry.root,'generated.json'),null),chapter);
+   await processChapter(reviewEntry,chapter);
+  },{waitForOwner:false});
  }catch(error){await status({status:'needs-attention',reason:String(error.message)});process.exitCode=1;}
- finally{if(ownLock)await fs.unlink(lockPath);}
 }else{
 try{
  await fs.mkdir(root,{recursive:true});
@@ -361,12 +382,16 @@ try{
   const done=await read(join(entry.root,'published.json'),null);
   if(done){if(done.assembly!==(await read(join(entry.root,'assembly.json'))).assembly.id)throw Error('Published receipt mismatch');current.completed.push(entry.chapterId);continue;}
   await status({chapter:entry.chapterId,title:entry.title,stage:'preparing',role:null});
-  await recoverRepairs(entry,read,save);
   const generatedReceipt=await read(join(entry.root,'generated.json'),null);
   if(generatedReceipt&&(generatedReceipt.chapter!==entry.chapterId||generatedReceipt.inputHash!==entry.inputHash||generatedReceipt.items!==chapter.items.length))throw Error('Generated chapter receipt does not match prepared inputs');
-  const generated=await paid.run(async()=>{const voices=await voicesFor(chapter);return await synthesize(entry,chapter,voices,true);});
+  const generated=await mainChapterWork(entry,async()=>{
+   if(await exists(join(entry.root,'published.json')))return true;
+   await recoverRepairs(entry,read,save);
+   const result=await paid.run(async()=>{const voices=await voicesFor(chapter);return await synthesize(entry,chapter,voices,true);});
+   if(result&&!generatedReceipt)await save(join(entry.root,'generated.json'),{chapter:entry.chapterId,inputHash:entry.inputHash,items:chapter.items.length,completedAt:new Date().toISOString()});
+   return result;
+  });
   if(!generated){paused=true;break;}
-  if(!generatedReceipt)await save(join(entry.root,'generated.json'),{chapter:entry.chapterId,inputHash:entry.inputHash,items:chapter.items.length,completedAt:new Date().toISOString()});
   current.completed.push(entry.chapterId);await status({stage:'chapter-generated'});
   processing.enqueue(entry.chapterId,()=>laneContext.run(true,()=>processChapter(entry,chapter)),async error=>{
    await save(join(entry.root,'processing.json'),{status:'needs-attention',reason:String(error.message)});
