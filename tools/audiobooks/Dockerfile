@@ -30,6 +30,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=royal-road /royal-road /royal-road
 COPY tools/mac-tts/local_book.py tools/mac-tts/tts_typing.py /mac-tts/
 COPY tools/audiobooks/listener-web ./listener-web
+COPY tools/audiobooks/examples ./examples
 ARG REVISION=development
 LABEL org.opencontainers.image.revision=$REVISION
 ENV AUDIOBOOK_STATE=/state
