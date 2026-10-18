@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Storyteller design review</title>
+  <link rel="stylesheet" href="review.css">
+  <script src="review.js" defer></script>
+</head>
+<body>
+  <header class="review-header">
+    <a class="review-brand" href="#top"><img src="../../tools/audiobooks/listener-web/storyteller-mark.png" alt="" width="48" height="48"><span>Storyteller <small>Design review</small></span></a>
+    <a href="#feedback">Your notes</a>
+  </header>
+  <main id="top">
+    <section class="intro">
+      <h1>Find the shape of Storyteller.</h1>
+      <p>Three ways to make listening, reading and preparing audio easier to understand. Try the same tasks in each, then keep what works.</p>
+      <p class="prototype-notice">Interactive concepts with fictional sample books. Playback and preparation are simulated. Nothing connects to your account or spends money.</p>
+    </section>
+    <div class="concept-picker" role="group" aria-label="Design direction">
+      <button data-concept="bookshelf" aria-pressed="true"><span>A</span><strong>Bookshelf</strong><small>Friendly and familiar</small></button>
+      <button data-concept="focus" aria-pressed="false"><span>B</span><strong>Listening room</strong><small>The story comes first</small></button>
+      <button data-concept="spaces" aria-pressed="false"><span>C</span><strong>Two spaces</strong><small>Listen here. Make there.</small></button>
+    </div>
+    <section class="direction-description" aria-live="polite"><h2 id="direction-name"></h2><p id="direction-copy"></p><p id="direction-tradeoff"></p></section>
+    <div class="preview-toolbar">
+      <div role="group" aria-label="Example screen"><button data-screen="library" aria-pressed="true">Library</button><button data-screen="player" aria-pressed="false">Listen & read</button><button data-screen="activity" aria-pressed="false">Prepare audio</button></div>
+      <div role="group" aria-label="Preview width"><button data-width="phone" aria-pressed="true">Phone</button><button data-width="wide" aria-pressed="false">Wide screen</button></div>
+      <label>Appearance <select id="appearance"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    </div>
+    <section class="preview-area" aria-label="Interactive application concept">
+      <div id="app" class="app phone" data-concept="bookshelf" data-mode="light"></div>
+    </section>
+    <section id="feedback" class="feedback">
+      <div><h2>Your direction, your notes.</h2><p>Mix ideas if you like. Name a screen and the task that felt clear or confusing.</p><button id="favorite">Choose this direction</button><p id="favorite-status" role="status"></p></div>
+      <div><label for="comments">Notes for <span id="comment-concept"></span></label><textarea id="comments" rows="6" placeholder="I prefer this navigation, but I would move…"></textarea><p class="note-help">Notes stay in this browser. Download or copy them, then attach or paste them in our chat. This page does not submit feedback to a server.</p><div class="feedback-actions"><button id="download-notes">Download review notes</button><button id="copy-notes">Copy review notes</button></div><p id="export-status" role="status"></p></div>
+    </section>
+  </main>
+  <footer>Choose a direction first. Then we will review the library, story detail, player, chapters, preparation and settings one at a time.</footer>
+</body>
+</html>

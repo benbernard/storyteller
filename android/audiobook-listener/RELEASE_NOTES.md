@@ -1,3 +1,9 @@
+# Restore the happy book icon
+
+Restored the original smiling book with turquoise headphones for the Android
+launcher, in-app branding and web listener. Existing library and playback data
+are unchanged.
+
 # Storyteller for Android 0.3.1
 
 The app is now called Storyteller. This update adds the Bookwave launcher icon and
