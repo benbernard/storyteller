@@ -14,6 +14,7 @@ import {voiceDesignPrompt} from './voice-design.mjs';
 import {batchWindowSize,explicitProviderRejection,classifyBatchResponse,providerBlockingCodes,runBatchWindow,reconcileBatchJobs} from './batch-window.mjs';
 import {recoverVisualRedactionPassage,recoveryPolicy,overlayRecoveryPolicy,preflightNotationRecovery} from './rendering-recovery.mjs';
 import {notationPolicy,loadNotationMaterials,chapterNotationManifest} from './notation-recovery.mjs';
+import {loadDecimalManifest,preflightDecimalRecovery,recoverDecimalPassage} from './decimal-recovery.mjs';
 import {renderingContext} from './rendering-review.mjs';
 import {withChapterProcessingLock} from './chapter-processing-lock.mjs';
 import {asrReviewCommand} from './review-command.mjs';
@@ -21,10 +22,10 @@ const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(await fs.readFile(process.argv[2],'utf8')), root=config.root;
 const processOnly=process.argv[3]==='--process-only'?process.argv[4]:null;
 const overlayOnly=process.argv[3]==='--recover-overlays';
-const notationOnly=process.argv[3]==='--recover-notation';
-const renderingOnly=['--recover-rendering','--recover-overlays','--recover-notation'].includes(process.argv[3])?process.argv[4]:null,renderingIds=renderingOnly&&!notationOnly?process.argv.slice(5):[];
+const notationOnly=process.argv[3]==='--recover-notation',decimalOnly=process.argv[3]==='--recover-decimal';
+const renderingOnly=['--recover-rendering','--recover-overlays','--recover-notation','--recover-decimal'].includes(process.argv[3])?process.argv[4]:null,renderingIds=renderingOnly&&!notationOnly&&!decimalOnly?process.argv.slice(5):[];
 batchWindowSize(config.maxInFlightBatches); // Reject invalid limits before any paid voice previews.
-if(process.argv.length>3&&!(processOnly&&process.argv.length===5)&&!(notationOnly&&renderingOnly&&process.argv.length===7)&&!(renderingOnly&&!notationOnly&&renderingIds.length&&new Set(renderingIds).size===renderingIds.length))throw Error('Usage: runner.mjs QUEUE [--process-only CHAPTER_ID | --recover-rendering CHAPTER_ID PASSAGE_ID ... | --recover-overlays CHAPTER_ID PASSAGE_ID ... | --recover-notation CHAPTER_ID MANIFEST_JSON REVIEWED_SHA256]');
+if(process.argv.length>3&&!(processOnly&&process.argv.length===5)&&!((notationOnly||decimalOnly)&&renderingOnly&&process.argv.length===7)&&!(renderingOnly&&!notationOnly&&!decimalOnly&&renderingIds.length&&new Set(renderingIds).size===renderingIds.length))throw Error('Usage: runner.mjs QUEUE [--process-only CHAPTER_ID | --recover-rendering CHAPTER_ID PASSAGE_ID ... | --recover-overlays CHAPTER_ID PASSAGE_ID ... | --recover-notation CHAPTER_ID MANIFEST_JSON REVIEWED_SHA256 | --recover-decimal CHAPTER_ID MANIFEST_JSON REVIEWED_SHA256]');
 const reviewEntry=processOnly?config.chapters.find(c=>c.chapterId===processOnly):null;
 if(processOnly&&!reviewEntry)throw Error('Unknown chapter');
 process.umask(0o077);
@@ -298,16 +299,17 @@ async function assemble(entry,chapter){
  await run('ffmpeg',['-v','error','-i',audio,'-f','null','-'],{timeout:600000});
  const duration=Number((await run('ffprobe',['-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',audio])).trim());
  if(Math.abs(duration-offset)>.2)throw Error('Final duration differs from passage timeline');
- const renderingRecoveries=[],offlinePCMExcisions=[];
+ const renderingRecoveries=[],offlinePCMExcisions=[],decimalRecoveries=[];
  for(const item of chapter.items){
   const receipt=await read(join(entry.root,'receipts',item.customId+'.json'));
-  if(receipt.renderingRecovery){const recovery=receipt.renderingRecovery;renderingRecoveries.push({passage:item.customId,rendererVersion:recovery.rendererVersion,planHash:recovery.planHash,renderingFingerprint:recovery.renderingProof.fingerprint,audioSha256:receipt.sha256});}
+  if(receipt.renderingRecovery){const recovery=receipt.renderingRecovery;renderingRecoveries.push({passage:item.customId,rendererVersion:recovery.rendererVersion,planHash:recovery.planHash,renderingFingerprint:recovery.renderingProof.fingerprint,audioSha256:receipt.decimalRecovery?recovery.audioSha256:receipt.sha256});}
+  if(receipt.decimalRecovery){const context=await renderingContext(entry.root,item);if(context?.audioSha256!==receipt.sha256||!context.decimalRecovery)throw Error('Decimal publication proof changed');decimalRecoveries.push({passage:item.customId,...context.decimalRecovery});}
   if(receipt.offlinePCMExcision){
    const context=await renderingContext(entry.root,item);if(context?.audioSha256!==receipt.sha256||!context.offlinePCMExcision)throw Error('PCM publication proof changed');
    offlinePCMExcisions.push({passage:item.customId,...context.offlinePCMExcision});
   }
  }
- const plan={policy:{model:'inworld-tts-2'},quality:await read(join(entry.root,'quality.json')),inputHash:entry.inputHash,voiceIds:Object.fromEntries(Object.entries(await read(join(root,'voices.json'))).map(([k,v])=>[k,v.voiceId])),...(renderingRecoveries.length?{renderingRecoveries}:{}),...(offlinePCMExcisions.length?{offlinePCMExcisions}:{})};
+ const plan={policy:{model:'inworld-tts-2'},quality:await read(join(entry.root,'quality.json')),inputHash:entry.inputHash,voiceIds:Object.fromEntries(Object.entries(await read(join(root,'voices.json'))).map(([k,v])=>[k,v.voiceId])),...(renderingRecoveries.length?{renderingRecoveries}:{}),...(offlinePCMExcisions.length?{offlinePCMExcisions}:{}),...(decimalRecoveries.length?{decimalRecoveries}:{})};
  const planId=hash(plan), data={schemaVersion:1,chapterId:chapter.chapterId,sequence:chapter.sequence,source:chapter.source,analysis:chapter.analysis,plan:planId,checksum:sha(await fs.readFile(audio)),duration,timeline};const assembly={...data,id:hash(data)};
  const bundle=join(entry.root,'publication');await save(join(bundle,'plans',planId+'.json'),plan);await save(join(bundle,'assemblies',assembly.id,'metadata.json'),assembly);await fs.copyFile(audio,join(bundle,'assemblies',assembly.id,'chapter.mp3'));
  // Reader state is immutable and content addressed; install only missing, byte-identical objects.
@@ -349,6 +351,12 @@ if(renderingOnly){
    if(Number.isInteger(active.pid)&&active.pid>0)try{process.kill(active.pid,0);}catch(error){if(error.code==='ESRCH')alive=false;else throw error;}
    if(alive||producer.status!=='paused')throw Error('Rendering recovery cannot overlap active or unconfirmed processing');
   }
+  if(decimalOnly){
+   const manifest=await loadDecimalManifest(resolve(process.argv[5]),process.argv[6]),voices=await read(join(root,'voices.json'));
+   for(const [role,voice]of Object.entries(config.originalVoices))if(voices[role]?.voiceId!==voice.voiceId)throw Error('Original voice changed: '+role);
+   await preflightDecimalRecovery({entry,chapter,config,voices,read,manifest});await status({status:'running',chapter:entry.chapterId,passages:[manifest.passage]});
+   await recoverDecimalPassage({entry,chapter,config,voices,read,save,run,status,manifest,synthesize:(recoveryEntry,recoveryChapter,v,options)=>paid.run(()=>synthesize(recoveryEntry,recoveryChapter,v,false,options.maxSubmissionsPerItem))});
+  }else{
   const notation=notationOnly?await loadNotationMaterials(resolve(process.argv[5]),process.argv[6]):null;
   const renderer=notationOnly?null:await import(pathToFileURL(join(here,overlayOnly?'../audiobooks/dist/spoken-overlays.js':'../audiobooks/dist/spoken-redactions.js')).href),voices=await read(join(root,'voices.json'));
   for(const [role,voice]of Object.entries(config.originalVoices))if(voices[role]?.voiceId!==voice.voiceId)throw Error('Original voice changed: '+role);
@@ -358,6 +366,7 @@ if(renderingOnly){
   for(const {item,render,verify}of targets){
    await recoverVisualRedactionPassage({entry,chapter,item,config,read,save,run,voices,status,notation,policy:notationOnly?notationPolicy:overlayOnly?overlayRecoveryPolicy:recoveryPolicy,render,verify,
     synthesize:(recoveryEntry,recoveryChapter,v)=>paid.run(()=>synthesize(recoveryEntry,recoveryChapter,v,false,1))});
+  }
   }
   await archive();await status({status:'ready-for-fidelity-review',stage:'recovered'});
  }catch(error){await status({status:'held',reason:String(error.message)});process.exitCode=1;}

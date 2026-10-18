@@ -386,6 +386,98 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
         self.assertEqual(len(self.read_report('first')['attempts']), 2)
 
+    def test_decimal_layer_forces_dual_asr_and_invalidates_bound_checkpoints(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'Mass twelve.5kg remains.'}
+        context: dict[str, object] = {'comparisonExpected': 'Mass twelve point five kg remains.',
+                                     'renderingProof': {'policy': 'source-numeric-notation-v1'},
+                                     'decimalRecovery': {'policy': 'legacy-adjacent-decimal-v1', 'planHash': 'first-proof'}}
+
+        def loader(root: Path, current: ReviewItem, digest: str) -> dict[str, object]:
+            return {**context, 'audioSha256': digest}
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            return str(context['comparisonExpected'])
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-small'), ('first', 'pinned-large')])
+        self.assertEqual(self.read_report('first')['expected'], item['spokenText'])
+        self.assertEqual(self.read_report('first')['comparisonExpected'], context['comparisonExpected'])
+        self.calls.clear()
+        context['decimalRecovery'] = {'policy': 'legacy-adjacent-decimal-v1', 'planHash': 'different-proof'}
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-small'), ('first', 'pinned-large')])
+        self.calls.clear()
+        (self.root / 'audio/first.wav').write_bytes(b'decimal-new-audio')
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-small'), ('first', 'pinned-large')])
+
+    def test_decimal_cached_report_requires_requested_model_ids_and_order(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'Mass twelve.5kg.'}
+        context: dict[str, object] = {'comparisonExpected': 'Mass twelve point five kg.',
+                                     'decimalRecovery': {'policy': 'legacy-adjacent-decimal-v1', 'planHash': 'fixed-proof'}}
+
+        def loader(root: Path, current: ReviewItem, digest: str) -> dict[str, object]:
+            return {**context, 'audioSha256': digest}
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            return str(context['comparisonExpected'])
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        for model_ids in [['arbitrary-small', 'arbitrary-strong'], list(reversed(self.models)), [self.models[0], self.models[0]]]:
+            report = self.read_report('first')
+            for attempt, model in zip(report['attempts'], model_ids):
+                attempt['model'] = model
+            save_json(self.root / 'review/first.json', report)
+            self.calls.clear()
+            with redirect_stdout(StringIO()):
+                review_items(self.root, [item], self.models, transcribe, loader)
+            # Existing correct checkpoints repair the stale final report, without
+            # repeating otherwise valid bound inference.
+            self.assertEqual(self.calls, [])
+            self.assertEqual([row['model'] for row in self.read_report('first')['attempts']], self.models)
+
+    def test_decimal_interrupted_strong_resumes_only_bound_small(self) -> None:
+        item: ReviewItem = {'customId': 'first', 'spokenText': 'Mass twelve.5kg.'}
+        context: dict[str, object] = {'comparisonExpected': 'Mass twelve point five kg.',
+                                     'decimalRecovery': {'policy': 'legacy-adjacent-decimal-v1', 'planHash': 'fixed-proof'}}
+
+        def loader(root: Path, current: ReviewItem, digest: str) -> dict[str, object]:
+            return {**context, 'audioSha256': digest}
+
+        def interrupted(audio: Path, model: str) -> str:
+            if model == self.models[1]:
+                raise RuntimeError('interrupted')
+            self.calls.append((audio.stem, model))
+            return str(context['comparisonExpected'])
+
+        with redirect_stdout(StringIO()), self.assertRaisesRegex(RuntimeError, 'interrupted'):
+            review_items(self.root, [item], self.models, interrupted, loader)
+        self.calls.clear()
+
+        def transcribe(audio: Path, model: str) -> str:
+            self.calls.append((audio.stem, model))
+            return str(context['comparisonExpected'])
+
+        with redirect_stdout(StringIO()):
+            review_items(self.root, [item], self.models, transcribe, loader)
+        self.assertEqual(self.calls, [('first', 'pinned-large')])
+        self.assertEqual(len(self.read_report('first')['attempts']), 2)
+
+    def test_missing_decimal_base_proof_holds_before_inference(self) -> None:
+        (self.root / 'receipts').mkdir()
+        save_json(self.root / 'receipts/first.json', {'decimalRecovery': {'policy': 'legacy-adjacent-decimal-v1'}})
+        with patch('review.subprocess.run') as verifier:
+            verifier.return_value.returncode = 1
+            with redirect_stdout(StringIO()), self.assertRaisesRegex(ValueError, 'proof failed'):
+                self.run_review()
+        self.assertEqual(self.calls, [])
+
     def test_overlay_recovery_requires_both_fresh_whole_parent_models_even_when_small_matches(self) -> None:
         item: ReviewItem = {'customId': 'first', 'spokenText': 'S\u0334e\u0337aled E+.'}
         context: dict[str, object] = {'comparisonExpected': 'Sealed E+.',

@@ -10,6 +10,7 @@ import {notationPolicy,notationRenderer,notationPassage,savedNotationMaterials,r
 import {renderCombiningOverlays,verifyCombiningOverlays} from '../audiobooks/dist/spoken-overlays.js';
 const rendererFor=policy=>{renderingPolicy(policy);return policy===overlayRecoveryPolicy?{render:renderCombiningOverlays,verify:verifyCombiningOverlays}:{render:renderVisualRedactions,verify:verifyVisualRedactions};};
 import {excisionDirectory,validatePCMExcisionLayer} from './pcm-excision-evidence.mjs';
+import {decimalDirectory,decimalContext} from './decimal-review.mjs';
 
 const read=async path=>JSON.parse(await fs.readFile(path,'utf8'));
 export const renderingFingerprint=fingerprint;
@@ -47,6 +48,12 @@ export async function renderingContext(root,item){
  let receipt;
  try{receipt=await read(join(root,'receipts',item.customId+'.json'));}
  catch(error){if(error.code==='ENOENT')return null;throw error;}
+ if(receipt.decimalRecovery){
+  if(receipt.offlinePCMExcision)throw Error('Conflicting audio recovery layers');
+  const directory=decimalDirectory(root,item),base=await read(join(directory,'base-receipt.json'));
+  const context=await baseRenderingContext(root,item,base,join(directory,'base.wav'));
+  return await decimalContext(root,item,receipt,context);
+ }
  if(receipt.offlinePCMExcision){
   const directory=excisionDirectory(root,item),base=await read(join(directory,'base-receipt.json'));
   const context=await baseRenderingContext(root,item,base,join(directory,'base.wav'));

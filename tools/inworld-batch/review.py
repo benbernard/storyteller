@@ -35,6 +35,7 @@ ContextLoader = Callable[[Path, ReviewItem, str], Optional[dict[str, object]]]
 SPOKEN_PLUS_POLICY = 'spoken-plus-v1'
 COMBINING_OVERLAY_POLICY = 'combining-overlay-v1'
 SOURCE_NOTATION_POLICY = 'source-numeric-notation-v1'
+DECIMAL_RECOVERY_POLICY = 'legacy-adjacent-decimal-v1'
 NOTATION_COMPARISON_POLICY = 'numeric-symbols-v1'
 # Only synthesis markup that we actually emit is non-spoken. In particular,
 # '< 12s ... > 3s' is source content, never an HTML tag.
@@ -125,7 +126,7 @@ def requires_dual_asr(context: dict[str, object] | None) -> bool:
     if context is None:
         return False
     proof = context.get('renderingProof')
-    return bool(context.get('offlinePCMExcision')) or (isinstance(proof, dict) and proof.get('policy') in (COMBINING_OVERLAY_POLICY, SOURCE_NOTATION_POLICY))
+    return bool(context.get('offlinePCMExcision') or context.get('decimalRecovery')) or (isinstance(proof, dict) and proof.get('policy') in (COMBINING_OVERLAY_POLICY, SOURCE_NOTATION_POLICY, DECIMAL_RECOVERY_POLICY))
 
 
 def cached_attempts(path: Path, digest: str, expected: str, models: list[str], comparison_expected: str, context: dict[str, object] | None) -> list[dict[str, object]]:
@@ -158,7 +159,7 @@ def rendering_context(root: Path, item: ReviewItem, digest: str) -> dict[str, ob
     if not receipt_path.exists():
         return None
     receipt = json.loads(receipt_path.read_text())
-    if not isinstance(receipt, dict) or not receipt.get('renderingRecovery'):
+    if not isinstance(receipt, dict) or not (receipt.get('renderingRecovery') or receipt.get('decimalRecovery')):
         return None
     # One verifier shares the exact TypeScript rendering policy and validates all
     # retained plan/source/receipt/audio evidence. No caller-supplied comparison.
@@ -172,7 +173,7 @@ def rendering_context(root: Path, item: ReviewItem, digest: str) -> dict[str, ob
     return value
 
 
-def matching_report(report: object, digest: str, expected: str, context: dict[str, object] | None) -> bool:
+def matching_report(report: object, digest: str, expected: str, context: dict[str, object] | None, models: list[str] | None = None) -> bool:
     if not isinstance(report, dict) or report.get('sha256') != digest or report.get('expected') != expected:
         return False
     comparison_expected = str(context['comparisonExpected']) if context is not None else expected
@@ -186,6 +187,8 @@ def matching_report(report: object, digest: str, expected: str, context: dict[st
         return 'renderingContext' not in report and 'comparisonExpected' not in report
     if requires_dual_asr(context) and (not isinstance(report.get('attempts'), list)
                                             or len(report['attempts']) != 2):
+        return False
+    if context.get('decimalRecovery') and (models is None or [attempt.get('model') for attempt in report['attempts'] if isinstance(attempt, dict)] != models):
         return False
     return report.get('renderingContext') == context and report.get('comparisonExpected') == context['comparisonExpected']
 
@@ -209,7 +212,7 @@ def review_items(root: Path, items: list[ReviewItem], models: list[str], transcr
         destination = out / (name + '.json')
         if destination.exists():
             prior = json.loads(destination.read_text())
-            if matching_report(prior, digest, expected, context):
+            if matching_report(prior, digest, expected, context, models):
                 continue
         pending.append({'item': item, 'audio': audio, 'sha256': digest,
                         'attempts': cached_attempts(checkpoints / (name + '.json'), digest, expected, models, comparison_expected, context),
@@ -248,7 +251,7 @@ def review_items(root: Path, items: list[ReviewItem], models: list[str], transcr
                 finish_review(out, entry)
             else:
                 prior = json.loads(destination.read_text())
-                if not matching_report(prior, entry['sha256'], entry['item']['spokenText'], entry['renderingContext']):
+                if not matching_report(prior, entry['sha256'], entry['item']['spokenText'], entry['renderingContext'], models):
                     finish_review(out, entry)
 
 

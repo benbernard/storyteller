@@ -162,6 +162,34 @@ New preparation keeps the decimal point and every fractional digit when a number
 touches a unit, such as `12.50kg`. Historical notation proofs replay the original
 formatter from its exact SHA-256 snapshot. Queued inputs remain unchanged.
 
+### Historical decimal formatting recovery
+
+`legacy-adjacent-decimal-v1` repairs one proven preparation defect in an
+unpublished, held passage. Its scope is a decimal immediately followed by `kg`
+in a weight field, where the historical formatter lost the spoken decimal point.
+
+```sh
+node tools/inworld-batch/runner.mjs /private/job/queue.json \
+  --recover-decimal CHAPTER_ID /private/audit/manifest.json REVIEWED_SHA256
+```
+
+Use the same graceful pause and independent manifest review required above.
+Preflight verifies the original source, historical and corrected formatters,
+complete retained notation proof, saved voice and all 13 current child clips.
+The selected clip must have been reused by the earlier notation migration.
+Its three exhausted targets cannot receive another attempt through this policy.
+
+One chapter manifest permits one child and at most one submission through the
+existing worker, ledger and spending ceiling. The other 12 recordings, source,
+queued inputs, prior proof chains and ordinary retake counters remain unchanged.
+Uncertain submissions cannot be repeated. Interrupted promotions resume from
+verified evidence without another charge.
+
+The new layer changes only the mapped decimal field in the spoken comparison.
+It preserves the numeric value, fractional digits and literal unit. Publication
+still requires fresh whole-passage ASR from both pinned models, independent
+unprompted phonemes and subscription review. A failed review remains held.
+
 Credentials stay on the remote synthesis host. `credentialFile` names its private
 Inworld env file. The fixed-host gateway sends it only to `api.inworld.ai`.
 The Codex executable is selected with `AUDIOBOOK_CODEX_BIN`. Analysis and review
