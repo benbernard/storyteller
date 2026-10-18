@@ -6,9 +6,12 @@ const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds
 let library, playing, reading, issueDraft, storageKey, local, historyBefore, catalog, selectedStoryId;
 const storyEditions = new Map();
 let lastSaved = 0, switching = false, flushing = false, stableSeconds = 0, seekOrigin, programmedSeek = false, follow = true, activePassage = -1, loadVersion = 0;
+let includeAuthorNotes = localStorage.getItem('listener:include-author-notes') !== 'false', loadAutoplay = false, chapterEndHandled = false;
+let noteTimer;
+let readingPending = false, readingRequest, releasePlayback;
 const locationOf = (seconds = audio.currentTime) => playing && ({ story: playing.book.id, edition: playing.edition, assembly: playing.chapter.assembly, seconds });
-async function api(path, data) {
-  const response = await fetch('/listen' + path, { method: data ? 'POST' : 'GET', headers: data ? { 'Content-Type': 'application/json', ...(library?.accountKey ? { 'X-Listener-Account': library.accountKey } : {}) } : {}, body: data ? JSON.stringify(data) : undefined });
+async function api(path, data, signal) {
+  const response = await fetch('/listen' + path, { method: data ? 'POST' : 'GET', headers: data ? { 'Content-Type': 'application/json', ...(library?.accountKey ? { 'X-Listener-Account': library.accountKey } : {}) } : {}, body: data ? JSON.stringify(data) : undefined, signal });
   const value = await response.json();
   if (!response.ok) throw new Error(value.error || 'Sync failed.');
   return value;
@@ -164,24 +167,72 @@ function highlight(force = false) {
 }
 function seek(seconds, reason = 'seek') {
   if (!playing || switching) return;
-  const from = locationOf(); programmedSeek = true; audio.currentTime = Math.max(0, Math.min(playing.chapter.duration, seconds)); stableSeconds = audio.currentTime;
+  const from = locationOf(), autoplay = !audio.paused, target = notePosition(seconds); if (target < playing.chapter.duration - .100001) chapterEndHandled = false; programmedSeek = true; audio.currentTime = target; stableSeconds = audio.currentTime;
   save(reason, from); highlight(true);
+  if (!includeAuthorNotes && audio.currentTime >= playing.chapter.duration) finishChapter(autoplay);
+}
+function notePosition(seconds) {
+  let target = Math.max(0, Math.min(playing.chapter.duration, seconds));
+  if (includeAuthorNotes || !reading) return target;
+  for (let i = 0; i < reading.passages.length; i++) {
+    const p = reading.passages[i];
+    if (p.sectionKind !== 'author-note' || !Number.isFinite(p.start) || !Number.isFinite(p.end) || p.start < 0 || p.end <= p.start || p.end > playing.chapter.duration + .1) continue;
+    if (target >= p.start && target < p.end) {
+      target = Math.min(p.end, playing.chapter.duration);
+      if (i === reading.passages.length - 1 && playing.chapter.duration - target <= .100001) target = playing.chapter.duration;
+    }
+  }
+  return target;
+}
+function skipNotes(autoplay = !audio.paused) {
+  if (!playing || switching || audio.seeking) return false;
+  const target = notePosition(audio.currentTime);
+  if (target === audio.currentTime) return false;
+  programmedSeek = true; audio.currentTime = target; stableSeconds = target;
+  if (target >= playing.chapter.duration) finishChapter(autoplay);
+  else { save('playing'); highlight(true); }
+  return true;
+}
+function scheduleNotes() {
+  clearTimeout(noteTimer);
+  if (includeAuthorNotes || !reading || switching || audio.paused || audio.seeking) return;
+  const next = reading.passages.find(p => p.sectionKind === 'author-note' && Number.isFinite(p.start) && Number.isFinite(p.end) && p.end > p.start && p.start > audio.currentTime && p.end <= playing.chapter.duration + .1);
+  if (next) noteTimer = setTimeout(() => { skipNotes(); scheduleNotes(); }, Math.max(5, Math.min(2147483647, (next.start - audio.currentTime) * 1000 / audio.playbackRate)));
+}
+function finishChapter(autoplay = true) {
+  if (!playing || switching || chapterEndHandled) return;
+  chapterEndHandled = true; save('complete', undefined, true);
+  const chapters = playing.book.editions[playing.edition].chapters;
+  const next = chapters[chapters.findIndex(c => c.assembly === playing.chapter.assembly) + 1];
+  if (next) play(playing.book, playing.edition, next, 0, autoplay, 'chapter').catch(error => say(error.message));
+  else { audio.pause(); renderLibrary(); }
 }
 async function play(book, edition, chapter, seconds = 0, autoplay = false, reason = 'restore', reveal = true) {
   const from = locationOf(); save('pause'); switching = true; audio.pause(); const version = ++loadVersion;
-  playing = { book, edition, chapter }; reading = undefined; activePassage = -1;
+  clearTimeout(noteTimer);
+  readingRequest?.abort(); const request = new AbortController(); readingRequest = request; readingPending = true;
+  const textTimeout = setTimeout(() => request.abort(), 10000);
+  playing = { book, edition, chapter }; reading = undefined; activePassage = -1; chapterEndHandled = false; loadAutoplay = autoplay;
   $('player').hidden = false; $('reader-empty').hidden = true; $('book-title').textContent = book.title; $('chapter-title').textContent = chapter.title;
   $('edition-label').textContent = `${editionNames[edition] || edition} edition`; $('passages').replaceChildren(); $('reader-status').textContent = 'Loading the generated passages…'; $('source-link').hidden = true;
   if (reveal) view('reading'); renderMiniPlayer(); setFollow(true); $('undo').hidden = !local.undo;
-  audio.onloadedmetadata = () => {
-    if (version !== loadVersion) return;
-    programmedSeek = true; audio.currentTime = Math.max(0, Math.min(seconds, chapter.duration)); stableSeconds = audio.currentTime;
-    audio.playbackRate = Number($('speed').value); switching = false; save(reason, reason === 'chapter' ? from : undefined); highlight(true);
-    if (autoplay) audio.play().catch(error => say(error.message));
+  let metadataReady = false, textReady = false, started = false;
+  const ready = () => {
+    if (version !== loadVersion || !metadataReady || (!includeAuthorNotes && !textReady)) return;
+    if (!started) {
+      started = true;
+      programmedSeek = true; audio.currentTime = notePosition(seconds); stableSeconds = audio.currentTime;
+      audio.playbackRate = Number($('speed').value); switching = false; save(reason, reason === 'chapter' ? from : undefined); highlight(true);
+    } else if (!includeAuthorNotes) { skipNotes(loadAutoplay); if (version !== loadVersion || chapterEndHandled) return; }
+    const requested = loadAutoplay; loadAutoplay = false;
+    if (!includeAuthorNotes && audio.currentTime >= chapter.duration) finishChapter(requested);
+    else if (requested) audio.play().catch(error => { if (version === loadVersion && error.name !== 'AbortError') say(error.message); });
   };
+  releasePlayback = ready;
+  audio.onloadedmetadata = () => { metadataReady = true; ready(); };
   audio.src = `/listen/stories/${book.id}/${edition}/audio/${chapter.assembly}`;
   try {
-    const text = await api(`/stories/${book.id}/${edition}/text/${chapter.assembly}`); if (version !== loadVersion) return; reading = text;
+    const text = await api(`/stories/${book.id}/${edition}/text/${chapter.assembly}`, undefined, request.signal); if (version !== loadVersion) return; reading = text;
     for (const passage of text.passages) {
       const p = el('span', passage.text, $('passages')); p.className = 'passage'; p.dataset.start = passage.start; p.setAttribute('role', 'button'); p.tabIndex = 0;
       p.onclick = () => { if (!getSelection()?.toString()) seek(passage.start, 'passage'); };
@@ -190,7 +241,8 @@ async function play(book, edition, chapter, seconds = 0, autoplay = false, reaso
     $('reader-status').textContent = '';
     if (/^https:\/\/(www\.royalroad\.com|books\.example\.org)\//.test(text.url)) { $('source-link').href = text.url; $('source-link').hidden = false; }
     highlight(true);
-  } catch (error) { if (version === loadVersion) $('reader-status').textContent = `Text could not load: ${error.message}`; }
+  } catch (error) { if (version === loadVersion) $('reader-status').textContent = includeAuthorNotes ? `Text could not load: ${error.message}` : 'Author-note timings are unavailable. Playing the full chapter.'; }
+  finally { clearTimeout(textTimeout); textReady = true; if (version === loadVersion) { readingPending = false; readingRequest = undefined; } ready(); }
 }
 function findLocation(value) {
   const book = library.books.find(b => b.id === value.story); if (!book) return;
@@ -229,15 +281,18 @@ function textSize() { $('passages').style.setProperty('--reader-size', `${$('tex
 $('text-size').onchange = textSize; textSize();
 $('speed').value = localStorage.getItem('listener:speed') || '1';
 $('speed').onchange = () => { audio.playbackRate = Number($('speed').value); localStorage.setItem('listener:speed', $('speed').value); };
+$('include-author-notes').checked = includeAuthorNotes;
+$('include-author-notes').onchange = () => { includeAuthorNotes = $('include-author-notes').checked; localStorage.setItem('listener:include-author-notes', String(includeAuthorNotes)); if (!includeAuthorNotes && readingPending) { if (!switching) loadAutoplay = !audio.paused; audio.pause(); } else { releasePlayback?.(); skipNotes(); } scheduleNotes(); };
 $('back').onclick = () => seek(audio.currentTime - 15); $('forward').onclick = () => seek(audio.currentTime + 30);
 function adjacent(delta) { if (!playing) return; const chapters = playing.book.editions[playing.edition].chapters; const chapter = chapters[chapters.findIndex(c => c.assembly === playing.chapter.assembly) + delta]; if (chapter) return play(playing.book, playing.edition, chapter, 0, !audio.paused, 'chapter'); }
 $('previous-chapter').onclick = () => adjacent(-1); $('next-chapter').onclick = () => adjacent(1);
-audio.ontimeupdate = () => { renderMiniPlayer(); highlight(); if (!switching && !audio.seeking) { stableSeconds = audio.currentTime; if (!audio.paused && Date.now() - lastSaved > 5000) save('playing'); } };
-audio.onseeking = () => { if (!switching && !programmedSeek && !seekOrigin) seekOrigin = locationOf(stableSeconds); };
-audio.onseeked = () => { if (programmedSeek) programmedSeek = false; else if (seekOrigin) { save('seek', seekOrigin); seekOrigin = undefined; } stableSeconds = audio.currentTime; highlight(true); };
-audio.onpause = () => { save('pause'); renderMiniPlayer(); };
-audio.onplay = renderMiniPlayer;
-audio.onended = () => { save('complete', undefined, true); const chapters = playing.book.editions[playing.edition].chapters; const next = chapters[chapters.findIndex(c => c.assembly === playing.chapter.assembly) + 1]; if (next) play(playing.book, playing.edition, next, 0, true, 'chapter'); else renderLibrary(); };
+audio.ontimeupdate = () => { if (skipNotes()) return; scheduleNotes(); renderMiniPlayer(); highlight(); if (!switching && !audio.seeking) { stableSeconds = audio.currentTime; if (!audio.paused && Date.now() - lastSaved > 5000) save('playing'); } };
+audio.onseeking = () => { if (!switching && !programmedSeek) { if (notePosition(audio.currentTime) < playing.chapter.duration - .100001) chapterEndHandled = false; if (!seekOrigin) seekOrigin = locationOf(stableSeconds); } };
+audio.onseeked = () => { const from = seekOrigin, assembly = playing?.chapter.assembly; seekOrigin = undefined; if (skipNotes()) { if (from && playing?.chapter.assembly === assembly) save('seek', from); return; } if (programmedSeek) programmedSeek = false; else if (from) save('seek', from); stableSeconds = audio.currentTime; highlight(true); scheduleNotes(); };
+audio.onpause = () => { clearTimeout(noteTimer); save('pause'); renderMiniPlayer(); };
+audio.onplay = () => { if (switching || (!includeAuthorNotes && readingPending)) { loadAutoplay = true; audio.pause(); return; } skipNotes(true); scheduleNotes(); renderMiniPlayer(); };
+audio.onratechange = scheduleNotes;
+audio.onended = () => finishChapter();
 audio.onerror = () => { switching = false; say('Audio could not load. Check your connection and sign in again if needed.'); };
 $('complete').onclick = () => { save('complete', undefined, true); renderLibrary(); };
 $('refresh').onclick = () => refresh().catch(error => say(error.message));

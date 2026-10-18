@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                 }
                 ListenerScreen(state, onConnect = { model.connect { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } },
                     onRefresh = model::refresh, onDisconnect = model::disconnect, onPlay = model::play, onToggle = model::toggle, onSeek = model::seek,
-                    onSpeed = model::speed, onIssue = model::markIssue, onFinished = model::finished, onResolve = model::resolve, onCharacters = model::characters, onPassage = model::passage, onHistory = model::history, onReturn = model::returnTo, onFollow = model::follow, onCheck = model::check, onJob = model::job, onAudio = model::audio)
+                    onSpeed = model::speed, onIssue = model::markIssue, onFinished = model::finished, onResolve = model::resolve, onCharacters = model::characters, onPassage = model::passage, onHistory = model::history, onReturn = model::returnTo, onFollow = model::follow, onCheck = model::check, onJob = model::job, onAudio = model::audio, onIncludeAuthorNotes = model::includeAuthorNotes)
             }
         }
     }

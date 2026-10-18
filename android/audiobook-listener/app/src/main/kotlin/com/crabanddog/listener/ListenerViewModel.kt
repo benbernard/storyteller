@@ -23,7 +23,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
     private val api = ListenerApi(app)
     private val store = ListenerStore.get(app)
     private val credentials = Credentials(app)
-    private val mutable = MutableStateFlow(ListenerUiState(connected = credentials.read() != null, selection = store.selection(), speed = store.speed()))
+    private val mutable = MutableStateFlow(ListenerUiState(connected = credentials.read() != null, selection = store.selection(), speed = store.speed(), includeAuthorNotes = store.includeAuthorNotes()))
     val state = mutable.asStateFlow()
     var controller: MediaController? = null
         private set
@@ -204,6 +204,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
     } }
 
     fun speed(value: Float) { store.speed(value); controller?.setPlaybackSpeed(value); mutable.value = mutable.value.copy(speed = value) }
+    fun includeAuthorNotes(value: Boolean) { store.includeAuthorNotes(value); mutable.value = mutable.value.copy(includeAuthorNotes = value) }
     fun markIssue(selection: Selection, seconds: Double, kind: String, note: String) {
         store.issue(selection, seconds, kind, note); message("Issue saved at ${formatTime(seconds)}."); refresh()
     }
@@ -213,7 +214,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() { MediaController.releaseFuture(future); super.onCleared() }
 }
 data class ListenerUiState(val connected: Boolean = false, val books: List<Book> = emptyList(), val selection: Selection? = null,
-    val playing: Boolean = false, val position: Double = 0.0, val speed: Float = 1f, val loading: Boolean = false,
+    val playing: Boolean = false, val position: Double = 0.0, val speed: Float = 1f, val loading: Boolean = false, val includeAuthorNotes: Boolean = true,
     val message: String = "", val pairCode: String = "", val issues: List<JSONObject> = emptyList(), val pending: Int = 0,
     val catalog: List<JSONObject> = emptyList(), val jobs: List<JSONObject> = emptyList(),
     val updatingStories: Set<String> = emptySet(), val storyErrors: Map<String, String> = emptyMap(),

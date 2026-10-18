@@ -434,3 +434,29 @@ test('mixed paragraph-opening quote styles preserve speech and later narration',
   assert(units.includes('"None needed,"'));
   assert(units.some(unit => unit.trim() === 'he replied.'));
 });
+
+test('future provider scenes retain source-note boundaries and legacy untagged requests stay identical', async () => setup(async (p, store) => {
+  const pieces = ['Author note: Thanks! ', 'A traveler opened the door. ', 'Author note: See you soon.'];
+  const base = fixture().chapter, text = pieces.join(''), chapter = { ...base, text, contentHash: sha(text) };
+  const raw: RawAnalysis = { characters: [], aliasUpdates: [], summary: '', spans: pieces.map((piece, i) => ({ text: piece,
+    kind: 'prose', speaker: 'narrator', certainty: 'attributed', confidence: 1, reason: 'Source commentary', ...(i !== 1 ? { section: 'author-note' as const } : {}) })) };
+  const analysis = importedAnalysis(raw, chapter, emptyCast), legacyRaw = { ...raw, spans: raw.spans.map(({ section: _section, ...span }) => span) };
+  const legacy = importedAnalysis(legacyRaw, chapter, emptyCast), config = fixtureConfig();
+  config.policy.grouping = 'scene';
+  for (const model of ['eleven_v3', 'eleven_multilingual_v2', 'eleven_flash_v2_5', 'inworld-tts-2'] as const) {
+    config.policy.model = model;
+    const planned = plan(chapter, analysis, emptyCast, config), ordinary = plan(chapter, legacy, emptyCast, config);
+    assert.deepEqual(planned.map(segment => segment.sectionKind), ['author-note', undefined, 'author-note']);
+    assert.equal(planned.flatMap(segment => segment.turns.map(turn => turn.text)).join(''), text);
+    assert.deepEqual(planned.flatMap(segment => segment.turns.map(({ spanId, start, end }) => ({ spanId, start, end }))), analysis.spans.map(({ uid, start, end }) => ({ spanId: uid, start, end })));
+    assert.equal(ordinary.length, 1); assert.ok(!Object.hasOwn(ordinary[0]!, 'sectionKind'));
+    assert.equal(fingerprint(plan(chapter, legacy, emptyCast, config)), fingerprint(ordinary));
+  }
+  config.policy.model = 'eleven_v3'; await p.configure(config);
+  await p.ingest(chapter); await p.importAnalysis(chapter.chapterId, raw);
+  const renderer = new SyntheticRenderer(); await p.run('source-notes', renderer);
+  const first = await delivered(store, 'source-notes');
+  assert.deepEqual(first.timeline.map(entry => entry.sectionKind), ['author-note', undefined, 'author-note']);
+  const calls = renderer.calls; await p.run('source-notes-again', renderer);
+  assert.equal(renderer.calls, calls); assert.equal((await delivered(store, 'source-notes-again')).id, first.id);
+}));

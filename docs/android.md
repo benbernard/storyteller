@@ -53,6 +53,12 @@ service is active and sync again on opening or refresh. Downloaded verified audi
 can play offline. Streaming needs a connection; changed recordings do not reuse
 an old recording's timestamp as if the audio were identical.
 
+In **Tools → Playback**, clear **Include author notes** to skip tagged opening,
+closing and embedded notes. Notes stay included by default. Your choice also
+applies to background and offline playback. Refresh a chapter online once to
+obtain note timings for an older download; the audio does not need downloading
+again. Sections without reliable note timings continue to play in full.
+
 Use **Mark issue** for a voice, pronunciation, missing/repeated text, delivery, or
 other problem. The report retains the recording and timestamp for later repair.
 **Location history** and **Undo jump** help recover an earlier place.

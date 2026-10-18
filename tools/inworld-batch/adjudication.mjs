@@ -19,13 +19,28 @@ export function validateReview(value, rows) {
  return value.decisions;
 }
 
-export function evidenceRow(item, report, phoneme, neighbors, renderingContext=null) {
- if (item.spokenText !== report.expected || report.sha256 !== phoneme.audioSha256 || !phoneme.phonemes?.trim() || phoneme.inputPrompt !== null)
+function assertEvidenceBinding(item,report,phoneme,renderingContext){
+ if (item.spokenText !== report.expected || report.sha256 !== phoneme?.audioSha256 || typeof phoneme.phonemes!=='string' || phoneme.inputPrompt !== null)
   throw Error('Stale or prompted review evidence');
  if(renderingContext){
   if(!report.renderingContext||renderingContext.audioSha256!==report.sha256||renderingFingerprint(report.renderingContext)!==renderingFingerprint(renderingContext)||report.comparisonExpected!==renderingContext.comparisonExpected)throw Error('Unbound visual-redaction review evidence');
  }else if(report.renderingContext||report.comparisonExpected!==undefined)throw Error('Visual-redaction review requires verified recovery evidence');
+}
+
+export function evidenceRow(item, report, phoneme, neighbors, renderingContext=null) {
+ assertEvidenceBinding(item,report,phoneme,renderingContext);
+ if(!phoneme.phonemes.trim())throw Error('Empty unprompted phoneme evidence');
  return {...(renderingContext?{comparisonExpected:renderingContext.comparisonExpected,renderingContext}:{}),passage:item.customId,role:item.role,expected:item.spokenText,audioSha256:report.sha256,reportHash:hash(report),phonemeHash:hash(phoneme),attempts:report.attempts,phonemes:phoneme.phonemes,neighbors};
+}
+
+/** Empty acoustic evidence cannot authorize publication or subscription adjudication. */
+export function adjudicationEvidence(item,report,phoneme,neighbors,renderingContext=null){
+ assertEvidenceBinding(item,report,phoneme,renderingContext);
+ if(phoneme.phonemes.trim())return {row:evidenceRow(item,report,phoneme,neighbors,renderingContext),report};
+ const unavailableEvidence={schemaVersion:1,kind:'empty-unprompted-phonemes',passage:item.customId,report,phoneme,...(renderingContext?{renderingContext}:{})};
+ const uncertain={...report,automatedSeverity:report.severity,severity:'uncertain',fidelityUncertainty:{kind:unavailableEvidence.kind,reason:'Independent unprompted phonemes are empty; fidelity is unresolved.',audioSha256:report.sha256,reportHash:hash(report),phonemeHash:hash(phoneme),evidenceHash:hash(unavailableEvidence)}};
+ delete uncertain.modelReview;delete uncertain.ownerReview;
+ return {row:null,report:uncertain,unavailableEvidence};
 }
 
 export function modelReview(report, decision, row) {

@@ -1,10 +1,15 @@
 from __future__ import annotations
 import copy
 import hashlib
+import shutil
+import struct
+import tempfile
+from pathlib import Path
 import unittest
 
 from local_book import (
     digest,
+    assemble,
     plan_chapter,
     punctuation_only,
     prepare,
@@ -84,6 +89,70 @@ class LocalBookTests(unittest.TestCase):
             self.assertEqual(request["max_tokens"], 1500)
             self.assertNotIn("repetition_penalty", request)
             self.assertEqual(request["ref_text"], "A sample.")
+
+    def section_fixture(self) -> tuple[JsonObject, JsonObject, JsonObject]:
+        chapter, _, cast = self.fixture()
+        pieces = ["Author note: Thanks! ", "A 🌙 rose over the city. ", "Author note: Until tomorrow."]
+        text = "".join(pieces)
+        chapter.update(text=text, contentHash=hashlib.sha256(text.encode()).hexdigest())
+        spans: list[JsonObject] = []
+        cursor = 0
+        for i, piece in enumerate(pieces):
+            span: JsonObject = {"uid": f"span-{i}", "start": cursor, "end": cursor + units(piece),
+                                "text": piece, "speaker": "narrator"}
+            if i != 1:
+                span["section"] = "author-note"
+            spans.append(span)
+            cursor += units(piece)
+        return chapter, {"source": chapter["contentHash"], "spans": spans}, cast
+
+    def test_local_models_preserve_note_boundaries_source_and_legacy_plan_shape(self) -> None:
+        chapter, analysis, cast = self.section_fixture()
+        original = copy.deepcopy((chapter, analysis, cast))
+        cast["voices"]["narrator"]["exaggeration"] = 0.5
+        for model in ["qwen-base", "breeze-tts-2", "chatterbox"]:
+            cast["model"] = model
+            segments = plan_chapter(chapter, analysis, cast, 3000)
+            self.assertEqual([s.get("sectionKind") for s in segments], ["author-note", None, "author-note"])
+            self.assertEqual("".join(s["text"] for s in segments), chapter["text"])
+            self.assertEqual([p for s in segments for p in s["spans"]],
+                             [{k: span[k] for k in ["uid", "start", "end"]} for span in analysis["spans"]])
+            legacy = copy.deepcopy(analysis)
+            for span in legacy["spans"]:
+                span.pop("section", None)
+            ordinary = plan_chapter(chapter, legacy, cast, 3000)
+            self.assertEqual(len(ordinary), 1)
+            self.assertTrue(all("sectionKind" not in s for s in ordinary))
+        self.assertEqual((chapter, analysis), original[:2])
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "Requires local audio tools")
+    def test_local_assembly_retains_source_note_timings_and_reuses_immutable_metadata(self) -> None:
+        chapter, analysis, cast = self.section_fixture()
+        segments = plan_chapter(chapter, analysis, cast, 3000)
+        plan: JsonObject = {"policy": {"joinPauseMs": 120}, "chapters": [{"chapterId": chapter["chapterId"],
+                            "sequence": 1, "source": "source", "analysis": "analysis", "segments": segments}]}
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            state, directory = root / "state", root / "job"
+            save(directory / "plan.json", plan)
+            save(directory / "runtime.json", {"plan": digest(plan)})
+            audio = wav_header(24000 * 4, 24000) + struct.pack("<f", .05) * 24000
+            for segment in segments:
+                folder = directory / "segments" / segment["fingerprint"]
+                folder.mkdir(parents=True)
+                (folder / "audio.wav").write_bytes(audio)
+                save(folder / "receipt.json", {"request": segment["request"], "fingerprint": segment["fingerprint"],
+                                              "wav_sha256": digest(audio)})
+            assemble(state, directory, "first")
+            delivery = read(state / "deliveries/first/manifest.json")
+            path = state / "assemblies" / delivery["chapters"][0]["assembly"] / "metadata.json"
+            before = path.read_bytes()
+            timeline = read(path)["timeline"]
+            self.assertEqual([entry.get("sectionKind") for entry in timeline], ["author-note", None, "author-note"])
+            self.assertEqual([entry["spans"] for entry in timeline], [segment["spans"] for segment in segments])
+            self.assertTrue(all(entry["end"] > entry["start"] for entry in timeline))
+            assemble(state, directory, "again")
+            self.assertEqual(path.read_bytes(), before)
 
     def test_titles_and_author_notes_keep_body_assets_and_offsets(self) -> None:
         chapter, analysis, cast = self.fixture()

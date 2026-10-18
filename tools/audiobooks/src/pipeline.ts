@@ -226,7 +226,8 @@ export class Pipeline {
         const start = time, end = start + audio.parts[i]!.duration;
         time = end + (i < segments.length - 1 ? audio.pause : 0);
         return { segmentId: s.uid, asset: assets[i]!.fingerprint, start, end,
-          spans: s.turns.map(t => ({ uid: t.spanId, start: t.start, end: t.end })) };
+          spans: s.turns.map(t => ({ uid: t.spanId, start: t.start, end: t.end })),
+          ...(s.sectionKind === 'author-note' ? { sectionKind: s.sectionKind } : {}) };
       });
       const assembly: Assembly = { schemaVersion: 1, id: key, chapterId: chapter.chapterId, sequence: chapter.sequence,
         source, analysis, plan: planKey, checksum: audio.checksum, duration: audio.duration, timeline };

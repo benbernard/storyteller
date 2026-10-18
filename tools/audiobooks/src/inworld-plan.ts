@@ -11,7 +11,7 @@ import { chapterPresentation } from './local-presentation.js';
 import { historicalCast, reconcileCharacters } from './inworld-registry.js';
 import { visualRedactionPolicy } from './spoken-redactions.js';
 
-export type Segment = { uid: string; role: string; text: string; spans: { start: number; end: number; uid: string }[]; presentation?: string };
+export type Segment = { uid: string; role: string; text: string; spans: { start: number; end: number; uid: string }[]; presentation?: string; sectionKind?: 'author-note' };
 export function segmentsFor(chapter: Chapter, analysis: Analysis, notes: { before: string; after: string }): Segment[] {
   const segments: Segment[] = [];
   const presentation = (kind: string, text: string, role: string) => {
@@ -31,9 +31,9 @@ export function segmentsFor(chapter: Chapter, analysis: Analysis, notes: { befor
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$/.test(role) || Object.hasOwn(Object.prototype, role)) throw Error('Unsafe speaker ID');
     const previous = segments.at(-1);
     const claim = { start: span.start, end: span.end, uid: span.uid };
-    if (previous && !previous.presentation && previous.role === role && previous.text.length + span.text.length <= 1450) {
+    if (previous && !previous.presentation && previous.role === role && previous.sectionKind === span.section && previous.text.length + span.text.length <= 1450) {
       previous.text += span.text; previous.spans.push(claim); previous.uid = sha(previous.spans.map(s => s.uid).join(','));
-    } else segments.push({ uid: sha(span.uid), role, text: span.text, spans: [claim] });
+    } else segments.push({ uid: sha(span.uid), role, text: span.text, spans: [claim], ...(span.section === 'author-note' ? { sectionKind: span.section } : {}) });
   }
   if (offset !== chapter.text.length) throw Error('Incomplete attributed source');
   presentation('author-note-after', notes.after, 'author-note');

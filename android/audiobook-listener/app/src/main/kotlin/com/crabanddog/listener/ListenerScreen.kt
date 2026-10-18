@@ -33,6 +33,8 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
@@ -57,7 +59,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     onSpeed: (Float) -> Unit, onIssue: (Selection, Double, String, String) -> Unit, onFinished: () -> Unit,
     onResolve: (JSONObject) -> Unit, onCharacters: (String) -> Unit, onPassage: (Double) -> Unit = onSeek,
     onHistory: (Boolean) -> Unit = {}, onReturn: (JSONObject) -> Unit = {},
-    onFollow: (String, Boolean, String) -> Unit = { _, _, _ -> }, onCheck: (String) -> Unit = {}, onJob: (String, String) -> Unit = { _, _ -> }, onAudio: (String, Boolean) -> Unit = { _, _ -> }) {
+    onFollow: (String, Boolean, String) -> Unit = { _, _, _ -> }, onCheck: (String) -> Unit = {}, onJob: (String, String) -> Unit = { _, _ -> }, onAudio: (String, Boolean) -> Unit = { _, _ -> }, onIncludeAuthorNotes: (Boolean) -> Unit = {}) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var storyId by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = state.connected && (tab != 0 || storyId != null)) {
@@ -116,7 +118,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
                             TextButton(onClick = { tab = 3; onHistory(false) }) { Text("Location history") }
                             TextButton(onClick = { tab = 2 }) { Text("Marked issues") }
                         }
-                        LibraryTools(state, Modifier.weight(1f), onFollow, onCheck, onJob)
+                        LibraryTools(state, Modifier.weight(1f), onFollow, onCheck, onJob, onIncludeAuthorNotes)
                     }
                     1 -> Column(Modifier.fillMaxSize()) {
                         TextButton(onClick = { storyId = state.selection?.story; tab = 0 }) { Text("Back to story") }
@@ -167,6 +169,18 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     if (showCharacters) AlertDialog(onDismissRequest = { showCharacters = false }, title = { Text("Characters encountered") }, text = {
         LazyColumn { if (state.characters.isEmpty()) item { Text("Characters appear as you reach their first scene.") }; items(state.characters) { c -> Column(Modifier.padding(bottom = 16.dp)) { Text(c.getString("name"), fontWeight = FontWeight.Bold); Text(c.getString("portrayal")) } } }
     }, confirmButton = { TextButton(onClick = { showCharacters = false }) { Text("Close") } })
+}
+
+@Composable
+fun AuthorNoteSetting(include: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = include, role = Role.Checkbox, onValueChange = onChange)
+        .padding(horizontal = 8.dp, vertical = 8.dp).testTag("include-author-notes"), verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = include, onCheckedChange = null)
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text("Include author notes", style = MaterialTheme.typography.bodyLarge)
+            Text("Turn off to skip tagged notes during playback. Chapter text and downloads stay available.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 private fun unreadAudio(count: Int): String = "$count unread audio ${if (count == 1) "chapter" else "chapters"}"
@@ -286,10 +300,11 @@ private fun StoryDetail(state: ListenerUiState, id: String, onBack: () -> Unit, 
 }
 
 @Composable
-private fun LibraryTools(state: ListenerUiState, modifier: Modifier, onFollow: (String, Boolean, String) -> Unit, onCheck: (String) -> Unit, onJob: (String, String) -> Unit) {
+private fun LibraryTools(state: ListenerUiState, modifier: Modifier, onFollow: (String, Boolean, String) -> Unit, onCheck: (String) -> Unit, onJob: (String, String) -> Unit, onIncludeAuthorNotes: (Boolean) -> Unit) {
     var adding by rememberSaveable { mutableStateOf(false) }
     if (adding) FollowDialog({ adding = false }) { url, mode -> onFollow(url, true, mode); adding = false }
     LazyColumn(modifier.testTag("tools"), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item { OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(8.dp)) { Text("Playback", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)); AuthorNoteSetting(state.includeAuthorNotes, onIncludeAuthorNotes) } } }
         item { OfflineDownloadsPanel(state.books) }
         item { Text("Source library", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 24.dp)); Text("Follow stories to download new chapters and prepare Qwen audio."); OutlinedButton(onClick = { adding = true }) { Text("Follow a story") } }
         items(state.jobs.filter { it.optString("status") !in listOf("complete", "cancelled") }.take(12), key = { "job:${it.getString("id")}" }) { job ->

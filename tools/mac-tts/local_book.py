@@ -87,6 +87,7 @@ def plan_chapter(
             span["text"]
         ), "Span offsets mismatch"
         role = span["speaker"]
+        section = "author-note" if span.get("section") == "author-note" else None
         if role not in cast["voices"]:
             raise ValueError("Missing explicit voice for " + role)
         for part in split_text(span["text"], limit):
@@ -95,12 +96,14 @@ def plan_chapter(
             if (
                 segments
                 and segments[-1]["role"] == role
+                and segments[-1].get("sectionKind") == section
                 and len(segments[-1]["text"]) + len(part) <= limit
             ):
                 segments[-1]["text"] += part
                 segments[-1]["spans"].append(entry)
             else:
-                segments.append({"role": role, "text": part, "spans": [entry]})
+                segments.append({"role": role, "text": part, "spans": [entry],
+                                 **({"sectionKind": section} if section else {})})
     assert "".join(s["text"] for s in segments) == chapter["text"]
     # Keep body seeds stable so a repair reuses every unchanged passage.
     for i, segment in enumerate(segments):
@@ -532,6 +535,7 @@ def assemble(state: Path, directory: Path, batch: str) -> None:
                         "start": start,
                         "end": frames / rate,
                         "spans": segment["spans"],
+                        **({"sectionKind": "author-note"} if segment.get("sectionKind") == "author-note" else {}),
                         **({"presentation": {"kind": segment["presentation"], "text": segment["text"], "speaker": segment["role"]}} if "presentation" in segment else {}),
                     }
                 )

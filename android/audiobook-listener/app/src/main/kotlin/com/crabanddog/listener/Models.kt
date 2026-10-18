@@ -36,8 +36,8 @@ fun editionName(edition: String): String = when (edition) {
 }
 
 
-data class Passage(val id: String, val start: Double, val end: Double, val text: String)
-data class Reading(val assembly: String, val passages: List<Passage>)
+data class Passage(val id: String, val start: Double, val end: Double, val text: String, val sectionKind: String? = null)
+data class Reading(val assembly: String, val passages: List<Passage>, val sectionMetadataVersion: Int = 0)
 data class ReaderFragment(val start: Int, val end: Int, val passage: Passage)
 data class ReaderParagraph(val text: String, val fragments: List<ReaderFragment>)
 fun bookParagraphs(reading: Reading): List<ReaderParagraph> {
@@ -56,7 +56,7 @@ fun bookParagraphs(reading: Reading): List<ReaderParagraph> {
 }
 fun readingFromJson(j: JSONObject): Reading {
     val a = j.getJSONArray("passages")
-    return Reading(j.getString("assembly"), (0 until a.length()).map { i -> val p = a.getJSONObject(i); Passage(p.getString("id"), p.getDouble("start"), p.getDouble("end"), p.getString("text")) })
+    return Reading(j.getString("assembly"), (0 until a.length()).map { i -> val p = a.getJSONObject(i); Passage(p.getString("id"), p.getDouble("start"), p.getDouble("end"), p.getString("text"), p.optString("sectionKind").takeIf { it == "author-note" }) }, j.optInt("sectionMetadataVersion", 0))
 }
 
 /** Keep edition-specific text and audio together; explicit device choices override server tags. */

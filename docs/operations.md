@@ -139,3 +139,15 @@ changing a model revision or replacing reference audio.
 A repaired recording gets a new assembly ID. Old issue reports and listening
 history keep the old assembly/timestamp. Do not delete old assemblies to save
 space without accepting that those historical references will become unavailable.
+
+## Optional author notes
+
+In the web player, open **More** and clear **Include author notes** to skip tagged
+notes. Android has the same choice in **Tools → Playback**. Both include notes by
+default and remember the choice on that device. Audio and source text are unchanged.
+
+Archived opening and closing note boxes already have timing tags. New analysis
+also labels author commentary within chapter text, preserving source boundaries
+and keeping notes separate from story passages. The player skips only identified
+note ranges. Older recordings that mix notes and story within one timed passage
+continue to play that passage in full.

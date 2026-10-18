@@ -16,6 +16,7 @@ const book = { id: 'fixture', title: 'A quiet journey', author: 'Test author', d
   editions: { v3: { chapters: [chapter('a'.repeat(64))] }, flash: { chapters: [chapter('b'.repeat(64))] }, qwen: { chapters: [chapter('c'.repeat(64))] } } };
 const posts = [];
 let offline = false, accountKey = 'test';
+let noteMetadata = false, textDelay = 0;
 const catalog = { jobs: [], stories: [{ id: 'rr-1', title: 'A Royal Road story', author: 'An author', url: 'https://www.royalroad.com/fiction/1', description: 'A saved story.', status: 'ONGOING', hasCover: false, follow: null, chapters: [{ chapterId: 2, title: 'Opening chapter', downloaded: true, editions: [] }] }] };
 catalog.stories.push({ id: 'fixture', title: book.title, author: book.author, url: 'https://www.royalroad.com/fiction/2', description: '', status: 'ONGOING', chapters: [], repair: { title: 'Audio repair in progress', detail: 'Chapter one · Generating audio', completed: 0, total: 2, updatedAt: '2026-10-11T20:00:00Z', chapters: [{ id: 'one', title: 'Chapter one', label: 'Generating audio' }, { id: 'two', title: 'Chapter two', label: 'Queued for reanalysis and recasting' }] } });
 const server = createServer(async (req, res) => {
@@ -29,15 +30,16 @@ const server = createServer(async (req, res) => {
     if (path === '/listen/issues') state.issues.push({ ...data, id: data.eventId, sequence: 1, status: 'open' });
     if (path === '/listen/issues/resolve') state.issues.find(i => i.id === data.id).status = data.resolved ? 'resolved' : 'open';
     if (path === '/listen/progress') {
-      state.positions[`fixture:${data.edition}:one`] = data;
-      if (data.completed) state.completed['fixture:one'] = true;
+      const id = book.editions[data.edition]?.chapters.find(c => c.assembly === data.assembly)?.id || 'one';
+      state.positions[`fixture:${data.edition}:${id}`] = data;
+      if (data.completed) state.completed[`fixture:${id}`] = true;
     }
     res.setHeader('Content-Type', 'application/json'); res.end('{}'); return;
   }
   if (path === '/listen/catalog') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(catalog)); return; }
   if (path === '/listen/library') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ books: [book], state, accountKey })); return; }
   if (path === '/listen/history') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ entries: posts.filter(p => p.path === '/listen/progress').map(p => ({ ...p.data, location: { ...p.data, chapterTitle: 'Chapter one', passageIndex: Math.floor(p.data.seconds / 5), storySeconds: p.data.seconds, storyDuration: 90, excerpt: 'Saved exact text.' }, from: p.data.from && { ...p.data.from, chapterTitle: 'Chapter one' } })).reverse(), before: null })); return; }
-  if (path.includes('/text/')) { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ url: 'https://www.royalroad.com/fiction/1/test', passages: Array.from({length: 18}, (_, i) => ({ id: `p${i}`, start: i * 5, end: (i + 1) * 5, text: `Passage ${i + 1}. ` + 'The traveler walked down the quiet road. '.repeat(8) + '\n\n' })) })); return; }
+  if (path.includes('/text/')) { if (textDelay) await new Promise(done => setTimeout(done, textDelay)); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ url: 'https://www.royalroad.com/fiction/1/test', passages: Array.from({length: 18}, (_, i) => ({ id: `p${i}`, start: i * 5, end: noteMetadata && i === 17 ? 89.899999999991 : (i + 1) * 5, ...(noteMetadata && [1, 8, 16, 17].includes(i) ? {sectionKind: 'author-note'} : {}), text: `Passage ${i + 1}. ` + 'The traveler walked down the quiet road. '.repeat(8) + '\n\n' })) })); return; }
   if (path.includes('/audio/')) {
     res.setHeader('Content-Type', 'audio/wav'); res.setHeader('Accept-Ranges', 'bytes');
     const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '');
@@ -154,6 +156,111 @@ try {
     assert.deepEqual(errors, []);
     await page.close(); console.log(`PASS: reader, passage seeks, undo, restored positions and editions at ${width}px`);
   }
+  accountKey = 'notes'; offline = false; state.positions = {}; state.completed = {}; posts.length = 0; noteMetadata = true;
+  book.editions.v3.chapters.push({...chapter('d'.repeat(64)), id:'two', sequence:2, title:'Chapter two'});
+  const page = await browser.newPage({viewport:{width:375,height:812},reducedMotion:'reduce',colorScheme:'dark'});
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(base+'/listen');
+  await page.getByRole('link',{name:book.title,exact:true}).click();
+  await page.getByRole('button',{name:'Listen',exact:true}).first().click();
+  await page.locator('.passage').first().waitFor();
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime>0);
+  await page.locator('#audio').evaluate(a=>{a.pause();a.currentTime=7;});
+  await page.waitForFunction(()=>!document.getElementById('audio').seeking);
+  await page.locator('.playback-options summary').click();
+  const notes=page.getByRole('checkbox',{name:'Include author notes',exact:true});
+  assert.equal(await notes.isChecked(),true,'Notes remain included by default');
+  assert.equal(Math.floor(await page.locator('#audio').evaluate(a=>a.currentTime)),7);
+  await notes.focus();await page.keyboard.press('Space');
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===10);
+  assert.equal(await notes.isChecked(),false);assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('listener:include-author-notes')),'false');
+  await page.locator('#audio').evaluate(a=>a.currentTime=2);
+  await page.waitForFunction(()=>!document.getElementById('audio').seeking);
+  assert.equal(Math.floor(await page.locator('#audio').evaluate(a=>a.currentTime)),2,'Chapter title is ordinary content');
+  await page.locator('.passage').nth(8).click();
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===45);
+  assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'A note passage seek preserves pause');
+  await notes.check();
+  await page.locator('#audio').evaluate(a=>a.currentTime=42);
+  await page.waitForFunction(()=>!document.getElementById('audio').seeking);
+  assert.equal(Math.floor(await page.locator('#audio').evaluate(a=>a.currentTime)),42,'Turning notes back on restores access');
+  await notes.uncheck();await page.waitForFunction(()=>document.getElementById('audio').currentTime===45);
+  await page.locator('#audio').evaluate(a=>{a.currentTime=39.8;return a.play();});
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime>=45&&document.getElementById('audio').currentTime<47);
+  await page.locator('#audio').evaluate(a=>a.pause());
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:notes')).pending.length===0);
+  state.positions={};
+  await page.addInitScript(()=>{if(sessionStorage.getItem('notes-resume-fixture'))return;sessionStorage.setItem('notes-resume-fixture','true');const key='listener:notes',value=JSON.parse(localStorage.getItem(key));for(const row of Object.values(value.positions)){row.seconds=7;row.deviceTime=Date.now()+1000;}value.pending=[];localStorage.setItem(key,JSON.stringify(value));});
+  textDelay=650;
+  await page.reload();
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===10);
+  assert.equal(await page.locator('#include-author-notes').isChecked(),false,'Preference survives reload');
+  assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'Saved note position resumes at the body without autoplay');
+  textDelay=0;
+  await page.locator('#show-reading').click();
+  await page.locator('#audio').evaluate(a=>a.currentTime=85);
+  await page.waitForFunction(()=>document.getElementById('audio').getAttribute('src').endsWith('d'.repeat(64))&&document.getElementById('audio').readyState>0);
+  await page.getByRole('heading',{name:'Chapter two',exact:true}).waitFor();
+  assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'Skipping ending notes preserves pause in next chapter');
+  assert.equal(posts.filter(p=>p.data.assembly==='a'.repeat(64)&&p.data.completed).length,1,'Ending-note skip completes the chapter once');
+  await page.locator('#audio').evaluate(a=>{a.currentTime=85;a.play().catch(()=>{});});
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===90&&document.getElementById('audio').paused);
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:notes')).pending.length===0);
+  assert.equal(state.completed['fixture:two'],true,'Ending notes of the final chapter complete without a loop');
+  const completions=()=>posts.filter(p=>p.data.assembly==='d'.repeat(64)&&p.data.completed).length;
+  assert.equal(completions(),1);
+  await page.locator('#audio').evaluate(a=>a.currentTime=30);
+  await page.waitForFunction(()=>!document.getElementById('audio').seeking);
+  await page.locator('#audio').evaluate(a=>a.currentTime=85);
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===90&&!document.getElementById('audio').seeking);
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:notes')).pending.length===0);
+  assert.equal(completions(),2,'An explicit backwards story seek permits a later completion');
+  assert.deepEqual(errors,[]);
+  await page.locator('.playback-options summary').click();
+  await notes.focus();
+  let bounds=await notes.boundingBox();assert(bounds&&bounds.y>=0&&bounds.y+bounds.height<=812);
+  if(process.env.SCREENSHOTS)await page.screenshot({path:process.env.SCREENSHOTS+'/listener-author-notes-375.png',fullPage:true});
+  await page.setViewportSize({width:667,height:375});
+  await page.addStyleTag({content:'.checkbox-option{font-size:26px}'});
+  await notes.scrollIntoViewIfNeeded();await notes.focus();
+  bounds=await notes.boundingBox();assert(bounds&&bounds.y>=0&&bounds.y+bounds.height<=375,'Large-text checkbox stays reachable in landscape');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  if(process.env.SCREENSHOTS)await page.screenshot({path:process.env.SCREENSHOTS+'/listener-author-notes-landscape-large.png',fullPage:true});
+  await page.close();
+  state.positions={};state.completed={};posts.length=0;
+  const slow=await browser.newPage({viewport:{width:320,height:740},reducedMotion:'reduce'});
+  await slow.addInitScript(()=>localStorage.setItem('listener:include-author-notes','false'));
+  textDelay=700;
+  await slow.goto(base+'/listen');await slow.getByRole('link',{name:book.title,exact:true}).click();
+  await slow.getByRole('button',{name:'Listen',exact:true}).first().click();
+  await slow.waitForFunction(()=>document.getElementById('audio').readyState>0);
+  assert.equal(await slow.locator('#audio').evaluate(a=>a.paused),true,'Autoplay waits for section metadata');
+  await slow.waitForFunction(()=>document.getElementById('audio').currentTime>0);
+  assert.equal(await slow.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await slow.close();
+  state.positions={};textDelay=3000;
+  const included=await browser.newPage();
+  await included.goto(base+'/listen');await included.getByRole('link',{name:book.title,exact:true}).click();
+  await included.getByRole('button',{name:'Listen',exact:true}).first().click();
+  await included.waitForFunction(()=>document.getElementById('audio').currentTime>0&&document.querySelectorAll('.passage').length===0,undefined,{timeout:2000});
+  await included.close();
+  textDelay=0;noteMetadata=false;
+  state.positions={'fixture:v3:one':{story:'fixture',edition:'v3',assembly:'a'.repeat(64),seconds:7,deviceTime:Date.now()}};
+  const legacy=await browser.newPage();
+  await legacy.addInitScript(()=>localStorage.setItem('listener:include-author-notes','false'));
+  await legacy.goto(base+'/listen');await legacy.waitForFunction(()=>document.getElementById('audio').currentTime===7);
+  assert.equal(await legacy.locator('#audio').evaluate(a=>a.paused),true,'Unknown legacy sections are included');
+  await legacy.close();
+  state.positions={};textDelay=15000;
+  const stalled=await browser.newPage();
+  await stalled.addInitScript(()=>localStorage.setItem('listener:include-author-notes','false'));
+  await stalled.goto(base+'/listen');await stalled.getByRole('link',{name:book.title,exact:true}).click();
+  await stalled.getByRole('button',{name:'Listen',exact:true}).first().click();
+  await stalled.waitForFunction(()=>document.getElementById('audio').currentTime>0,undefined,{timeout:13000});
+  await stalled.getByText('Author-note timings are unavailable. Playing the full chapter.',{exact:true}).waitFor();
+  await stalled.close();textDelay=0;
+  console.log('PASS: optional author notes, keyboard/persistence, source-safe seeks, delayed metadata and chapter completion');
 } finally {
   await browser.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
 }

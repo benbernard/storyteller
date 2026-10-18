@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
@@ -25,6 +27,18 @@ class ListenerUiTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
         File(directory, "$name.png").outputStream().use { instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+    @Test fun authorNoteCheckboxHasOneLabelledTargetAndToggles() {
+        compose.setContent {
+            var include by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+            ListenerTheme { ListenerScreen(ListenerUiState(connected = true, includeAuthorNotes = include), {}, {}, onPlay = { _, _, _ -> }, onToggle = {}, onSeek = {}, onSpeed = {}, onIssue = { _, _, _, _ -> }, onFinished = {}, onResolve = {}, onCharacters = {}, onIncludeAuthorNotes = { include = it }) }
+        }
+        compose.onNodeWithText("Tools", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("include-author-notes").assertIsDisplayed().assertIsOn().assertHeightIsAtLeast(androidx.compose.ui.unit.Dp(48f))
+        compose.onNodeWithText("Include author notes").assertIsDisplayed()
+        screenshot("author-note-setting-enabled")
+        compose.onNodeWithTag("include-author-notes").performClick().assertIsOff()
+        screenshot("author-note-setting-disabled")
     }
     @Test fun libraryStartsWithTitlesAndDrillsIntoStory() {
         screen(ListenerUiState(connected = true, books = listOf(book), selection = Selection(book.id, book.title, "v3", chapter), position = 65.0))

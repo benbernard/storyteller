@@ -4,6 +4,8 @@ import android.net.Uri
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.SharedPreferences
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -21,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import okhttp3.OkHttpClient
 import org.json.JSONObject
 
@@ -29,6 +32,22 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private lateinit var store: ListenerStore
     private var active: Selection? = null
+    private lateinit var audioPlayer: ExoPlayer
+    private var reading: Reading? = null
+    private var readingJob: Job? = null
+    private var readingLoading = false
+    private var readingGeneration = 0
+    private var resumeAfterReading = false
+    private var applyingSkip = false
+    private var completedNoteAssembly: String? = null
+    private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "include-author-notes") {
+            if (store.includeAuthorNotes()) releaseReadingGate() else {
+                if (readingLoading) gateForReading()
+                skipAuthorNotes()
+            }
+        }
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     override fun onCreate() {
         super.onCreate()
@@ -45,12 +64,32 @@ class PlaybackService : MediaSessionService() {
             setWakeMode(C.WAKE_MODE_LOCAL)
             setPlaybackSpeed(store.speed())
         }
+        audioPlayer = player
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        session = MediaSession.Builder(this, player).setSessionActivity(open).build()
+        // Keep play/pause intent separate from a temporary metadata-loading pause.
+        // All controllers, including the lock screen, use this same gate.
+        val controlled = object : ForwardingPlayer(player) {
+            override fun play() { if (requestPlay()) player.play() }
+            override fun setPlayWhenReady(playWhenReady: Boolean) { if (playWhenReady) play() else pause() }
+            override fun pause() { resumeAfterReading = false; player.pause() }
+            override fun seekTo(positionMs: Long) { beforeSeek(player.currentMediaItemIndex); player.seekTo(positionMs); skipAuthorNotes() }
+            override fun seekTo(mediaItemIndex: Int, positionMs: Long) { beforeSeek(mediaItemIndex); player.seekTo(mediaItemIndex, positionMs); skipAuthorNotes() }
+            override fun seekToDefaultPosition() { seekTo(player.currentMediaItemIndex, 0) }
+            override fun seekToDefaultPosition(mediaItemIndex: Int) { seekTo(mediaItemIndex, 0) }
+            override fun seekBack() { seekTo((player.currentPosition - player.seekBackIncrement).coerceAtLeast(0)) }
+            override fun seekForward() { seekTo(player.currentPosition + player.seekForwardIncrement) }
+            override fun seekToNextMediaItem() { if (player.hasNextMediaItem()) seekToDefaultPosition(player.nextMediaItemIndex) }
+            override fun seekToPreviousMediaItem() { if (player.hasPreviousMediaItem()) seekToDefaultPosition(player.previousMediaItemIndex) }
+            override fun seekToNext() { seekToNextMediaItem() }
+            override fun seekToPrevious() { if (player.currentPosition > player.maxSeekToPreviousPosition || !player.hasPreviousMediaItem()) seekTo(0) else seekToPreviousMediaItem() }
+        }
+        session = MediaSession.Builder(this, controlled).setSessionActivity(open).build()
+        store.observeSettings(settingsListener)
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 active = mediaItem?.mediaMetadata?.extras?.getString("selection")?.let { runCatching { selectionFromJson(JSONObject(it)) }.getOrNull() }
                 active?.let { store.select(it) }
+                loadReading()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { if (!isPlaying) save() }
             override fun onPlaybackStateChanged(playbackState: Int) { if (playbackState == Player.STATE_ENDED) save(true) }
@@ -61,8 +100,10 @@ class PlaybackService : MediaSessionService() {
                 if (next != null) store.saveProgress(next, newPosition.positionMs.coerceAtLeast(0) / 1000.0,
                     reason = if (old?.chapter?.assembly != next.chapter.assembly) "chapter" else "seek",
                     from = old?.location(oldPosition.positionMs.coerceAtLeast(0) / 1000.0))
+                skipAuthorNotes()
             }
         })
+        scope.launch { while (true) { delay(50); if (player.isPlaying) skipAuthorNotes() } }
         scope.launch {
             while (true) {
                 delay(5000)
@@ -71,6 +112,87 @@ class PlaybackService : MediaSessionService() {
             }
         }
     }
+    private fun beforeSeek(index: Int) {
+        completedNoteAssembly = null
+        if (!store.includeAuthorNotes() && (index != audioPlayer.currentMediaItemIndex || readingLoading)) gateForReading()
+    }
+    private fun gateForReading() {
+        resumeAfterReading = resumeAfterReading || audioPlayer.playWhenReady
+        audioPlayer.pause()
+    }
+    private fun requestPlay(): Boolean {
+        resumeAfterReading = true
+        if (!store.includeAuthorNotes() && readingLoading) { gateForReading(); return false }
+        skipAuthorNotes()
+        if (!store.includeAuthorNotes() && readingLoading) return false
+        // A final note can complete the last chapter without starting it again.
+        val selected = active
+        if (!store.includeAuthorNotes() && selected != null && completedNoteAssembly == selected.chapter.assembly) {
+            resumeAfterReading = false
+            return false
+        }
+        resumeAfterReading = false
+        return true
+    }
+    private fun releaseReadingGate() {
+        skipAuthorNotes()
+        if (resumeAfterReading && (store.includeAuthorNotes() || !readingLoading)) session?.player?.play()
+    }
+    private fun loadReading() {
+        completedNoteAssembly = null
+        val generation = ++readingGeneration
+        readingJob?.cancel()
+        reading = null
+        readingLoading = false
+        val selected = active ?: return
+        val cached = store.reading(selected.chapter.assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }
+            ?.takeIf { it.assembly == selected.chapter.assembly }
+        reading = cached
+        readingLoading = needsSectionRefresh(cached)
+        if (!store.includeAuthorNotes() && readingLoading) gateForReading()
+        skipAuthorNotes()
+        // An all-note chapter can advance and reenter this method immediately.
+        // Keep the next chapter's request handle and metadata generation intact.
+        if (generation != readingGeneration || active?.chapter?.assembly != selected.chapter.assembly) return
+        // Refresh old cached readings to obtain newly available positive tags.
+        // Disabled notes wait for one refresh of an unversioned cache. A failed
+        // refresh releases the gate and retains its unknown legacy content.
+        readingJob = scope.launch {
+            val loaded = runCatching {
+                val data = ListenerApi(this@PlaybackService).call("/stories/${selected.story}/${selected.edition}/text/${selected.chapter.assembly}")
+                val parsed = readingFromJson(data)
+                check(parsed.assembly == selected.chapter.assembly)
+                store.reading(selected.chapter.assembly, data)
+                parsed
+            }.getOrNull()
+            if (generation != readingGeneration || active?.chapter?.assembly != selected.chapter.assembly) return@launch
+            if (loaded != null) reading = loaded
+            readingLoading = false
+            releaseReadingGate()
+        }
+    }
+    private fun skipAuthorNotes() {
+        if (applyingSkip || store.includeAuthorNotes() || readingLoading) return
+        val selected = active ?: return
+        // Decoders can clamp an end seek to the final sample (duration - 1ms).
+        // Do not repeatedly seek and emit completion events at that sample.
+        if (completedNoteAssembly == selected.chapter.assembly) {
+            if (audioPlayer.currentPosition + 50 >= (selected.chapter.duration * 1000).toLong()) return
+            completedNoteAssembly = null
+        }
+        val playingSelection = audioPlayer.currentMediaItem?.mediaMetadata?.extras?.getString("selection")
+            ?.let { runCatching { selectionFromJson(JSONObject(it)) }.getOrNull() }
+        if (playingSelection != selected) return
+        val target = authorNoteEnd(reading, audioPlayer.currentPosition.coerceAtLeast(0) / 1000.0, selected.chapter.duration) ?: return
+        applyingSkip = true
+        try {
+            if (target >= selected.chapter.duration) {
+                store.saveProgress(selected, selected.chapter.duration, true)
+                if (audioPlayer.hasNextMediaItem()) audioPlayer.seekToNextMediaItem()
+                else { completedNoteAssembly = selected.chapter.assembly; audioPlayer.seekTo((selected.chapter.duration * 1000).toLong()); resumeAfterReading = false; audioPlayer.pause() }
+            } else audioPlayer.seekTo(kotlin.math.ceil(target * 1000).toLong())
+        } finally { applyingSkip = false }
+    }
     private fun save(completed: Boolean = false) {
         val player = session?.player ?: return
         active?.let { store.saveProgress(it, player.currentPosition.coerceAtLeast(0) / 1000.0, completed, reason = if (player.isPlaying) "playing" else "pause") }
@@ -78,5 +200,5 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         if (controllerInfo.packageName == packageName || controllerInfo.isTrusted) session else null
     override fun onTaskRemoved(rootIntent: Intent?) { save(); if (session?.player?.isPlaying != true) stopSelf() }
-    override fun onDestroy() { save(); scope.cancel(); session?.run { player.release(); release() }; session = null; super.onDestroy() }
+    override fun onDestroy() { save(); store.stopObservingSettings(settingsListener); scope.cancel(); session?.run { player.release(); release() }; session = null; super.onDestroy() }
 }

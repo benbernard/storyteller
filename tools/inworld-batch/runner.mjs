@@ -7,7 +7,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {sha, hash, pack, checkResults, assertBudget, validateCoverage} from './core.mjs';
 import {effectiveReview, processingOnlyEntry} from './owner-review.mjs';
-import {PaidLane,belongsToEntry,evidenceRow,modelReview,needsModelReview,reviewInstructions,reviewSchema,validateReview} from './adjudication.mjs';
+import {PaidLane,belongsToEntry,adjudicationEvidence,modelReview,needsModelReview,reviewInstructions,reviewSchema,validateReview} from './adjudication.mjs';
 import {repairPassage,recoverRepairs} from './repair.mjs';
 import {validateQueueUpdate,queuePreparationComplete,archiveExcludes} from './queue.mjs';
 import {voiceDesignPrompt} from './voice-design.mjs';
@@ -171,9 +171,16 @@ async function adjudicate(entry,chapter,reports){
  const rows=[];
  for(const item of disputed){
   const at=chapter.items.indexOf(item),phoneme=await read(join(entry.root,'phoneme-review',item.customId+'.json'));
-  rows.push(evidenceRow(item,reports[item.customId],phoneme,{before:chapter.items[at-1]?.spokenText??'',after:chapter.items[at+1]?.spokenText??''},await renderingContext(entry.root,item)));
+  const evidence=adjudicationEvidence(item,reports[item.customId],phoneme,{before:chapter.items[at-1]?.spokenText??'',after:chapter.items[at+1]?.spokenText??''},await renderingContext(entry.root,item));
+  if(evidence.row)rows.push(evidence.row);
+  else{
+   const value=evidence.unavailableEvidence,path=join(entry.root,'unavailable-review-evidence',hash(value)+'.json'),prior=await read(path,null);
+   if(prior&&hash(prior)!==hash(value))throw Error('Retained unavailable review evidence changed');
+   if(!prior)await save(path,value);
+   reports[item.customId]=evidence.report;
+  }
  }
- const {runCodexAnalysis}=await import(pathToFileURL(config.analysisModule??join(here,'../audiobooks/dist/codex-analysis.js')).href);
+ const runCodexAnalysis=rows.length?(await import(pathToFileURL(config.analysisModule??join(here,'../audiobooks/dist/codex-analysis.js')).href)).runCodexAnalysis:null;
  const decisions={};
  for(let offset=0;offset<rows.length;offset+=6){
   const batch=rows.slice(offset,offset+6),key=hash({instructions:reviewInstructions,model:config.reviewModel??'gpt-6.1-sol',rows:batch}),path=join(entry.root,'llm-review',key+'.json');
@@ -281,7 +288,7 @@ async function assemble(entry,chapter){
  for(const segment of chapter.segments){const start=offset;
   for(const id of segment.items){const receipt=await read(join(entry.root,'receipts',id+'.json'));const file=join(entry.root,'audio',id+'.wav');if(sha(await fs.readFile(file))!==receipt.sha256)throw Error('Assembly checksum mismatch');paths.push(file);offset+=receipt.duration;}
   if(!segment.items.length){paths.push(join(temp,'pause.wav'));offset+=.1;}
-  timeline.push({segmentId:hash({input:entry.inputHash,uid:segment.uid}),asset:hash(segment.items),start,end:offset,spans:segment.spans,...(segment.presentation?{presentation:{kind:segment.presentation,text:segment.text,speaker:segment.role}}:{})});
+  timeline.push({segmentId:hash({input:entry.inputHash,uid:segment.uid}),asset:hash(segment.items),start,end:offset,spans:segment.spans,...(segment.sectionKind==='author-note'?{sectionKind:'author-note'}:{}),...(segment.presentation?{presentation:{kind:segment.presentation,text:segment.text,speaker:segment.role}}:{})});
   paths.push(join(temp,'pause.wav'));offset+=.1;
  }
  const list=join(temp,'concat.txt');if(paths.some(p=>p.includes("'")))throw Error('Unsupported quote in media path');await fs.writeFile(list,paths.map(p=>`file '${p}'`).join('\n'));

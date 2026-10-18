@@ -50,7 +50,8 @@ export function plan(chapter: Chapter, analysis: Analysis, cast: Cast, config: C
       }
       const start = correction?.renderText ? span.start : span.start + consumed;
       const end = correction?.renderText ? span.end : start + length;
-      allTurns.push({ spanId: span.uid, start, end, text, voice, dictionary, tag });
+      allTurns.push({ spanId: span.uid, start, end, text, voice, dictionary, tag,
+        ...(span.section === 'author-note' ? { sectionKind: span.section } : {}) });
       consumed += length;
     }
   }
@@ -62,6 +63,7 @@ export function plan(chapter: Chapter, analysis: Analysis, cast: Cast, config: C
     const voices = new Set([...group.map(t => t.voice.voiceId), turn.voice.voiceId]);
     const previous = group.at(-1);
     if (size + turn.text.length + turn.tag.length > policy.maxCharacters || voices.size > 10
+      || (previous && previous.sectionKind !== turn.sectionKind)
       || (policy.model !== 'eleven_v3' && previous && fingerprint(previous.voice) !== fingerprint(turn.voice))
       || policy.grouping === 'turn') flush();
     group.push(turn);
@@ -89,7 +91,7 @@ export function plan(chapter: Chapter, analysis: Analysis, cast: Cast, config: C
         ...(policy.model === 'inworld-tts-2' ? { deliveryMode: 'BALANCED' } : {}) };
     }
     return { uid: 'segment_' + fingerprint(turns.map(t => ({ spanId: t.spanId, start: t.start, end: t.end, text: t.text }))).slice(0, 32),
-      turns, model: policy.model, request, fingerprint: '',
+      turns, model: policy.model, request, fingerprint: '', ...(turns[0]!.sectionKind ? { sectionKind: turns[0]!.sectionKind } : {}),
       characters: turns.reduce((n, t) => n + t.text.length + t.tag.length, 0) };
   });
   for (let i = 0; i < segments.length; i++) {

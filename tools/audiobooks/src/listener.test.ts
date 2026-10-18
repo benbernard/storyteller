@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -222,6 +222,51 @@ test('reading follows the recording source with exact passage offsets and joins'
   await fiction.write('sources/newer.json', { text: 'A revised chapter.' });
   assert.equal((await (await fetch(base + `/listen/stories/story/v3/text/${location.assembly}`, { headers: web })).json() as any).text, text.text);
   assert.equal((await fetch(base + `/api/listener/stories/story/v3/text/${location.assembly}`, { headers: web })).status, 401);
+}));
+
+test('reading exposes old boxed notes and source-backed sections without altering immutable text, audio or timing', async () => fixture(async (base, _state, fiction) => {
+  const metadataPath = `assemblies/${location.assembly}/metadata.json`, sourcePath = `sources/${'b'.repeat(64)}.json`;
+  const source = (await fiction.read<{ text: string; contentHash: string }>(sourcePath))!;
+  const timeline = [
+    { segmentId: 'title', start: 0, end: .5, spans: [], presentation: { kind: 'title', text: 'Title', speaker: 'narrator' } },
+    { segmentId: 'before', start: .5, end: 1, spans: [], presentation: { kind: 'author-note-before', text: 'Before', speaker: 'author-note' } },
+    { segmentId: 'body', start: 2, end: 8, spans: [{ uid: 'span1', start: 0, end: 8 }] },
+    { segmentId: 'inline', start: 10, end: 17, spans: [{ uid: 'span2', start: 8, end: 20 }], sectionKind: 'author-note' },
+    { segmentId: 'after', start: 18, end: 20, spans: [], presentation: { kind: 'author-note-after', text: 'After', speaker: 'author-note' } },
+  ];
+  await fiction.write(metadataPath, { id: location.assembly, source: 'b'.repeat(64), duration: 20, timeline });
+  const before = await Promise.all([metadataPath, sourcePath, `assemblies/${location.assembly}/chapter.mp3`].map(path => readFile(fiction.path(path))));
+  const response = await fetch(base + `/listen/stories/story/v3/text/${location.assembly}`, { headers: web });
+  assert.equal(response.status, 200);
+  const text = await response.json() as { text: string; sectionMetadataVersion: number; passages: { id: string; text: string; start: number; end: number; startOffset: number; endOffset: number; sectionKind?: string }[] };
+  assert.equal(text.sectionMetadataVersion, 1);
+  assert.equal(text.text, source.text);
+  assert.deepEqual(text.passages.map(p => p.sectionKind), [undefined, 'author-note', undefined, 'author-note', 'author-note']);
+  assert.deepEqual(text.passages.map(p => [p.id, p.start, p.end]), timeline.map(t => [t.segmentId, t.start, t.end]));
+  assert.deepEqual(text.passages.map(p => [p.startOffset, p.endOffset]), [[0, 0], [0, 0], [0, 8], [8, 20], [20, 20]]);
+  assert.equal(text.passages.filter(p => p.id === 'body' || p.id === 'inline').map(p => p.text).join(''), source.text);
+  const range = await fetch(base + `/listen/stories/story/v3/audio/${location.assembly}`, { headers: { ...web, Range: 'bytes=1-3' } });
+  assert.equal(range.status, 206); assert.equal(await range.text(), '123');
+  const after = await Promise.all([metadataPath, sourcePath, `assemblies/${location.assembly}/chapter.mp3`].map(path => readFile(fiction.path(path))));
+  assert.deepEqual(after, before);
+}));
+
+test('analysis section fallback requires matching source and exact span claims; legacy and story labels remain ordinary', async () => fixture(async (base, _state, fiction) => {
+  const metadataPath = `assemblies/${location.assembly}/metadata.json`, original = (await fiction.read<Record<string, unknown>>(metadataPath))!;
+  const source = (await fiction.read<{ text: string; contentHash: string }>(`sources/${'b'.repeat(64)}.json`))!;
+  const read = async () => (await (await fetch(base + `/listen/stories/story/v3/text/${location.assembly}`, { headers: web })).json()) as { passages: { sectionKind?: string }[] };
+  assert.deepEqual((await read()).passages.map(p => p.sectionKind), [undefined, undefined]);
+  await fiction.write(metadataPath, { ...original, analysis: 'c'.repeat(64) });
+  const analysis = { source: source.contentHash, spans: [
+    { uid: 'span1', start: 0, end: 8, kind: 'system', speaker: 'narrator' },
+    { uid: 'span2', start: 8, end: 20, kind: 'prose', speaker: 'narrator', section: 'author-note' },
+  ] };
+  await fiction.write(`analyses/${'c'.repeat(64)}.json`, analysis);
+  assert.deepEqual((await read()).passages.map(p => p.sectionKind), [undefined, 'author-note']);
+  await fiction.write(`analyses/${'c'.repeat(64)}.json`, { ...analysis, source: 'wrong-source' });
+  assert.deepEqual((await read()).passages.map(p => p.sectionKind), [undefined, undefined]);
+  await fiction.write(`analyses/${'c'.repeat(64)}.json`, { ...analysis, spans: analysis.spans.map(span => ({ ...span, start: 0 })) });
+  assert.deepEqual((await read()).passages.map(p => p.sectionKind), [undefined, undefined]);
 }));
 
 test('navigation history retains retries, backwards jumps, passages and account isolation', async () => fixture(async (base) => {

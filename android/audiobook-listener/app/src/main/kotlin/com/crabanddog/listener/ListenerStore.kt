@@ -2,6 +2,7 @@ package com.crabanddog.listener
 
 import android.content.Context
 import android.content.ContentValues
+import android.content.SharedPreferences
 import android.database.sqlite.SQLiteOpenHelper
 import android.database.sqlite.SQLiteDatabase
 import org.json.JSONArray
@@ -87,6 +88,10 @@ class ListenerStore private constructor(context: Context) {
     }
     fun speed(): Float = prefs.getFloat("speed", 1f)
     fun speed(value: Float) { prefs.edit().putFloat("speed", value).apply() }
+    fun includeAuthorNotes(): Boolean = prefs.getBoolean("include-author-notes", true)
+    fun includeAuthorNotes(value: Boolean) { prefs.edit().putBoolean("include-author-notes", value).apply() }
+    fun observeSettings(listener: SharedPreferences.OnSharedPreferenceChangeListener) { prefs.registerOnSharedPreferenceChangeListener(listener) }
+    fun stopObservingSettings(listener: SharedPreferences.OnSharedPreferenceChangeListener) { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     fun library(): JSONObject? = runCatching { JSONObject(prefs.getString("library", "")!!) }.getOrNull()
     fun library(value: JSONObject) { prefs.edit().putString("library", value.toString()).apply() }
     @Synchronized fun clear() { database.delete("events", null, null); database.delete("readings", null, null); check(prefs.edit().clear().commit()) }

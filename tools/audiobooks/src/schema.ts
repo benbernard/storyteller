@@ -70,11 +70,25 @@ export const analysisSchema = z.object({
   aliasUpdates: z.array(z.object({ characterId: id, name: z.string().min(1), evidence: z.string().min(1) }).strict()),
   spans: z.array(z.object({ text: z.string().min(1),
     kind: z.enum(['prose', 'dialogue', 'quotation', 'thought', 'system']),
+    section: z.literal('author-note').optional(),
     speaker: z.string().min(1), certainty: z.enum(['attributed', 'uncertain', 'concealed']),
     confidence: z.number().min(0).max(1), reason: z.string(),
   }).strict()).min(1),
   summary: z.string().max(8000),
 }).strict();
+// Model responses explicitly distinguish body (null) from author commentary.
+// Persisted analyses keep the original absent-field representation for body.
+export const analysisResponseSchema = analysisSchema.extend({ spans: z.array(analysisSchema.shape.spans.element.extend({
+  section: z.literal('author-note').nullable(),
+}).strict()).min(1) }).strict();
+export function restoreAnalysisResponse(value: unknown): z.infer<typeof analysisSchema> {
+  const result = analysisSchema.extend({ spans: z.array(analysisResponseSchema.shape.spans.element.extend({
+    section: z.literal('author-note').nullable().optional(),
+  })).min(1) }).parse(value);
+  return analysisSchema.parse({ ...result, spans: result.spans.map(({ section, ...span }) => ({ ...span,
+    ...(section === 'author-note' ? { section } : {}),
+  })) });
+}
 export type RawAnalysis = z.infer<typeof analysisSchema>;
 export type Span = RawAnalysis['spans'][number] & { uid: string; start: number; end: number };
 export type Analysis = { schemaVersion: 1; source: string; fingerprint: string; model: string;
@@ -84,14 +98,14 @@ export type CastMember = { id: string; name: string; aliases: { name: string; fr
   first: Position; evidence: string; portrayal: string; importance: string; voices: VoiceVersion[]; continuityFrom?: string };
 export type Cast = { schemaVersion: 1; members: CastMember[] };
 export type Turn = { spanId: string; start: number; end: number; text: string; voice: VoiceVersion;
-  dictionary: Config['dictionary']; tag: string };
+  dictionary: Config['dictionary']; tag: string; sectionKind?: 'author-note' };
 export type Segment = { uid: string; turns: Turn[]; model: Policy['model']; request: Record<string, unknown>;
-  fingerprint: string; characters: number; previousSegment?: string };
+  fingerprint: string; characters: number; previousSegment?: string; sectionKind?: 'author-note' };
 export type Asset = { schemaVersion: 1; fingerprint: string; checksum: string; duration: number;
   frames: number; requestId: string | null; generatedAt: string; billedCredits: number | null;
   request: Record<string, unknown>; model: string; characters: number };
 export type TimelineEntry = { segmentId: string; asset: string; start: number; end: number;
-  spans: { uid: string; start: number; end: number }[]; presentation?: { kind: string; text: string; speaker: string } };
+  spans: { uid: string; start: number; end: number }[]; presentation?: { kind: string; text: string; speaker: string }; sectionKind?: 'author-note' };
 export type Assembly = { schemaVersion: 1; id: string; chapterId: string; sequence: number; source: string;
   analysis: string; plan: string; checksum: string; duration: number; timeline: TimelineEntry[] };
 export const correctionSchema = z.object({ spanId: id, speaker: z.string().optional(),
