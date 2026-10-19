@@ -1,3 +1,10 @@
+## Silent author-note skips
+
+Excluded author notes are silenced in decoded audio before they reach the output
+buffer. Playback still skips their ranges, including during chapter transitions,
+seeks and offline listening. Chapter announcements and story content retain their
+original positions. Changing the checkbox flushes already buffered audio.
+
 # Restore the happy book icon
 
 Restored the original smiling book with turquoise headphones for the Android

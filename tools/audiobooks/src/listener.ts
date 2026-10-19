@@ -286,7 +286,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const stream = createReadStream(path, { start, end }); stream.on('error', () => response.destroy()); response.on('close', () => stream.destroy()); stream.pipe(response); return;
       }
       if (web && method === 'GET') {
-        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : route === '/storyteller-mark.png' ? 'storyteller-mark.png' : null;
+        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/note-output.js' ? 'note-output.js' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : route === '/storyteller-mark.png' ? 'storyteller-mark.png' : null;
         if (filename) { const bytes = await readFile(join(dirname(fileURLToPath(import.meta.url)), '../listener-web', filename)); response.writeHead(200, { 'Content-Type': filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.png') ? 'image/png' : 'text/html' }); response.end(bytes); return; }
       }
       throw new Error('not_found');

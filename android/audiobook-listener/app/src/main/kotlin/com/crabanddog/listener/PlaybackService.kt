@@ -13,8 +13,9 @@ import androidx.media3.common.Player
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +25,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import okhttp3.OkHttpClient
 import org.json.JSONObject
 
@@ -33,8 +36,10 @@ class PlaybackService : MediaSessionService() {
     private lateinit var store: ListenerStore
     private var active: Selection? = null
     private lateinit var audioPlayer: ExoPlayer
+    private lateinit var noteAudio: AuthorNoteAudioPolicy
     private var reading: Reading? = null
     private var readingJob: Job? = null
+    private val sectionRequests = mutableMapOf<String, Deferred<Reading?>>()
     private var readingLoading = false
     private var readingGeneration = 0
     private var resumeAfterReading = false
@@ -42,9 +47,17 @@ class PlaybackService : MediaSessionService() {
     private var completedNoteAssembly: String? = null
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "include-author-notes") {
+            val shouldResume = audioPlayer.playWhenReady || resumeAfterReading
+            noteAudio.includeNotes = store.includeAuthorNotes()
+            // A same-position seek may be optimized away; stop flushes queued audio.
+            audioPlayer.pause()
+            audioPlayer.stop()
+            audioPlayer.prepare()
+            resumeAfterReading = shouldResume
             if (store.includeAuthorNotes()) releaseReadingGate() else {
                 if (readingLoading) gateForReading()
                 skipAuthorNotes()
+                releaseReadingGate()
             }
         }
     }
@@ -58,7 +71,15 @@ class PlaybackService : MediaSessionService() {
             chain.proceed(request.newBuilder().header("Authorization", "Bearer ${Credentials(this).read().orEmpty()}").build())
         }.followRedirects(false).followSslRedirects(false).build()
         val source = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(client))
-        val player = ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(ResolvingDataSource.Factory(source) { spec -> spec.withUri(OfflineAudio(this).resolve(spec.uri)) })).build().apply {
+        noteAudio = AuthorNoteAudioPolicy(store.includeAuthorNotes())
+        val renderer = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink? =
+                super.buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams)?.let { AuthorNoteAudioSink(it, noteAudio) }
+        }
+        val sources = NoteMediaSourceFactory(ResolvingDataSource.Factory(source) { spec -> spec.withUri(OfflineAudio(this).resolve(spec.uri)) }, noteAudio, onPending = { selected -> scope.launch { sectionReading(selected) } }) { selected ->
+            store.reading(selected.chapter.assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }?.takeIf { it.assembly == selected.chapter.assembly }
+        }
+        val player = ExoPlayer.Builder(this, renderer).setMediaSourceFactory(sources).build().apply {
             setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
             setHandleAudioBecomingNoisy(true)
             setWakeMode(C.WAKE_MODE_LOCAL)
@@ -149,6 +170,7 @@ class PlaybackService : MediaSessionService() {
             ?.takeIf { it.assembly == selected.chapter.assembly }
         reading = cached
         readingLoading = needsSectionRefresh(cached)
+        noteAudio.update(selected, cached, readingLoading)
         if (!store.includeAuthorNotes() && readingLoading) gateForReading()
         skipAuthorNotes()
         // An all-note chapter can advance and reenter this method immediately.
@@ -158,18 +180,32 @@ class PlaybackService : MediaSessionService() {
         // Disabled notes wait for one refresh of an unversioned cache. A failed
         // refresh releases the gate and retains its unknown legacy content.
         readingJob = scope.launch {
-            val loaded = runCatching {
-                val data = ListenerApi(this@PlaybackService).call("/stories/${selected.story}/${selected.edition}/text/${selected.chapter.assembly}")
-                val parsed = readingFromJson(data)
-                check(parsed.assembly == selected.chapter.assembly)
-                store.reading(selected.chapter.assembly, data)
-                parsed
-            }.getOrNull()
+            val loaded = sectionReading(selected)
             if (generation != readingGeneration || active?.chapter?.assembly != selected.chapter.assembly) return@launch
             if (loaded != null) reading = loaded
             readingLoading = false
+            noteAudio.update(selected, reading, false)
             releaseReadingGate()
         }
+    }
+    private suspend fun sectionReading(selected: Selection): Reading? {
+        val key = selected.chapter.assembly
+        val request = sectionRequests.getOrPut(key) {
+            scope.async {
+                runCatching {
+                    val data = ListenerApi(this@PlaybackService).call("/stories/${selected.story}/${selected.edition}/text/$key")
+                    val parsed = readingFromJson(data)
+                    check(parsed.assembly == key)
+                    store.reading(key, data)
+                    parsed
+                }.getOrNull()
+            }
+        }
+        val loaded = request.await()
+        if (sectionRequests[key] === request) sectionRequests.remove(key)
+        val cached = loaded ?: store.reading(key)?.let { runCatching { readingFromJson(it) }.getOrNull() }?.takeIf { it.assembly == key }
+        noteAudio.update(selected, cached, false)
+        return loaded
     }
     private fun skipAuthorNotes() {
         if (applyingSkip || store.includeAuthorNotes() || readingLoading) return

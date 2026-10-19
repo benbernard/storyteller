@@ -7,7 +7,15 @@ let library, playing, reading, issueDraft, storageKey, local, historyBefore, cat
 const storyEditions = new Map();
 let lastSaved = 0, switching = false, flushing = false, stableSeconds = 0, seekOrigin, programmedSeek = false, follow = true, activePassage = -1, loadVersion = 0;
 let includeAuthorNotes = localStorage.getItem('listener:include-author-notes') !== 'false', loadAutoplay = false, chapterEndHandled = false;
-let noteTimer;
+let noteTimer, noteOutputGuard;
+function updateNoteOutput() { noteOutputGuard?.update(reading, !includeAuthorNotes, switching || readingPending); }
+function prepareNoteOutput() {
+  if (includeAuthorNotes && !noteOutputGuard) return;
+  noteOutputGuard ||= new NoteOutputGuard(audio);
+  updateNoteOutput();
+  noteOutputGuard.resume().then(updateNoteOutput).catch(() => { audio.pause(); say('Tap Play to continue listening.'); });
+}
+for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { if (noteOutputGuard?.context.state === 'suspended') noteOutputGuard.resume().then(updateNoteOutput).catch(() => {}); });
 let readingPending = false, readingRequest, releasePlayback;
 const locationOf = (seconds = audio.currentTime) => playing && ({ story: playing.book.id, edition: playing.edition, assembly: playing.chapter.assembly, seconds });
 async function api(path, data, signal) {
@@ -194,6 +202,7 @@ function skipNotes(autoplay = !audio.paused) {
   return true;
 }
 function scheduleNotes() {
+  updateNoteOutput();
   clearTimeout(noteTimer);
   if (includeAuthorNotes || !reading || switching || audio.paused || audio.seeking) return;
   const next = reading.passages.find(p => p.sectionKind === 'author-note' && Number.isFinite(p.start) && Number.isFinite(p.end) && p.end > p.start && p.start > audio.currentTime && p.end <= playing.chapter.duration + .1);
@@ -208,11 +217,13 @@ function finishChapter(autoplay = true) {
   else { audio.pause(); renderLibrary(); }
 }
 async function play(book, edition, chapter, seconds = 0, autoplay = false, reason = 'restore', reveal = true) {
+  prepareNoteOutput();
   const from = locationOf(); save('pause'); switching = true; audio.pause(); const version = ++loadVersion;
   clearTimeout(noteTimer);
   readingRequest?.abort(); const request = new AbortController(); readingRequest = request; readingPending = true;
   const textTimeout = setTimeout(() => request.abort(), 10000);
   playing = { book, edition, chapter }; reading = undefined; activePassage = -1; chapterEndHandled = false; loadAutoplay = autoplay;
+  updateNoteOutput();
   $('player').hidden = false; $('reader-empty').hidden = true; $('book-title').textContent = book.title; $('chapter-title').textContent = chapter.title;
   $('edition-label').textContent = `${editionNames[edition] || edition} edition`; $('passages').replaceChildren(); $('reader-status').textContent = 'Loading the generated passages…'; $('source-link').hidden = true;
   if (reveal) view('reading'); renderMiniPlayer(); setFollow(true); $('undo').hidden = !local.undo;
@@ -282,15 +293,15 @@ $('text-size').onchange = textSize; textSize();
 $('speed').value = localStorage.getItem('listener:speed') || '1';
 $('speed').onchange = () => { audio.playbackRate = Number($('speed').value); localStorage.setItem('listener:speed', $('speed').value); };
 $('include-author-notes').checked = includeAuthorNotes;
-$('include-author-notes').onchange = () => { includeAuthorNotes = $('include-author-notes').checked; localStorage.setItem('listener:include-author-notes', String(includeAuthorNotes)); if (!includeAuthorNotes && readingPending) { if (!switching) loadAutoplay = !audio.paused; audio.pause(); } else { releasePlayback?.(); skipNotes(); } scheduleNotes(); };
+$('include-author-notes').onchange = () => { includeAuthorNotes = $('include-author-notes').checked; localStorage.setItem('listener:include-author-notes', String(includeAuthorNotes)); prepareNoteOutput(); if (!includeAuthorNotes && readingPending) { if (!switching) loadAutoplay = !audio.paused; audio.pause(); } else { releasePlayback?.(); skipNotes(); } scheduleNotes(); };
 $('back').onclick = () => seek(audio.currentTime - 15); $('forward').onclick = () => seek(audio.currentTime + 30);
 function adjacent(delta) { if (!playing) return; const chapters = playing.book.editions[playing.edition].chapters; const chapter = chapters[chapters.findIndex(c => c.assembly === playing.chapter.assembly) + delta]; if (chapter) return play(playing.book, playing.edition, chapter, 0, !audio.paused, 'chapter'); }
 $('previous-chapter').onclick = () => adjacent(-1); $('next-chapter').onclick = () => adjacent(1);
 audio.ontimeupdate = () => { if (skipNotes()) return; scheduleNotes(); renderMiniPlayer(); highlight(); if (!switching && !audio.seeking) { stableSeconds = audio.currentTime; if (!audio.paused && Date.now() - lastSaved > 5000) save('playing'); } };
-audio.onseeking = () => { if (!switching && !programmedSeek) { if (notePosition(audio.currentTime) < playing.chapter.duration - .100001) chapterEndHandled = false; if (!seekOrigin) seekOrigin = locationOf(stableSeconds); } };
+audio.onseeking = () => { updateNoteOutput(); if (!switching && !programmedSeek) { if (notePosition(audio.currentTime) < playing.chapter.duration - .100001) chapterEndHandled = false; if (!seekOrigin) seekOrigin = locationOf(stableSeconds); } };
 audio.onseeked = () => { const from = seekOrigin, assembly = playing?.chapter.assembly; seekOrigin = undefined; if (skipNotes()) { if (from && playing?.chapter.assembly === assembly) save('seek', from); return; } if (programmedSeek) programmedSeek = false; else if (from) save('seek', from); stableSeconds = audio.currentTime; highlight(true); scheduleNotes(); };
-audio.onpause = () => { clearTimeout(noteTimer); save('pause'); renderMiniPlayer(); };
-audio.onplay = () => { if (switching || (!includeAuthorNotes && readingPending)) { loadAutoplay = true; audio.pause(); return; } skipNotes(true); scheduleNotes(); renderMiniPlayer(); };
+audio.onpause = () => { updateNoteOutput(); clearTimeout(noteTimer); save('pause'); renderMiniPlayer(); };
+audio.onplay = () => { prepareNoteOutput(); if (switching || (!includeAuthorNotes && readingPending)) { loadAutoplay = true; audio.pause(); return; } skipNotes(true); scheduleNotes(); renderMiniPlayer(); };
 audio.onratechange = scheduleNotes;
 audio.onended = () => finishChapter();
 audio.onerror = () => { switching = false; say('Audio could not load. Check your connection and sign in again if needed.'); };

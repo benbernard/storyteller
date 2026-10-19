@@ -35,7 +35,7 @@ class AuthorNotePlaybackTest {
             val wav = ByteBuffer.allocate(44 + bytes).order(ByteOrder.LITTLE_ENDIAN)
             wav.put("RIFF".toByteArray()).putInt(36 + bytes).put("WAVEfmt ".toByteArray()).putInt(16)
             wav.putShort(1).putShort(1).putInt(rate).putInt(rate * 2).putShort(2).putShort(16).put("data".toByteArray()).putInt(bytes)
-            repeat(bytes / 2) { wav.putShort(0) }
+            repeat(bytes / 2) { frame -> wav.putShort((8000 * kotlin.math.sin(2 * Math.PI * 440 * frame / rate)).toInt().toShort()) }
             File(folder, "$number.wav").apply { writeBytes(wav.array()) }
         }
         val selected = files.mapIndexed { index, file -> Selection("fixture", "Fixture", "test", Chapter("chapter$index", index + 1, "Chapter $index", (if (index == 0) "a" else "b").repeat(64), 8.0, OfflineAudio.digest(file))) }

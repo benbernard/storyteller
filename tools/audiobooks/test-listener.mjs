@@ -10,6 +10,7 @@ wave.write('RIFF'); wave.writeUInt32LE(wave.length - 8, 4); wave.write('WAVEfmt 
 wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(1, 22);
 wave.writeUInt32LE(22050, 24); wave.writeUInt32LE(44100, 28); wave.writeUInt16LE(2, 32);
 wave.writeUInt16LE(16, 34); wave.write('data', 36); wave.writeUInt32LE(wave.length - 44, 40);
+for(let frame=0;frame<(wave.length-44)/2;frame++)wave.writeInt16LE(Math.round(8000*Math.sin(2*Math.PI*440*frame/22050)),44+frame*2);
 const chapter = (assembly) => ({ id: 'one', sequence: 1, title: 'Chapter one', assembly, duration: 90 });
 const state = { positions: {}, completed: {}, seen: {}, issues: [] };
 const book = { id: 'fixture', title: 'A quiet journey', author: 'Test author', defaultEdition: 'v3',
@@ -47,7 +48,7 @@ const server = createServer(async (req, res) => {
     if (range) { res.statusCode = 206; res.setHeader('Content-Range', `bytes ${start}-${end}/${wave.length}`); }
     res.setHeader('Content-Length', end - start + 1); res.end(wave.subarray(start, end + 1)); return;
   }
-  const name = path === '/listen/app.js' ? 'app.js' : path === '/listen/style.css' ? 'style.css' : path === '/listen/storyteller-mark.png' ? 'storyteller-mark.png' : 'index.html';
+  const name = path === '/listen/note-output.js' ? 'note-output.js' : path === '/listen/app.js' ? 'app.js' : path === '/listen/style.css' ? 'style.css' : path === '/listen/storyteller-mark.png' ? 'storyteller-mark.png' : 'index.html';
   res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.png') ? 'image/png' : 'text/html');
   res.end(await readFile(new URL(`./listener-web/${name}`, import.meta.url)));
 });
@@ -175,6 +176,28 @@ try {
   await page.waitForFunction(()=>document.getElementById('audio').currentTime===10);
   assert.equal(await notes.isChecked(),false);assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true);
   assert.equal(await page.evaluate(()=>localStorage.getItem('listener:include-author-notes')),'false');
+  // Record actual post-gain PCM on the audio thread, while the page thread is
+  // deliberately blocked across a note boundary. Position-only tests miss leaks.
+  const output = await page.evaluate(async () => {
+    const guard = noteOutputGuard, ctx = guard.context;
+    const code = `class NoteCapture extends AudioWorkletProcessor {process(inputs){const channel=inputs[0]?.[0];if(channel){let peak=0;for(const sample of channel)peak=Math.max(peak,Math.abs(sample));this.port.postMessage({time:currentTime,peak});}return true;}}registerProcessor('note-capture',NoteCapture);`;
+    const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
+    await ctx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
+    const samples=[], capture=new AudioWorkletNode(ctx,'note-capture');
+    capture.port.onmessage=event=>samples.push(event.data);
+    guard.gain.connect(capture);capture.connect(ctx.destination);
+    const a=document.getElementById('audio');a.playbackRate=2;a.currentTime=39.5;
+    await new Promise(resolve=>a.addEventListener('seeked',resolve,{once:true}));
+    await a.play();await new Promise(requestAnimationFrame);
+    const start=ctx.currentTime, position=a.currentTime, boundary=start+(40-position)/a.playbackRate;
+    const end=performance.now()+1000;while(performance.now()<end){ /* Simulate a busy/background page. */ }
+    await new Promise(resolve=>setTimeout(resolve,100));a.pause();a.playbackRate=1;
+    guard.gain.disconnect(capture);capture.disconnect();
+    return {body:samples.filter(s=>s.time>start+.05&&s.time<boundary-.04).map(s=>s.peak),note:samples.filter(s=>s.time>boundary+.02&&s.time<boundary+.35).map(s=>s.peak)};
+  });
+  assert(output.body.length>10&&output.body.some(peak=>peak>.1),'Chapter content remains audible');
+  assert(output.note.length>10&&output.note.every(peak=>peak<.00001),'No note samples reach output while page timers stall');
+
   await page.locator('#audio').evaluate(a=>a.currentTime=2);
   await page.waitForFunction(()=>!document.getElementById('audio').seeking);
   assert.equal(Math.floor(await page.locator('#audio').evaluate(a=>a.currentTime)),2,'Chapter title is ordinary content');
