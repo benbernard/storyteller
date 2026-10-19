@@ -35,6 +35,9 @@ test('BookOrbit selection appears before audio and download flags stay account s
     { story: 'bo-8', title: 'Pending book', author: '', supported: false, reason: 'Unsupported file', source: { bookId: 8, title: 'Pending book', author: '', files: [] } }];
   try { queue.syncBookOrbit(owner, selected); queue.schedule(); } finally { queue.close(); }
   await state.write('bookorbit-selection.json', { owner, books: selected });
+  const asset = await fetch(base + '/listen/chapter-view.js', { headers: web });
+  assert.equal(asset.status, 200); assert.match(await asset.text(), /class ChapterView/);
+  assert.equal((await fetch(base + '/listen/chapter-view.js')).status, 401);
   const library = await (await fetch(base + '/listen/library', { headers: web })).json() as any;
   assert.equal(library.books[0].autoDownload, true);
   const catalog = await (await fetch(base + '/listen/catalog', { headers: web })).json() as any;
@@ -247,6 +250,11 @@ test('reading exposes old boxed notes and source-backed sections without alterin
   assert.equal(text.passages.filter(p => p.id === 'body' || p.id === 'inline').map(p => p.text).join(''), source.text);
   const range = await fetch(base + `/listen/stories/story/v3/audio/${location.assembly}`, { headers: { ...web, Range: 'bytes=1-3' } });
   assert.equal(range.status, 206); assert.equal(await range.text(), '123');
+  const bookBefore = await readFile(fiction.path('book.json'));
+  const library = await (await fetch(base + '/listen/library', { headers: web })).json() as { books: { editions: { v3: { chapters: { duration: number; authorNoteRanges: { start: number; end: number }[] }[] } } }[] };
+  assert.equal(library.books[0]!.editions.v3.chapters[0]!.duration, 20, 'Source duration is retained for saved locations');
+  assert.deepEqual(library.books[0]!.editions.v3.chapters[0]!.authorNoteRanges, [{ start: .5, end: 1 }, { start: 10, end: 17 }, { start: 18, end: 20 }]);
+  assert.deepEqual(await readFile(fiction.path('book.json')), bookBefore);
   const after = await Promise.all([metadataPath, sourcePath, `assemblies/${location.assembly}/chapter.mp3`].map(path => readFile(fiction.path(path))));
   assert.deepEqual(after, before);
 }));

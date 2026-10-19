@@ -37,13 +37,16 @@ class PlaybackService : MediaSessionService() {
     private var active: Selection? = null
     private lateinit var audioPlayer: ExoPlayer
     private lateinit var noteAudio: AuthorNoteAudioPolicy
+    private var chapterPlayer: ChapterPlayer? = null
     private var reading: Reading? = null
     private var readingJob: Job? = null
     private val sectionRequests = mutableMapOf<String, Deferred<Reading?>>()
+    private val sectionViews = mutableMapOf<String, ChapterView>()
     private var readingLoading = false
     private var readingGeneration = 0
     private var resumeAfterReading = false
     private var applyingSkip = false
+    private var internalSkip: Pair<String, Long>? = null
     private var completedNoteAssembly: String? = null
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "include-author-notes") {
@@ -59,6 +62,7 @@ class PlaybackService : MediaSessionService() {
                 skipAuthorNotes()
                 releaseReadingGate()
             }
+            chapterPlayer?.refresh()
         }
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -79,7 +83,7 @@ class PlaybackService : MediaSessionService() {
         val sources = NoteMediaSourceFactory(ResolvingDataSource.Factory(source) { spec -> spec.withUri(OfflineAudio(this).resolve(spec.uri)) }, noteAudio, onPending = { selected -> scope.launch { sectionReading(selected) } }) { selected ->
             store.reading(selected.chapter.assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }?.takeIf { it.assembly == selected.chapter.assembly }
         }
-        val player = ExoPlayer.Builder(this, renderer).setMediaSourceFactory(sources).build().apply {
+        val player = ExoPlayer.Builder(this, renderer).setMediaSourceFactory(sources).setSeekBackIncrementMs(15000).setSeekForwardIncrementMs(30000).build().apply {
             setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
             setHandleAudioBecomingNoisy(true)
             setWakeMode(C.WAKE_MODE_LOCAL)
@@ -104,7 +108,15 @@ class PlaybackService : MediaSessionService() {
             override fun seekToNext() { seekToNextMediaItem() }
             override fun seekToPrevious() { if (player.currentPosition > player.maxSeekToPreviousPosition || !player.hasPreviousMediaItem()) seekTo(0) else seekToPreviousMediaItem() }
         }
-        session = MediaSession.Builder(this, controlled).setSessionActivity(open).build()
+        chapterPlayer = ChapterPlayer(controlled) { item ->
+            item.mediaMetadata.extras?.getString("selection")?.let { raw -> runCatching { selectionFromJson(JSONObject(raw)) }.getOrNull() }?.let { s ->
+                if (store.includeAuthorNotes()) ChapterView(s.chapter.duration) else sectionViews.getOrPut(s.chapter.assembly) {
+                    val cached = store.reading(s.chapter.assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }
+                    chapterView(s.chapter, cached, false)
+                }
+            }
+        }
+        session = MediaSession.Builder(this, chapterPlayer!!).setSessionActivity(open).build()
         store.observeSettings(settingsListener)
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -117,10 +129,16 @@ class PlaybackService : MediaSessionService() {
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                 val old = oldPosition.mediaItem?.mediaMetadata?.extras?.getString("selection")?.let { runCatching { selectionFromJson(JSONObject(it)) }.getOrNull() }
                 val next = newPosition.mediaItem?.mediaMetadata?.extras?.getString("selection")?.let { runCatching { selectionFromJson(JSONObject(it)) }.getOrNull() }
+                val matchingSkip = internalSkip?.let { it.first == next?.chapter?.assembly && kotlin.math.abs(it.second - newPosition.positionMs) <= 2 } == true
+                val automatic = applyingSkip || matchingSkip || reason != Player.DISCONTINUITY_REASON_SEEK
+                if (matchingSkip) internalSkip = null
                 if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION && old != null) store.saveProgress(old, old.chapter.duration, true)
                 if (next != null) store.saveProgress(next, newPosition.positionMs.coerceAtLeast(0) / 1000.0,
-                    reason = if (old?.chapter?.assembly != next.chapter.assembly) "chapter" else "seek",
-                    from = old?.location(oldPosition.positionMs.coerceAtLeast(0) / 1000.0))
+                    reason = if (automatic) "playing" else if (old?.chapter?.assembly != next.chapter.assembly) "chapter" else "seek",
+                    from = if (automatic) null else old?.let { s ->
+                        val previous = store.reading(s.chapter.assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }
+                        s.location(undoPosition(s.chapter, previous, store.includeAuthorNotes(), oldPosition.positionMs.coerceAtLeast(0) / 1000.0))
+                    })
                 skipAuthorNotes()
             }
         })
@@ -134,6 +152,7 @@ class PlaybackService : MediaSessionService() {
         }
     }
     private fun beforeSeek(index: Int) {
+        internalSkip = null
         completedNoteAssembly = null
         if (!store.includeAuthorNotes() && (index != audioPlayer.currentMediaItemIndex || readingLoading)) gateForReading()
     }
@@ -169,6 +188,7 @@ class PlaybackService : MediaSessionService() {
         val cached = store.reading(selected.chapter.assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }
             ?.takeIf { it.assembly == selected.chapter.assembly }
         reading = cached
+        sectionViews[selected.chapter.assembly] = chapterView(selected.chapter, cached, false)
         readingLoading = needsSectionRefresh(cached)
         noteAudio.update(selected, cached, readingLoading)
         if (!store.includeAuthorNotes() && readingLoading) gateForReading()
@@ -185,6 +205,7 @@ class PlaybackService : MediaSessionService() {
             if (loaded != null) reading = loaded
             readingLoading = false
             noteAudio.update(selected, reading, false)
+            chapterPlayer?.refresh()
             releaseReadingGate()
         }
     }
@@ -204,7 +225,9 @@ class PlaybackService : MediaSessionService() {
         val loaded = request.await()
         if (sectionRequests[key] === request) sectionRequests.remove(key)
         val cached = loaded ?: store.reading(key)?.let { runCatching { readingFromJson(it) }.getOrNull() }?.takeIf { it.assembly == key }
+        sectionViews[key] = chapterView(selected.chapter, cached, false)
         noteAudio.update(selected, cached, false)
+        chapterPlayer?.refresh()
         return loaded
     }
     private fun skipAuthorNotes() {
@@ -219,18 +242,29 @@ class PlaybackService : MediaSessionService() {
         val playingSelection = audioPlayer.currentMediaItem?.mediaMetadata?.extras?.getString("selection")
             ?.let { runCatching { selectionFromJson(JSONObject(it)) }.getOrNull() }
         if (playingSelection != selected) return
-        val target = authorNoteEnd(reading, audioPlayer.currentPosition.coerceAtLeast(0) / 1000.0, selected.chapter.duration) ?: return
+        val position = audioPlayer.currentPosition.coerceAtLeast(0) / 1000.0
+        val endingNote = sectionViews[selected.chapter.assembly]?.removed?.lastOrNull()?.takeIf { it.end >= selected.chapter.duration }
+        val target = authorNoteEnd(reading, position, selected.chapter.duration)
+            ?: selected.chapter.duration.takeIf { endingNote != null && position >= endingNote.start }
+            ?: return
         applyingSkip = true
         try {
             if (target >= selected.chapter.duration) {
                 store.saveProgress(selected, selected.chapter.duration, true)
-                if (audioPlayer.hasNextMediaItem()) audioPlayer.seekToNextMediaItem()
-                else { completedNoteAssembly = selected.chapter.assembly; audioPlayer.seekTo((selected.chapter.duration * 1000).toLong()); resumeAfterReading = false; audioPlayer.pause() }
-            } else audioPlayer.seekTo(kotlin.math.ceil(target * 1000).toLong())
+                if (audioPlayer.hasNextMediaItem()) {
+                    val next = audioPlayer.getMediaItemAt(audioPlayer.nextMediaItemIndex).mediaMetadata.extras?.getString("selection")?.let { runCatching { selectionFromJson(JSONObject(it)) }.getOrNull() }
+                    internalSkip = next?.chapter?.assembly?.let { it to 0L }
+                    audioPlayer.seekToNextMediaItem()
+                } else { completedNoteAssembly = selected.chapter.assembly; internalSkip = selected.chapter.assembly to (selected.chapter.duration * 1000).toLong(); audioPlayer.seekTo((selected.chapter.duration * 1000).toLong()); resumeAfterReading = false; audioPlayer.pause() }
+            } else {
+                val positionMs = kotlin.math.ceil(target * 1000).toLong()
+                internalSkip = selected.chapter.assembly to positionMs
+                audioPlayer.seekTo(positionMs)
+            }
         } finally { applyingSkip = false }
     }
     private fun save(completed: Boolean = false) {
-        val player = session?.player ?: return
+        val player = audioPlayer
         active?.let { store.saveProgress(it, player.currentPosition.coerceAtLeast(0) / 1000.0, completed, reason = if (player.isPlaying) "playing" else "pause") }
     }
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =

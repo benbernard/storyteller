@@ -2,15 +2,17 @@ package com.crabanddog.listener
 
 import org.json.JSONObject
 
-data class Chapter(val id: String, val sequence: Int, val title: String, val assembly: String, val duration: Double, val checksum: String = "")
+data class Chapter(val id: String, val sequence: Int, val title: String, val assembly: String, val duration: Double, val checksum: String = "", val authorNoteRanges: List<AudioRange>? = null)
 data class Book(val id: String, val title: String, val author: String, val editions: Map<String, List<Chapter>>, val autoDownload: Boolean = false, val defaultEdition: String = editions.keys.firstOrNull().orEmpty())
 data class Selection(val story: String, val bookTitle: String, val edition: String, val chapter: Chapter) {
     val key get() = "$story:$edition:${chapter.id}"
     fun json() = JSONObject().put("story", story).put("bookTitle", bookTitle).put("edition", edition)
-        .put("chapter", JSONObject().put("id", chapter.id).put("sequence", chapter.sequence).put("title", chapter.title).put("assembly", chapter.assembly).put("duration", chapter.duration).put("checksum", chapter.checksum))
+        .put("chapter", JSONObject().put("id", chapter.id).put("sequence", chapter.sequence).put("title", chapter.title).put("assembly", chapter.assembly).put("duration", chapter.duration).put("checksum", chapter.checksum).apply {
+            chapter.authorNoteRanges?.let { ranges -> put("authorNoteRanges", org.json.JSONArray().apply { ranges.forEach { put(JSONObject().put("start", it.start).put("end", it.end)) } }) }
+        })
     fun location(seconds: Double) = JSONObject().put("story", story).put("edition", edition).put("assembly", chapter.assembly).put("seconds", seconds.coerceIn(0.0, chapter.duration))
 }
-fun chapterFromJson(j: JSONObject) = Chapter(j.getString("id"), j.getInt("sequence"), j.getString("title"), j.getString("assembly"), j.getDouble("duration"), j.optString("checksum"))
+fun chapterFromJson(j: JSONObject) = Chapter(j.getString("id"), j.getInt("sequence"), j.getString("title"), j.getString("assembly"), j.getDouble("duration"), j.optString("checksum"), j.optJSONArray("authorNoteRanges")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).let { r -> AudioRange(r.optDouble("start"), r.optDouble("end")) } } })
 fun selectionFromJson(j: JSONObject) = Selection(j.getString("story"), j.getString("bookTitle"), j.getString("edition"), chapterFromJson(j.getJSONObject("chapter")))
 fun booksFromJson(j: JSONObject): List<Book> {
     val a = j.getJSONArray("books")
@@ -40,13 +42,21 @@ data class Passage(val id: String, val start: Double, val end: Double, val text:
 data class Reading(val assembly: String, val passages: List<Passage>, val sectionMetadataVersion: Int = 0)
 data class ReaderFragment(val start: Int, val end: Int, val passage: Passage)
 data class ReaderParagraph(val text: String, val fragments: List<ReaderFragment>)
-fun bookParagraphs(reading: Reading): List<ReaderParagraph> {
+fun bookParagraphs(reading: Reading, includeNotes: Boolean = true): List<ReaderParagraph> {
     var offset = 0
-    val ranges = reading.passages.map { passage ->
-        ReaderFragment(offset, offset + passage.text.length, passage).also { offset = it.end }
+    val text = StringBuilder()
+    val ranges = mutableListOf<ReaderFragment>()
+    var omitted = false
+    reading.passages.forEach { passage ->
+        if (!includeNotes && passage.sectionKind == "author-note") omitted = true
+        else {
+            if (omitted && text.isNotEmpty()) { text.append("\n\n"); offset += 2 }
+            omitted = false
+            text.append(passage.text)
+            ranges.add(ReaderFragment(offset, offset + passage.text.length, passage).also { offset = it.end })
+        }
     }
-    val text = reading.passages.joinToString("") { it.text }
-    return Regex("[^\\r\\n]+").findAll(text).map { paragraph ->
+    return Regex("[^\\r\\n]+").findAll(text.toString()).map { paragraph ->
         val start = paragraph.range.first
         val end = paragraph.range.last + 1
         ReaderParagraph(paragraph.value, ranges.filter { it.start < end && it.end > start }.map {

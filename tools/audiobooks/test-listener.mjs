@@ -38,9 +38,9 @@ const server = createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json'); res.end('{}'); return;
   }
   if (path === '/listen/catalog') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(catalog)); return; }
-  if (path === '/listen/library') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ books: [book], state, accountKey })); return; }
+  if (path === '/listen/library') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ books: [{ ...book, editions: Object.fromEntries(Object.entries(book.editions).map(([name, value]) => [name, { ...value, chapters: value.chapters.map(c => noteMetadata ? { ...c, authorNoteRanges: [{start:5,end:10},{start:40,end:45},{start:80,end:90}] } : c) }])) }], state, accountKey })); return; }
   if (path === '/listen/history') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ entries: posts.filter(p => p.path === '/listen/progress').map(p => ({ ...p.data, location: { ...p.data, chapterTitle: 'Chapter one', passageIndex: Math.floor(p.data.seconds / 5), storySeconds: p.data.seconds, storyDuration: 90, excerpt: 'Saved exact text.' }, from: p.data.from && { ...p.data.from, chapterTitle: 'Chapter one' } })).reverse(), before: null })); return; }
-  if (path.includes('/text/')) { if (textDelay) await new Promise(done => setTimeout(done, textDelay)); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ url: 'https://www.royalroad.com/fiction/1/test', passages: Array.from({length: 18}, (_, i) => ({ id: `p${i}`, start: i * 5, end: noteMetadata && i === 17 ? 89.899999999991 : (i + 1) * 5, ...(noteMetadata && [1, 8, 16, 17].includes(i) ? {sectionKind: 'author-note'} : {}), text: `Passage ${i + 1}. ` + 'The traveler walked down the quiet road. '.repeat(8) + '\n\n' })) })); return; }
+  if (path.includes('/text/')) { if (textDelay) await new Promise(done => setTimeout(done, textDelay)); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ assembly: path.split('/').at(-1), duration:90, url: 'https://www.royalroad.com/fiction/1/test', passages: Array.from({length: 18}, (_, i) => ({ id: `p${i}`, start: i * 5, end: noteMetadata && i === 17 ? 89.899999999991 : (i + 1) * 5, ...(noteMetadata && [1, 8, 16, 17].includes(i) ? {sectionKind: 'author-note'} : {}), text: `Passage ${i + 1}. ` + 'The traveler walked down the quiet road. '.repeat(8) + '\n\n' })) })); return; }
   if (path.includes('/audio/')) {
     res.setHeader('Content-Type', 'audio/wav'); res.setHeader('Accept-Ranges', 'bytes');
     const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '');
@@ -48,7 +48,7 @@ const server = createServer(async (req, res) => {
     if (range) { res.statusCode = 206; res.setHeader('Content-Range', `bytes ${start}-${end}/${wave.length}`); }
     res.setHeader('Content-Length', end - start + 1); res.end(wave.subarray(start, end + 1)); return;
   }
-  const name = path === '/listen/note-output.js' ? 'note-output.js' : path === '/listen/app.js' ? 'app.js' : path === '/listen/style.css' ? 'style.css' : path === '/listen/storyteller-mark.png' ? 'storyteller-mark.png' : 'index.html';
+  const name = path === '/listen/chapter-view.js' ? 'chapter-view.js' : path === '/listen/note-output.js' ? 'note-output.js' : path === '/listen/app.js' ? 'app.js' : path === '/listen/style.css' ? 'style.css' : path === '/listen/storyteller-mark.png' ? 'storyteller-mark.png' : 'index.html';
   res.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.png') ? 'image/png' : 'text/html');
   res.end(await readFile(new URL(`./listener-web/${name}`, import.meta.url)));
 });
@@ -87,7 +87,7 @@ try {
     await page.getByRole('link', { name: book.title, exact: true }).click();
     assert.equal(posts.find(p => p.path === '/listen/follow').data.mode, 'buffer');
     await page.getByRole('button', { name: 'Listen', exact: true }).click();
-    await page.waitForFunction(() => document.getElementById('audio').currentTime > 0);
+    await page.waitForFunction(() => document.getElementById('audio').currentTime > 0).catch(async error=>{throw new Error(error.message+'; page errors: '+JSON.stringify(errors)+'; message: '+await page.locator('#message').textContent());});
     await page.locator('.passage').nth(0).waitFor();
     await page.locator('#audio').evaluate(a => a.pause());
     await page.locator('.passage').nth(4).click();
@@ -124,7 +124,9 @@ try {
     assert.equal(await page.locator('#audio').evaluate(a => a.paused), true, 'Reopening restores without autoplay');
     await page.getByRole('button', { name: 'Following audio', exact: true }).click();
     assert.equal(await page.locator('#follow').getAttribute('aria-pressed'), 'false');
-    await page.getByRole('button', { name: 'Follow audio', exact: true }).click();
+    await page.getByRole('button', { name: 'Jump to current place', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: 'Following audio', exact: true }).getAttribute('aria-pressed'),'true');
+    await page.waitForFunction(()=>{const current=document.querySelector('.passage[aria-current=true]'),panel=document.getElementById('passages');if(!current)return false;const r=current.getBoundingClientRect(),p=panel.getBoundingClientRect();return r.top>=p.top&&r.bottom<=p.bottom;});
     assert.equal(await page.locator('#follow').getAttribute('aria-pressed'), 'true');
     await page.getByLabel('Text size').selectOption('24');
     assert.equal(await page.locator('.passage').first().evaluate(e => getComputedStyle(e).fontSize), '24px');
@@ -201,14 +203,32 @@ try {
   await page.locator('#audio').evaluate(a=>a.currentTime=2);
   await page.waitForFunction(()=>!document.getElementById('audio').seeking);
   assert.equal(Math.floor(await page.locator('#audio').evaluate(a=>a.currentTime)),2,'Chapter title is ordinary content');
-  await page.locator('.passage').nth(8).click();
+  assert.equal(await page.locator('.passage').count(),14,'Excluded notes have no reader nodes');
+  for(const start of [5,40,80,85])assert.equal(await page.locator(`.passage[data-start="${start}"]`).count(),0);
+  assert.equal(await page.locator('#chapter-position').getAttribute('max'),'70');
+  await page.locator('#chapter-position').evaluate(input=>{input.value='35';input.dispatchEvent(new Event('input'));input.dispatchEvent(new Event('change'));});
   await page.waitForFunction(()=>document.getElementById('audio').currentTime===45);
-  assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'A note passage seek preserves pause');
+  assert.equal(await page.locator('#elapsed').textContent(),'0:35');
+  assert.equal(await page.locator('#remaining').textContent(),'−0:35');
+  await page.locator('.passage[data-start="45"]').click();
+  assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'A retained passage seek preserves pause');
+  await page.locator('#back').click();
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===25);
+  await page.locator('#forward').click();
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===60);
+  await page.locator('#chapter-position').focus();await page.keyboard.press('Home');
+  await page.waitForFunction(()=>document.getElementById('audio').currentTime===0);
+  assert.equal(await page.locator('.passage[data-start="0"]').count(),1,'Announcement stays in the filtered reader');
+  assert(posts.some(p=>p.path==='/listen/progress'&&p.data.reason==='seek'&&p.data.seconds===45),'A shortened-clock seek saves its source location');
   await notes.check();
+  assert.equal(await page.locator('.passage').count(),18,'Including notes restores their reader nodes');
+  assert.equal(await page.locator('#chapter-position').getAttribute('max'),'90');
   await page.locator('#audio').evaluate(a=>a.currentTime=42);
   await page.waitForFunction(()=>!document.getElementById('audio').seeking);
   assert.equal(Math.floor(await page.locator('#audio').evaluate(a=>a.currentTime)),42,'Turning notes back on restores access');
+  const undoBeforeNoteSkip=await page.evaluate(()=>JSON.stringify(local.undo));
   await notes.uncheck();await page.waitForFunction(()=>document.getElementById('audio').currentTime===45);
+  assert.equal(await page.evaluate(()=>JSON.stringify(local.undo)),undoBeforeNoteSkip,'Automatic note skipping preserves the real Undo origin');
   await page.locator('#audio').evaluate(a=>{a.currentTime=39.8;return a.play();});
   await page.waitForFunction(()=>document.getElementById('audio').currentTime>=45&&document.getElementById('audio').currentTime<47);
   await page.locator('#audio').evaluate(a=>a.pause());
@@ -227,6 +247,13 @@ try {
   await page.getByRole('heading',{name:'Chapter two',exact:true}).waitFor();
   assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'Skipping ending notes preserves pause in next chapter');
   assert.equal(posts.filter(p=>p.data.assembly==='a'.repeat(64)&&p.data.completed).length,1,'Ending-note skip completes the chapter once');
+  await page.locator('#audio').evaluate(a=>a.currentTime=2);
+  await page.waitForFunction(()=>!document.getElementById('audio').seeking);
+  await page.locator('#back').click();
+  await page.waitForFunction(()=>document.getElementById('audio').getAttribute('src').endsWith('a'.repeat(64))&&document.getElementById('audio').currentTime===67);
+  assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'Back 15 seconds crosses chapters while paused');
+  await page.locator('#forward').click();
+  await page.waitForFunction(()=>document.getElementById('audio').getAttribute('src').endsWith('d'.repeat(64))&&document.getElementById('audio').currentTime===22);
   await page.locator('#audio').evaluate(a=>{a.currentTime=85;a.play().catch(()=>{});});
   await page.waitForFunction(()=>document.getElementById('audio').currentTime===90&&document.getElementById('audio').paused);
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:notes')).pending.length===0);
@@ -268,6 +295,16 @@ try {
   await included.getByRole('button',{name:'Listen',exact:true}).first().click();
   await included.waitForFunction(()=>document.getElementById('audio').currentTime>0&&document.querySelectorAll('.passage').length===0,undefined,{timeout:2000});
   await included.close();
+  accountKey='undo-notes';state.positions={};noteMetadata=true;textDelay=0;
+  const undoPage=await browser.newPage({viewport:{width:375,height:812}});
+  await undoPage.addInitScript(()=>{const loc={story:'fixture',edition:'v3',assembly:'a'.repeat(64),seconds:30,deviceTime:Date.now()};localStorage.setItem('listener:include-author-notes','false');localStorage.setItem('listener:undo-notes',JSON.stringify({positions:{'fixture:v3:one':loc},pending:[],undo:{...loc,seconds:7}}));});
+  await undoPage.goto(base+'/listen');await undoPage.waitForFunction(()=>document.getElementById('audio').currentTime===30);
+  await undoPage.locator('#show-reading').click();await undoPage.locator('#undo').click();
+  await undoPage.waitForFunction(()=>document.getElementById('audio').readyState>0&&document.getElementById('audio').currentTime===0);
+  assert.equal(await undoPage.locator('.passage[aria-current=true]').getAttribute('data-start'),'0','Undo returns before the note instead of skipping forward again');
+  assert.equal(await undoPage.locator('#audio').evaluate(a=>a.paused),true);
+  await undoPage.locator('#undo').click();await undoPage.waitForFunction(()=>document.getElementById('audio').currentTime===30);
+  await undoPage.close();
   textDelay=0;noteMetadata=false;
   state.positions={'fixture:v3:one':{story:'fixture',edition:'v3',assembly:'a'.repeat(64),seconds:7,deviceTime:Date.now()}};
   const legacy=await browser.newPage();

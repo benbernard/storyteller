@@ -40,6 +40,69 @@ class ListenerUiTest {
         compose.onNodeWithTag("include-author-notes").performClick().assertIsOff()
         screenshot("author-note-setting-disabled")
     }
+    @Test fun excludingNotesRemovesTheirReaderTextAndPlaybackTime() {
+        val c = chapter.copy(duration = 120.0, authorNoteRanges = listOf(AudioRange(10.0, 30.0), AudioRange(90.0, 120.0)))
+        val b = book.copy(editions = mapOf("v3" to listOf(c)))
+        val reading = Reading(c.assembly, listOf(
+            Passage("title", 0.0, 10.0, "Chapter announcement.\n\n"),
+            Passage("before", 10.0, 30.0, "Before author note.\n\n", "author-note"),
+            Passage("body", 30.0, 90.0, "Actual chapter content.\n\n"),
+            Passage("after", 90.0, 120.0, "After author note.", "author-note")), 1)
+        compose.setContent {
+            var include by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            ListenerTheme { ListenerScreen(ListenerUiState(connected = true, books = listOf(b), selection = Selection(b.id, b.title, "v3", c), reading = reading, position = 50.0, includeAuthorNotes = include), {}, {}, onPlay = { _, _, _ -> }, onToggle = {}, onSeek = {}, onSpeed = {}, onIssue = { _, _, _, _ -> }, onFinished = {}, onResolve = {}, onCharacters = {}, onIncludeAuthorNotes = { include = it }) }
+        }
+        compose.onNodeWithTag("library").performScrollToNode(hasText("1 unread audio chapter · 0:40 remaining"))
+        compose.onNodeWithText("1 unread audio chapter · 0:40 remaining").assertIsDisplayed()
+        compose.onNodeWithText("Listening", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("passages").performScrollToNode(hasText("Actual chapter content."))
+        compose.onNodeWithText("Actual chapter content.").assertIsDisplayed()
+        compose.onNodeWithText("Before author note.").assertDoesNotExist()
+        compose.onNodeWithText("After author note.").assertDoesNotExist()
+        compose.onNodeWithText("0:30", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("−0:40", useUnmergedTree = true).assertIsDisplayed()
+        screenshot("author-notes-excluded-reader")
+        compose.onNodeWithText("Tools", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("include-author-notes").performScrollTo().performClick().assertIsOn()
+        compose.onNodeWithText("Listening", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("passages").performScrollToNode(hasText("Before author note."))
+        compose.onNodeWithText("Before author note.").assertIsDisplayed()
+        compose.onNodeWithText("0:50", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("−1:10", useUnmergedTree = true).assertIsDisplayed()
+        screenshot("author-notes-included-reader")
+    }
+    @Test fun jumpToCurrentPlaceRestoresFollowAndHighlightWithoutSeekingAudio() {
+        val c = chapter.copy(duration = 180.0)
+        val b = book.copy(editions = mapOf("v3" to listOf(c)))
+        val paragraphs = (0 until 30).map { i -> Passage("body-$i", i * 5.0, (i + 1) * 5.0, "Story passage $i. " + "The traveler continues along the road. ".repeat(4) + "\n\n") }
+        val active = paragraphs[12].text.substringBefore("\n")
+        var seeks = 0
+        val skips = mutableListOf<Int>()
+        compose.setContent { ListenerTheme { ListenerScreen(ListenerUiState(connected = true, books = listOf(b), selection = Selection(b.id, b.title, "v3", c), reading = Reading(c.assembly, paragraphs, 1), position = 61.0, includeAuthorNotes = false), {}, {}, onPlay = { _, _, _ -> }, onToggle = {}, onSeek = { seeks++ }, onSpeed = {}, onIssue = { _, _, _, _ -> }, onFinished = {}, onResolve = {}, onCharacters = {}, onSkip = { skips.add(it) }) } }
+        compose.onNodeWithText("Listening", useUnmergedTree = true).performClick()
+        fun assertCurrentPassageVisible() {
+            compose.waitForIdle()
+            compose.waitUntil(timeoutMillis = 5_000) {
+                val viewport = compose.onNodeWithTag("passages").fetchSemanticsNode().boundsInRoot
+                compose.onAllNodesWithText(active).fetchSemanticsNodes().any { it.boundsInRoot.height > 0 && it.boundsInRoot.top >= viewport.top && it.boundsInRoot.top < viewport.bottom }
+            }
+            val node = compose.onNodeWithText(active).assertIsSelected().fetchSemanticsNode()
+            val viewport = compose.onNodeWithTag("passages").fetchSemanticsNode().boundsInRoot
+            // At 200% landscape text a paragraph is taller than the viewport.
+            // Its beginning, rather than its entire rectangle, must be visible.
+            assertTrue("Current passage begins inside the reader", node.boundsInRoot.height > 0 && node.boundsInRoot.top >= viewport.top && node.boundsInRoot.top < viewport.bottom)
+        }
+        assertCurrentPassageVisible()
+        compose.onNodeWithTag("passages").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("passages").performTouchInput { swipeUp() }
+        compose.onNodeWithText("Follow audio").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Jump to current place").performClick()
+        assertCurrentPassageVisible()
+        compose.onNodeWithText("Following audio").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Back 15 seconds").performClick()
+        compose.runOnIdle { assertEquals(0, seeks); assertEquals(listOf(-15), skips) }
+        screenshot("jump-to-current-place")
+    }
     @Test fun libraryStartsWithTitlesAndDrillsIntoStory() {
         screen(ListenerUiState(connected = true, books = listOf(book), selection = Selection(book.id, book.title, "v3", chapter), position = 65.0))
         compose.onNodeWithText("Your stories").assertIsDisplayed()

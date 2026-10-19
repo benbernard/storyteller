@@ -53,8 +53,11 @@ service is active and sync again on opening or refresh. Downloaded verified audi
 can play offline. Streaming needs a connection; changed recordings do not reuse
 an old recording's timestamp as if the audio were identical.
 
-In **Tools → Playback**, clear **Include author notes** to skip tagged opening,
-closing and embedded notes. Notes stay included by default. Your choice also
+In **Tools → Playback**, clear **Include author notes** to remove tagged opening,
+closing and embedded notes from playback, scrolling text and chapter times.
+Chapter announcements and story content remain. Seeking and the lock-screen
+player use the shorter chapter clock. Turn notes back on to restore them without
+moving your place in the story. Notes stay included by default. Your choice also
 applies to background and offline playback. Refresh a chapter online once to
 obtain note timings for an older download; the audio does not need downloading
 again. Sections without reliable note timings continue to play in full.
@@ -62,6 +65,11 @@ again. Sections without reliable note timings continue to play in full.
 Use **Mark issue** for a voice, pronunciation, missing/repeated text, delivery, or
 other problem. The report retains the recording and timestamp for later repair.
 **Location history** and **Undo jump** help recover an earlier place.
+Automatic note skips do not replace the Undo destination. An older Undo location
+inside an excluded note returns to the preceding readable passage. **Back 15
+seconds** counts included audio and can cross into the previous chapter. Use
+**Jump to current place** to restore the playing passage's highlight and scroll
+back to it without seeking the audio.
 
 The native tests cover compact/wide layouts and large text using synthetic audio.
 A build or emulator run does not prove physical Bluetooth routing or fold/unfold

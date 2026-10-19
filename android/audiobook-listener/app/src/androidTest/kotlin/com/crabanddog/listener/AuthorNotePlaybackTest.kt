@@ -20,7 +20,7 @@ import java.nio.ByteOrder
 import java.util.concurrent.TimeUnit
 
 class AuthorNotePlaybackTest {
-    @Test fun serviceSkipsTaggedNotesOfflineWithoutActivityAndKeepsChapterPositions() {
+    @Test fun servicePresentsNoteFreeTimelineOfflineAndKeepsSourceLocations() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val store = ListenerStore.get(context)
@@ -71,34 +71,46 @@ class AuthorNotePlaybackTest {
             }
             await { controller.playbackState == androidx.media3.common.Player.STATE_READY }
             onMain { assertTrue(controller.currentPosition < 1200); store.includeAuthorNotes(false) }
-            await { controller.currentPosition >= 1200 }
-            onMain { assertFalse(controller.playWhenReady); controller.seekTo(2700) }
-            await { controller.currentPosition >= 3500 }
+            await { controller.duration in 3790..3810 && controller.currentPosition < 100 }
+            onMain { assertFalse(controller.playWhenReady); controller.seekTo(1500) }
+            await { controller.currentPosition in 1450..1550 }
+            assertTrue(store.positions().any { it.optString("assembly") == selected[0].chapter.assembly && it.optDouble("seconds") in 3.65..3.75 })
             onMain { assertFalse(controller.playWhenReady); store.includeAuthorNotes(true); controller.seekTo(2700) }
             await { controller.currentPosition in 2600..3000 }
+            await { store.positions().any { it.optString("assembly") == selected[0].chapter.assembly && it.optDouble("seconds") in 2.65..2.75 } }
+            val undoBeforeSkip = store.undo()?.toString()
             onMain { store.includeAuthorNotes(false) }
-            await { controller.currentPosition >= 3500 }
-            onMain { controller.seekTo(5700); controller.play() }
-            await { controller.currentMediaItemIndex == 1 && controller.currentPosition >= 1200 && controller.isPlaying }
+            await { controller.currentPosition in 1250..1350 }
+            assertEquals("Automatic note skip must not replace Undo", undoBeforeSkip, store.undo()?.toString())
+            onMain { controller.seekTo(3500) }
+            await { store.positions().any { it.optString("assembly") == selected[0].chapter.assembly && it.optDouble("seconds") in 5.65..5.75 } }
+            val undoBeforeEnd = store.undo()?.toString()
+            onMain { controller.play() }
+            await { controller.currentMediaItemIndex == 1 && controller.currentPosition >= 0 && controller.isPlaying }
+            assertEquals("Automatic chapter transition must not replace Undo", undoBeforeEnd, store.undo()?.toString())
             assertTrue(store.positions().any { it.optString("assembly") == selected[0].chapter.assembly && it.optBoolean("completed") })
-            onMain { controller.pause(); controller.seekTo(0, 900) }
-            await { controller.currentMediaItemIndex == 0 && controller.currentPosition >= 1200 }
-            onMain { controller.seekTo(1, 6100) }
-            await { controller.currentMediaItemIndex == 1 && controller.currentPosition >= 7990 && !controller.playWhenReady }
+            onMain { controller.pause(); controller.seekTo(0, 0) }
+            await { controller.currentMediaItemIndex == 0 && controller.currentPosition < 100 }
+            onMain { controller.seekTo(1, 2000) }
+            await { controller.currentMediaItemIndex == 1 && controller.currentPosition in 1950..2050 }
+            onMain { controller.seekBack() }
+            await { controller.currentMediaItemIndex == 0 && controller.currentPosition < 100 && !controller.playWhenReady }
+            onMain { controller.seekTo(1, 3800) }
+            await { controller.currentMediaItemIndex == 1 && controller.currentPosition >= 3790 && !controller.playWhenReady }
             Thread.sleep(400)
             val completionCount = store.outbox().count { it.getJSONObject("body").optString("assembly") == selected[1].chapter.assembly && it.getJSONObject("body").optBoolean("completed") }
             assertTrue(completionCount > 0)
             Thread.sleep(400)
             assertEquals(completionCount, store.outbox().count { it.getJSONObject("body").optString("assembly") == selected[1].chapter.assembly && it.getJSONObject("body").optBoolean("completed") })
-            onMain { controller.seekTo(4000); controller.play() }
-            await { controller.isPlaying && controller.currentPosition in 4000..5900 }
+            onMain { controller.seekTo(2000); controller.play() }
+            await { controller.isPlaying && controller.currentPosition in 2000..3790 }
             onMain { controller.pause() }
             onMain {
                 controller.setMediaItem(MediaItem.Builder().setUri(Uri.fromFile(files[0])).setMediaMetadata(MediaMetadata.Builder().setTitle("Resume fixture")
                     .setExtras(Bundle().apply { putString("selection", selected[0].json().toString()) }).build()).build(), 500)
                 controller.prepare()
             }
-            await { controller.currentMediaItem?.mediaMetadata?.title == "Resume fixture" && controller.currentPosition >= 1200 && !controller.playWhenReady }
+            await { controller.currentMediaItem?.mediaMetadata?.title == "Resume fixture" && controller.currentPosition in 450..550 && !controller.playWhenReady }
             val allNote = selected[0].copy(chapter = selected[0].chapter.copy(id = "all-note", assembly = "c".repeat(64)))
             store.reading(allNote.chapter.assembly, JSONObject().put("assembly", allNote.chapter.assembly).put("sectionMetadataVersion", 1)
                 .put("passages", JSONArray().put(JSONObject().put("id", "note").put("start", 0).put("end", 8).put("text", "Synthetic note").put("sectionKind", "author-note"))))
@@ -108,9 +120,9 @@ class AuthorNotePlaybackTest {
                 controller.setMediaItems(items, 0, 0)
                 controller.prepare()
             }
-            await { controller.currentMediaItemIndex == 1 && controller.currentPosition >= 1200 && !controller.playWhenReady }
-            onMain { controller.seekTo(2700) }
-            await { controller.currentPosition >= 3500 }
+            await { controller.currentMediaItemIndex == 1 && controller.currentPosition < 100 && !controller.playWhenReady }
+            onMain { controller.seekTo(1500) }
+            await { controller.currentPosition in 1450..1550 }
             assertEquals(originalHashes, files.map(OfflineAudio::digest))
             assertFalse(store.includeAuthorNotes())
         } finally {

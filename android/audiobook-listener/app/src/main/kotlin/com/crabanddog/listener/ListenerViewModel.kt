@@ -47,7 +47,11 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
             }.onFailure { message("Could not start the audio player.") }
         }, ContextCompat.getMainExecutor(app))
         if (mutable.value.connected) { OfflineAudio.schedule(app); refresh() }
-        viewModelScope.launch { while (true) { controller?.let { p -> mutable.value = mutable.value.copy(playing = p.isPlaying, position = if (p.currentMediaItem != null) p.currentPosition.coerceAtLeast(0) / 1000.0 else mutable.value.selection?.let { store.position(it) } ?: 0.0, positions = store.positions(), pending = store.outbox().count { it.optString("path") == "/issues" }) }; delay(500) } }
+        viewModelScope.launch { while (true) { controller?.let { p ->
+            val state = mutable.value
+            val position = if (p.currentMediaItem != null) state.selection?.let { chapterView(it.chapter, state.reading, state.includeAuthorNotes).source(p.currentPosition.coerceAtLeast(0) / 1000.0) } ?: 0.0 else state.selection?.let { store.position(it) } ?: 0.0
+            mutable.value = state.copy(playing = p.isPlaying, position = position, positions = store.positions(), undo = store.undo(), pending = store.outbox().count { it.optString("path") == "/issues" })
+        }; delay(500) } }
     }
     private fun message(value: String) { mutable.value = mutable.value.copy(message = value) }
     fun connect(open: (String) -> Unit) {
@@ -147,9 +151,10 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) { if (cached == null) message("Passages could not load. Sync to retry.") }
         }
     }
-    fun play(book: Book, edition: String, chapter: Chapter) { prepare(Selection(book.id, book.title, edition, chapter), null, true) }
-    private fun prepare(selected: Selection, seconds: Double?, autoplay: Boolean) {
+    fun play(book: Book, edition: String, chapter: Chapter) { prepare(Selection(book.id, book.title, edition, chapter), null, true, true) }
+    private fun prepare(selected: Selection, seconds: Double?, autoplay: Boolean, recordJump: Boolean = false) {
         val p = controller ?: return message("Player is starting. Try again shortly.")
+        val previous = mutable.value.selection?.let { old -> old.location(undoPosition(old.chapter, mutable.value.reading, mutable.value.includeAuthorNotes, mutable.value.position)) }
         val chapters = mutable.value.books.find { it.id == selected.story }?.editions?.get(selected.edition)?.takeIf { list -> list.any { it.assembly == selected.chapter.assembly } } ?: listOf(selected.chapter)
         val items = chapters.map { c ->
             val s = Selection(selected.story, selected.bookTitle, selected.edition, c)
@@ -159,7 +164,13 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         }
         val position = (seconds ?: store.position(selected)).coerceIn(0.0, selected.chapter.duration)
         p.pause(); select(selected)
-        p.setMediaItems(items, chapters.indexOfFirst { it.assembly == selected.chapter.assembly }, (position * 1000).toLong()); p.prepare()
+        val view = chapterView(selected.chapter, mutable.value.reading, mutable.value.includeAuthorNotes)
+        val sourcePosition = view.source(view.position(position))
+        if (recordJump && previous != null && (previous.optString("assembly") != selected.chapter.assembly || kotlin.math.abs(previous.optDouble("seconds") - sourcePosition) > .001)) {
+            store.saveProgress(selected, sourcePosition, reason = "chapter", from = previous)
+            mutable.value = mutable.value.copy(undo = previous)
+        }
+        p.setMediaItems(items, chapters.indexOfFirst { it.assembly == selected.chapter.assembly }, (view.position(position) * 1000).toLong()); p.prepare()
         mutable.value = mutable.value.copy(position = position)
         if (autoplay) p.play()
     }
@@ -173,12 +184,18 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         } else if (p.isPlaying) p.pause() else { if (p.playbackState == Player.STATE_IDLE) p.prepare(); p.play() }
     }
     fun seek(seconds: Double) { move(seconds, "seek") }
+    fun skip(seconds: Int) {
+        val p = controller ?: return
+        if (p.currentMediaItem == null) mutable.value.selection?.let { prepare(it, null, false) }
+        if (seconds < 0) p.seekBack() else p.seekForward()
+    }
     fun passage(seconds: Double) { move(seconds, "passage") }
     private fun move(seconds: Double, reason: String) {
         val selected = mutable.value.selection ?: return
-        val from = selected.location(mutable.value.position)
-        val target = seconds.coerceIn(0.0, selected.chapter.duration)
-        if (controller?.currentMediaItem == null) prepare(selected, target, false) else controller?.seekTo((target * 1000).toLong())
+        val from = selected.location(undoPosition(selected.chapter, mutable.value.reading, mutable.value.includeAuthorNotes, mutable.value.position))
+        val view = chapterView(selected.chapter, mutable.value.reading, mutable.value.includeAuthorNotes)
+        val target = view.source(view.position(seconds))
+        if (controller?.currentMediaItem == null) prepare(selected, target, false) else controller?.seekTo((view.position(target) * 1000).toLong())
         store.saveProgress(selected, target, reason = reason, from = from)
         mutable.value = mutable.value.copy(position = target, undo = from)
     }
@@ -190,7 +207,9 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
                 val assembly = location.getString("assembly")
                 val chapter = book.editions[edition]?.find { it.assembly == assembly } ?: api.call("/stories/${book.id}/$edition/text/$assembly").let { Chapter(it.getString("chapterId"), location.optInt("chapter", location.optInt("sequence", 0)), it.getString("title"), assembly, it.getDouble("duration")) }
                 val selected = Selection(book.id, book.title, edition, chapter)
-                if (controller == null) select(selected) else prepare(selected, location.getDouble("seconds"), false)
+                val reading = store.reading(assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }
+                val target = undoPosition(chapter, reading, mutable.value.includeAuthorNotes, location.getDouble("seconds"))
+                if (controller == null) select(selected) else prepare(selected, target, false, true)
             } catch (e: Exception) { message(e.message ?: "Could not restore this location.") }
         }
     }

@@ -61,3 +61,5 @@ body:has(#reading-view:not([hidden])) #message[data-routine=true]{display:none}
 .checkbox-option{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}.checkbox-option input{flex:none;width:20px;height:20px;min-height:20px;padding:0;margin:0;accent-color:var(--accent)}.checkbox-option input:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 
 .playback-options[open]>div{max-height:65dvh;max-width:calc(100vw - 32px);overflow-y:auto}
+
+.chapter-progress{margin:4px 0 8px}.chapter-progress input{width:100%;min-height:44px;margin:0;accent-color:var(--accent)}.playback-times{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}.playback-options input[type=range]{max-width:160px;min-height:44px;accent-color:var(--accent)}input[type=range]:focus-visible{outline:3px solid var(--accent);outline-offset:3px}

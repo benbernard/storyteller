@@ -142,9 +142,20 @@ space without accepting that those historical references will become unavailable
 
 ## Optional author notes
 
-In the web player, open **More** and clear **Include author notes** to skip tagged
-notes. Android has the same choice in **Tools → Playback**. Both include notes by
-default and remember the choice on that device. Audio and source text are unchanged.
+In the web player, open **More** and clear **Include author notes** to remove tagged
+notes from playback, scrolling text, chapter duration and the seeking timeline.
+Android has the same choice in **Tools → Playback**, including lock-screen controls.
+Both include notes by default and remember the choice on that device. Turning notes
+back on restores them at the same story location. Chapter announcements and story
+content remain visible and audible in either mode. Existing downloads are reused.
+Saved locations still refer to the original recording so they work across devices
+with different note settings. Audio and source text are unchanged.
+
+**Jump to current place** restores the current passage's highlight and scrolls it
+into view without moving the audio. Back 15 seconds counts included audio across
+chapter boundaries. Automatic note skips and chapter advances do not replace the
+Undo destination. An older Undo location inside a hidden note returns to the
+preceding readable passage instead of skipping forward again.
 
 Archived opening and closing note boxes already have timing tags. New analysis
 also labels author commentary within chapter text, preserving source boundaries

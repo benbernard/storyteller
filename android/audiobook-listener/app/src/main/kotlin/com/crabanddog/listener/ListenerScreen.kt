@@ -32,6 +32,9 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
@@ -42,6 +45,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,7 +63,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     onSpeed: (Float) -> Unit, onIssue: (Selection, Double, String, String) -> Unit, onFinished: () -> Unit,
     onResolve: (JSONObject) -> Unit, onCharacters: (String) -> Unit, onPassage: (Double) -> Unit = onSeek,
     onHistory: (Boolean) -> Unit = {}, onReturn: (JSONObject) -> Unit = {},
-    onFollow: (String, Boolean, String) -> Unit = { _, _, _ -> }, onCheck: (String) -> Unit = {}, onJob: (String, String) -> Unit = { _, _ -> }, onAudio: (String, Boolean) -> Unit = { _, _ -> }, onIncludeAuthorNotes: (Boolean) -> Unit = {}) {
+    onFollow: (String, Boolean, String) -> Unit = { _, _, _ -> }, onCheck: (String) -> Unit = {}, onJob: (String, String) -> Unit = { _, _ -> }, onAudio: (String, Boolean) -> Unit = { _, _ -> }, onIncludeAuthorNotes: (Boolean) -> Unit = {}, onSkip: ((Int) -> Unit)? = null) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var storyId by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = state.connected && (tab != 0 || storyId != null)) {
@@ -70,6 +74,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     var showCharacters by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding()) {
     val expanded = maxWidth >= 760.dp
+    val compactHeight = maxHeight < 480.dp
     val destinations = listOf(Triple(0, "Library", Icons.AutoMirrored.Filled.LibraryBooks), Triple(1, "Listening", Icons.Default.Headphones), Triple(4, "Tools", Icons.Default.Tune))
     val navigate: (Int) -> Unit = { tab = it; if (it == 0) storyId = null }
     Row(Modifier.fillMaxSize()) {
@@ -121,8 +126,9 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
                         LibraryTools(state, Modifier.weight(1f), onFollow, onCheck, onJob, onIncludeAuthorNotes)
                     }
                     1 -> Column(Modifier.fillMaxSize()) {
-                        TextButton(onClick = { storyId = state.selection?.story; tab = 0 }) { Text("Back to story") }
-                        PlayerPanel(state, onToggle, onSeek, onSpeed, mark, onFinished, { state.selection?.let { onCharacters(it.story); showCharacters = true } }, Modifier.weight(1f), onPassage, onReturn)
+                        val back = { storyId = state.selection?.story; tab = 0 }
+                        if (!compactHeight) TextButton(onClick = back) { Text("Back to story") }
+                        PlayerPanel(state, onToggle, onSeek, onSpeed, mark, onFinished, { state.selection?.let { onCharacters(it.story); showCharacters = true } }, Modifier.weight(1f), onPassage, onReturn, onSkip, compactHeight, back)
                     }
                     3 -> LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                         item { TextButton(onClick = { tab = 4 }) { Text("Back to tools") }; Text("Location history", style = MaterialTheme.typography.headlineSmall); Text("Every saved checkpoint and jump, including where each jump started.") }
@@ -156,7 +162,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
                 HorizontalDivider()
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { tab = 1 }, modifier = Modifier.weight(1f)) {
-                        Column(Modifier.fillMaxWidth()) { Text(selected.bookTitle, maxLines = 1, overflow = TextOverflow.Ellipsis); Text("${selected.chapter.title} · ${formatTime(state.position)}", style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                        Column(Modifier.fillMaxWidth()) { Text(selected.bookTitle, maxLines = 1, overflow = TextOverflow.Ellipsis); Text("${selected.chapter.title} · ${formatTime(chapterView(selected.chapter, state.reading, state.includeAuthorNotes).position(state.position))}", style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                     }
                     IconButton(onClick = onToggle) { Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) "Pause audio" else "Play audio") }
                 }
@@ -165,7 +171,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     }
     }
     }
-    issueAt?.let { seconds -> IssueDialog(seconds, { issueAt = null }) { kind, note -> issueSelection?.let { onIssue(selectionFromJson(JSONObject(it)), seconds, kind, note) }; issueAt = null } }
+    issueAt?.let { seconds -> IssueDialog(state.selection?.let { chapterView(it.chapter, state.reading, state.includeAuthorNotes).position(seconds) } ?: seconds, { issueAt = null }) { kind, note -> issueSelection?.let { onIssue(selectionFromJson(JSONObject(it)), seconds, kind, note) }; issueAt = null } }
     if (showCharacters) AlertDialog(onDismissRequest = { showCharacters = false }, title = { Text("Characters encountered") }, text = {
         LazyColumn { if (state.characters.isEmpty()) item { Text("Characters appear as you reach their first scene.") }; items(state.characters) { c -> Column(Modifier.padding(bottom = 16.dp)) { Text(c.getString("name"), fontWeight = FontWeight.Bold); Text(c.getString("portrayal")) } } }
     }, confirmButton = { TextButton(onClick = { showCharacters = false }) { Text("Close") } })
@@ -178,7 +184,7 @@ fun AuthorNoteSetting(include: Boolean, onChange: (Boolean) -> Unit) {
         Checkbox(checked = include, onCheckedChange = null)
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text("Include author notes", style = MaterialTheme.typography.bodyLarge)
-            Text("Turn off to skip tagged notes during playback. Chapter text and downloads stay available.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Turn off to hide notes from audio, scrolling text and chapter times.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -196,7 +202,8 @@ private fun listeningSummary(book: Book, state: ListenerUiState): ListeningSumma
     val unread = chapters.filter { "${book.id}:${it.id}" !in state.completed }
     val remaining = unread.sumOf { chapter ->
         val seconds = if (current?.chapter?.assembly == chapter.assembly) state.position else saved.firstOrNull { it.optString("edition") == edition && it.optString("assembly") == chapter.assembly }?.optDouble("seconds") ?: 0.0
-        chapter.duration - seconds.coerceIn(0.0, chapter.duration)
+        val view = chapterView(chapter, state.reading, state.includeAuthorNotes)
+        view.duration - view.position(seconds)
     }
     val location = if (current != null) current.location(state.position) else latest
     return ListeningSummary(edition, location, unread.size, remaining)
@@ -217,7 +224,7 @@ private fun StoryLibrary(state: ListenerUiState, onOpen: (String) -> Unit, modif
             val summary = listeningSummary(book, state)
             val latestChapter = summary.latest?.let { p -> book.editions[p.optString("edition")]?.find { it.assembly == p.optString("assembly") } }
             StoryRow(book.id, book.title, book.author,
-                latestChapter?.let { "Your place: Chapter ${it.sequence} · ${formatTime(summary.latest!!.optDouble("seconds"))}" } ?: "Not started",
+                latestChapter?.let { "Your place: Chapter ${it.sequence} · ${formatTime(chapterView(it, state.reading, state.includeAuthorNotes).position(summary.latest!!.optDouble("seconds")))}" } ?: "Not started",
                 "${unreadAudio(summary.unread)} · ${formatTime(summary.remaining)} remaining", { onOpen(book.id) }, state.catalog.find { it.optString("id") == book.id }?.optJSONObject("repair")?.optString("title"))
         }
         items(sources, key = { "source:${it.getString("id")}" }) { source ->
@@ -286,7 +293,7 @@ private fun StoryDetail(state: ListenerUiState, id: String, onBack: () -> Unit, 
                     Column(Modifier.padding(16.dp)) {
                         Text(chapter.title, style = MaterialTheme.typography.titleMedium)
                         if (edition == "qwen") repairChapterLabel(source?.optJSONObject("repair"), chapter.id)?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
-                        Text("${formatTime(chapter.duration)}${if ("${book.id}:${chapter.id}" in state.completed) " · Finished" else ""}", style = MaterialTheme.typography.bodySmall)
+                        Text("${formatTime(chapterView(chapter, state.reading, state.includeAuthorNotes).duration)}${if ("${book.id}:${chapter.id}" in state.completed) " · Finished" else ""}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -358,9 +365,9 @@ private fun StoryPreparation(story: JSONObject, onFollow: (String, Boolean, Stri
 
 @Composable
 private fun PlayerPanel(state: ListenerUiState, onToggle: () -> Unit, onSeek: (Double) -> Unit, onSpeed: (Float) -> Unit,
-    onIssue: () -> Unit, onFinished: () -> Unit, onCharacters: () -> Unit, modifier: Modifier, onPassage: (Double) -> Unit, onReturn: (JSONObject) -> Unit) {
+    onIssue: () -> Unit, onFinished: () -> Unit, onCharacters: () -> Unit, modifier: Modifier, onPassage: (Double) -> Unit, onReturn: (JSONObject) -> Unit, onSkip: ((Int) -> Unit)?, compact: Boolean, onBack: () -> Unit) {
     val selected = state.selection
-    var dragging by remember { mutableStateOf<Float?>(null) }
+    var dragging by remember(selected?.chapter?.assembly, state.includeAuthorNotes) { mutableStateOf<Float?>(null) }
     var speedMenu by remember { mutableStateOf(false) }
     var more by remember { mutableStateOf(false) }
     if (selected == null) {
@@ -371,12 +378,20 @@ private fun PlayerPanel(state: ListenerUiState, onToggle: () -> Unit, onSeek: (D
         }
         return
     }
+    val view = remember(selected.chapter, state.reading, state.includeAuthorNotes) { chapterView(selected.chapter, state.reading, state.includeAuthorNotes) }
+    val position = view.position(state.position)
+    val slider: @Composable (Modifier) -> Unit = { extra ->
+        Slider(value = dragging ?: position.toFloat().coerceIn(0f, view.duration.toFloat().coerceAtLeast(1f)), onValueChange = { dragging = it },
+            onValueChangeFinished = { dragging?.let { onSeek(view.source(it.toDouble())) }; dragging = null }, valueRange = 0f..view.duration.toFloat().coerceAtLeast(1f), enabled = view.duration > 0, modifier = extra.height(48.dp).semantics { contentDescription = "Chapter position"; stateDescription = "${formatTime(position)} of ${formatTime(view.duration)}" })
+    }
     Column(modifier.testTag("player-scroll")) {
         Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (compact) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to story") }
             Column(Modifier.weight(1f)) {
-                Text(selected.bookTitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(selected.chapter.title, fontSize = 17.sp, lineHeight = 22.sp, fontFamily = FontFamily.Serif, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (!compact) Text(selected.bookTitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(selected.chapter.title, fontSize = 17.sp, lineHeight = 22.sp, fontFamily = FontFamily.Serif, maxLines = if (compact) 1 else 2, overflow = TextOverflow.Ellipsis)
             }
+            if (compact && state.undo != null) IconButton(onClick = { onReturn(state.undo) }) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo jump") }
             Box {
                 IconButton(onClick = { more = true }) { Icon(Icons.Default.MoreHoriz, "Chapter options") }
                 DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
@@ -389,23 +404,23 @@ private fun PlayerPanel(state: ListenerUiState, onToggle: () -> Unit, onSeek: (D
         Surface(color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(top = 4.dp, bottom = 2.dp)) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Slider(value = dragging ?: state.position.toFloat().coerceIn(0f, selected.chapter.duration.toFloat().coerceAtLeast(1f)), onValueChange = { dragging = it },
-                    onValueChangeFinished = { dragging?.let { onSeek(it.toDouble()) }; dragging = null }, valueRange = 0f..selected.chapter.duration.toFloat().coerceAtLeast(1f), modifier = Modifier.height(24.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(formatTime((dragging ?: state.position.toFloat()).toDouble()), style = MaterialTheme.typography.labelSmall)
-                    Text("−${formatTime((selected.chapter.duration - (dragging ?: state.position.toFloat())).coerceAtLeast(0.0))}", style = MaterialTheme.typography.labelSmall)
+                if (!compact) slider(Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(formatTime((dragging ?: position.toFloat()).toDouble()), style = MaterialTheme.typography.labelSmall)
+                    if (compact) slider(Modifier.weight(1f).padding(horizontal = 8.dp))
+                    Text("−${formatTime((view.duration - (dragging ?: position.toFloat())).coerceAtLeast(0.0))}", style = MaterialTheme.typography.labelSmall)
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                     Box {
                         TextButton(onClick = { speedMenu = true }, contentPadding = PaddingValues(4.dp)) { Text("${state.speed}×") }
                         DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) { listOf(0.8f, 1f, 1.2f, 1.5f, 2f).forEach { speed -> DropdownMenuItem(text = { Text("${speed}×") }, onClick = { onSpeed(speed); speedMenu = false }) } }
                     }
-                    IconButton(onClick = { onSeek((state.position - 15).coerceAtLeast(0.0)) }) { Icon(Icons.Default.Replay, "Back 15 seconds") }
+                    IconButton(onClick = { if (onSkip != null) onSkip(-15) else onSeek(view.source(position - 15)) }) { Icon(Icons.Default.Replay, "Back 15 seconds") }
                     FilledIconButton(onClick = onToggle, Modifier.size(48.dp)) { Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) "Pause" else "Play", Modifier.size(32.dp)) }
-                    IconButton(onClick = { onSeek((state.position + 30).coerceAtMost(selected.chapter.duration)) }) { Icon(Icons.Default.Forward30, "Forward 30 seconds") }
-                    IconButton(onClick = onIssue) { Icon(Icons.Default.Flag, "Mark issue at ${formatTime(state.position)}") }
+                    IconButton(onClick = { if (onSkip != null) onSkip(30) else onSeek(view.source(position + 30)) }) { Icon(Icons.Default.Forward30, "Forward 30 seconds") }
+                    IconButton(onClick = onIssue) { Icon(Icons.Default.Flag, "Mark issue at ${formatTime(position)}") }
                 }
-                if (state.undo != null) TextButton(onClick = { onReturn(state.undo) }, Modifier.fillMaxWidth()) { Icon(Icons.AutoMirrored.Filled.Undo, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Undo jump") }
+                if (state.undo != null && !compact) TextButton(onClick = { onReturn(state.undo) }, Modifier.fillMaxWidth()) { Icon(Icons.AutoMirrored.Filled.Undo, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Undo jump") }
             }
         }
     }
@@ -425,14 +440,16 @@ private fun IssueDialog(seconds: Double, dismiss: () -> Unit, save: (String, Str
 @Composable
 private fun ReadingPanel(state: ListenerUiState, onPassage: (Double) -> Unit, modifier: Modifier) {
     val reading = state.reading
-    val paragraphs = remember(reading) { reading?.let(::bookParagraphs).orEmpty() }
+    val paragraphs = remember(reading, state.includeAuthorNotes) { reading?.let { bookParagraphs(it, state.includeAuthorNotes) }.orEmpty() }
     val scroll = rememberLazyListState()
     var follow by rememberSaveable(state.selection?.chapter?.assembly) { mutableStateOf(true) }
+    var jump by remember(state.selection?.chapter?.assembly) { mutableIntStateOf(0) }
     var size by rememberSaveable { mutableIntStateOf(14) }
     val dragged by scroll.interactionSource.collectIsDraggedAsState()
-    val active = reading?.passages?.lastOrNull { it.start <= state.position } ?: reading?.passages?.firstOrNull()
+    val visible = reading?.passages.orEmpty().filter { state.includeAuthorNotes || it.sectionKind != "author-note" }
+    val active = visible.lastOrNull { it.start <= state.position } ?: visible.firstOrNull()
     LaunchedEffect(dragged) { if (dragged) follow = false }
-    LaunchedEffect(active?.id, follow, reading?.assembly) {
+    LaunchedEffect(active?.id, follow, reading?.assembly, state.includeAuthorNotes, jump) {
         val target = paragraphs.indexOfFirst { paragraph -> paragraph.fragments.any { it.passage.id == active?.id } }
         if (follow && target >= 0) {
             val visible = scroll.layoutInfo.visibleItemsInfo
@@ -442,11 +459,12 @@ private fun ReadingPanel(state: ListenerUiState, onPassage: (Double) -> Unit, mo
         }
     }
     Column(modifier) {
-        Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { follow = !follow }, contentPadding = PaddingValues(horizontal = 0.dp)) {
                 Text(if (follow) "Following audio" else "Follow audio", fontSize = 12.sp)
             }
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = { follow = true; jump++ }, enabled = active != null) { Icon(Icons.Default.MyLocation, "Jump to current place") }
             TextButton(onClick = { size = if (size >= 20) 12 else size + 2 }, contentPadding = PaddingValues(horizontal = 0.dp)) { Text("Text · $size", fontSize = 12.sp) }
         }
         if (reading == null) Text("Chapter text is loading.", style = MaterialTheme.typography.bodySmall)
@@ -467,6 +485,7 @@ private fun ReadingPanel(state: ListenerUiState, onPassage: (Double) -> Unit, mo
                             }
                         }
                     }.semantics {
+                        selected = paragraph.fragments.any { it.passage.id == active?.id }
                         onClick(label = "Listen from this paragraph") { paragraph.fragments.firstOrNull()?.let { onPassage(it.passage.start) }; true }
                         customActions = paragraph.fragments.distinctBy { it.passage.id }.map { fragment ->
                             CustomAccessibilityAction("Listen from ${formatTime(fragment.passage.start)}") { onPassage(fragment.passage.start); true }

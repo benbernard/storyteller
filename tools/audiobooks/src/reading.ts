@@ -5,6 +5,22 @@ import { Store, sha } from './store.js';
 export type Passage = { id: string; start: number; end: number; text: string; startOffset: number; endOffset: number; speakers: string[]; spans: string[]; sectionKind?: 'author-note' };
 export type Reading = { assembly: string; source: string; chapterId: string; title: string; url: string; duration: number; text: string; passages: Passage[]; sectionMetadataVersion: 1 };
 
+/** Positive section tags only; include the verified short join after a note. */
+export function authorNoteRanges(value: Pick<Reading, 'duration' | 'passages'>): { start: number; end: number }[] {
+  const ranges: { start: number; end: number }[] = [];
+  for (let i = 0; i < value.passages.length; i++) {
+    const p = value.passages[i]!;
+    if (p.sectionKind !== 'author-note' || !Number.isFinite(p.start) || !Number.isFinite(p.end)
+      || p.start < 0 || p.start >= value.duration || p.end <= p.start || p.end > value.duration + .100001) continue;
+    const next = value.passages[i + 1]?.start ?? value.duration;
+    const end = Math.min(value.duration, next >= p.end && next - p.end <= .100001 ? next : p.end);
+    const last = ranges.at(-1);
+    if (last && p.start <= last.end) last.end = Math.max(last.end, end);
+    else ranges.push({ start: p.start, end });
+  }
+  return ranges;
+}
+
 export async function reading(store: Store, assembly: Assembly, chapter: BookChapter): Promise<Reading> {
   const source = await store.read<Chapter>(`sources/${assembly.source}.json`);
   if (!source || sha(source.text) !== source.contentHash) throw new Error('Source integrity failure');

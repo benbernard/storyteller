@@ -14,7 +14,7 @@ import type { AudioSelection } from './bookorbit-selection.js';
 import { LibraryQueue, followSchema } from './library-queue.js';
 import { storyLibrary, archiveManifest, cover, publicJob } from './story-library.js';
 import { repairStatus } from './repair-status.js';
-import { reading, passageAt } from './reading.js';
+import { reading, passageAt, authorNoteRanges } from './reading.js';
 import { ListeningHistory, type ListeningLocation } from './listening-history.js';
 import {listenerIdentity, basicIdentity, type BrowserOwner} from './listener-identity.js';
 
@@ -151,7 +151,20 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       if (route === '/library' && method === 'GET') {
         const follows = libraryQueue.follows(sha(owner));
         const books = []; for (const name of await readdir(fictions)) if (id.safeParse(name).success) {
-          const book = await new Store(join(fictions, name)).read<Book>('book.json'); if (book) books.push({ ...book, autoDownload: follows.some(f => f.story === book.id && f.enabled && f.mode !== 'download') });
+          const store = new Store(join(fictions, name)), book = await store.read<Book>('book.json');
+          if (book) {
+            const editions = Object.fromEntries(await Promise.all(Object.entries(book.editions).map(async ([edition, value]) => [edition, {
+              ...value, chapters: await Promise.all(value.chapters.map(async chapter => {
+                // This is response metadata. Published books, text and audio stay immutable.
+                try {
+                  const assembly = await store.read<Assembly>(`assemblies/${chapter.assembly}/metadata.json`);
+                  if (!assembly || assembly.id !== chapter.assembly) return chapter;
+                  return { ...chapter, authorNoteRanges: authorNoteRanges(await reading(store, assembly, chapter)) };
+                } catch { return chapter; } // Legacy metadata remains playable; never guess note ranges.
+              })),
+            }])));
+            books.push({ ...book, editions, autoDownload: follows.some(f => f.story === book.id && f.enabled && f.mode !== 'download') });
+          }
         }
         json(response, 200, { books, accountKey: sha(owner), state: await state.read<ListenerState>(userPath) ?? empty() }); return;
       }
@@ -286,7 +299,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const stream = createReadStream(path, { start, end }); stream.on('error', () => response.destroy()); response.on('close', () => stream.destroy()); stream.pipe(response); return;
       }
       if (web && method === 'GET') {
-        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/note-output.js' ? 'note-output.js' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : route === '/storyteller-mark.png' ? 'storyteller-mark.png' : null;
+        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/chapter-view.js' ? 'chapter-view.js' : route === '/note-output.js' ? 'note-output.js' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : route === '/storyteller-mark.png' ? 'storyteller-mark.png' : null;
         if (filename) { const bytes = await readFile(join(dirname(fileURLToPath(import.meta.url)), '../listener-web', filename)); response.writeHead(200, { 'Content-Type': filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.png') ? 'image/png' : 'text/html' }); response.end(bytes); return; }
       }
       throw new Error('not_found');
