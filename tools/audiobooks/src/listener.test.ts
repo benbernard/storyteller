@@ -176,6 +176,8 @@ test('device pairing requires browser confirmation and secret; revoked devices c
   const auth = { ...web, Authorization: `Bearer ${result.token}` };
   assert.equal((await fetch(base + '/api/listener/library', { headers: auth })).status, 200);
   assert.equal((await post(base, '/api/listener/devices/revoke', {}, auth)).status, 200);
+  assert.equal((await post(base, '/api/listener/devices/revoke', {}, auth)).status, 200, 'Lost sign-out response can retry only its own revocation');
+  assert.equal((await fetch(base + '/api/listener/library', {headers: auth})).status, 401);
   assert.equal((await fetch(base + '/api/listener/library', { headers: auth })).status, 401);
   assert.equal((await post(base, '/api/listener/pair/poll', { code: pair.code, secret })).status, 410);
 }));
@@ -322,3 +324,40 @@ test('automatic chapter jobs require an authenticated account and preserve owner
 test('edition identifiers reject unsafe paths and reserved object keys', () => {
   for (const value of ['../escape', 'a/b', 'a:b', '__proto__', 'constructor', 'prototype', '', 'a'.repeat(97)]) assert.equal(editionSchema.safeParse(value).success, false);
 });
+
+test('normal native sign-in requires browser identity and returns a proof-bound app callback', async () => fixture(async (base) => {
+  const { signInChallenge } = await import('./native-signin.js');
+  const verifier = randomBytes(32).toString('base64url'), nonce = randomBytes(32).toString('base64url');
+  const input = { challenge: signInChallenge(verifier), state: nonce, redirectUri: 'com.crabanddog.listener.signin://callback' };
+  const anonymous = { 'Content-Type': 'application/json' };
+  assert.equal((await post(base, '/api/listener/signin/start', { ...input, redirectUri: 'https://evil.example/callback' }, anonymous)).status, 400);
+  const started = await (await post(base, '/api/listener/signin/start', input, anonymous)).json() as {request:string;url:string};
+  assert.equal((await fetch(`${base}/listen/signin?request=${started.request}`, { redirect: 'manual' })).status, 401);
+  const browser = await fetch(`${base}/listen/signin?request=${started.request}`, { headers: web, redirect: 'manual' });
+  assert.equal(browser.status, 302);
+  const callback = new URL(browser.headers.get('location')!);
+  assert.equal(callback.protocol, 'com.crabanddog.listener.signin:'); assert.equal(callback.host, 'callback'); assert.equal(callback.searchParams.get('state'), nonce);
+  assert.equal(callback.searchParams.has('token'), false);
+  const proof = { request: started.request, state: nonce, verifier, code: callback.searchParams.get('code') };
+  assert.equal((await post(base, '/api/listener/signin/exchange', { ...proof, verifier: randomBytes(32).toString('base64url') }, anonymous)).status, 400);
+  const response = await post(base, '/api/listener/signin/exchange', proof, anonymous); assert.equal(response.status, 200);
+  const device = await response.json() as { token:string;accountKey:string };
+  assert.equal(device.accountKey, sha(web['x-forwarded-user']));
+  const headers = { Authorization: `Bearer ${device.token}` };
+  assert.equal((await fetch(`${base}/api/listener/library`, { headers })).status, 200);
+  const cancelled = await post(base, '/api/listener/signin/cancel', { request: started.request, state: nonce, verifier }, anonymous); assert.equal(cancelled.status, 200);
+  assert.equal((await fetch(`${base}/api/listener/library`, { headers })).status, 401);
+  assert.equal((await post(base, '/api/listener/signin/exchange', proof, anonymous)).status, 400);
+}));
+
+test('recent jumps page departures and excludes ordinary checkpoints and edition changes', async () => fixture(async (base) => {
+  const first = { ...location, eventId: randomUUID(), deviceTime: 1000, reason:'playing' };
+  assert.equal((await post(base, '/listen/progress', first)).status, 200);
+  const jump = { ...location, seconds:15, eventId:randomUUID(), deviceTime:2000, reason:'passage', from:location };
+  assert.equal((await post(base, '/listen/progress', jump)).status, 200);
+  const restore = { ...location, eventId:randomUUID(), deviceTime:3000, reason:'restore', from:{...location,seconds:15} };
+  assert.equal((await post(base, '/listen/progress', restore)).status, 200);
+  const result = await (await fetch(`${base}/listen/history?story=story&jumps=1`,{headers:web})).json() as {entries:{eventId:string;from:{seconds:number};location:{seconds:number}}[]};
+  assert.deepEqual(result.entries.map(e=>e.eventId),[restore.eventId,jump.eventId]);
+  assert.equal(result.entries[0]!.from.seconds,15);assert.equal(result.entries[0]!.location.seconds,5);
+}));

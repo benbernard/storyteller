@@ -56,8 +56,34 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
     fun clear() {
         pause(); synchronized(fileLock) { root.deleteRecursively() }
         val edit = prefs.edit().remove("retry-chapters")
-        prefs.all.keys.filter { it.startsWith("ready:") || it.startsWith("progress:") }.forEach { edit.remove(it) }
+        prefs.all.keys.filter { it.startsWith("ready:") || it.startsWith("progress:") || it.startsWith("files:") }.forEach { edit.remove(it) }
         edit.apply(); progress(0, 0); status("Downloaded audio cleared. Downloads are paused.")
+    }
+    private fun filesKey(story: String) = "files:${account()}:$story"
+    private fun ownedFiles(story: String): JSONObject = runCatching { JSONObject(prefs.getString(filesKey(story), "{}").orEmpty()) }.getOrDefault(JSONObject())
+    private fun rememberFile(selection: Selection) { val files = ownedFiles(selection.story).put(selection.chapter.assembly, selection.chapter.checksum); check(prefs.edit().putString(filesKey(selection.story), files.toString()).commit()) }
+    fun clearBook(book: Book, books: List<Book>) {
+        val account = account() ?: return
+        val targetKey = "files:$account:${book.id}"
+        val historical = JSONObject(prefs.getString(targetKey, "{}").orEmpty())
+        val all = book.editions.values.flatten() + historical.keys().asSequence().map { Chapter(it, 0, "", it, 0.0, historical.getString(it)) }.toList()
+        val other = books.filter { it.id != book.id }.flatMap { it.editions.values.flatten() }
+        val otherFiles = prefs.all.keys.filter { it.startsWith("files:$account:") && it != targetKey }.map { key -> JSONObject(prefs.getString(key, "{}").orEmpty()) }
+        val keepFiles = other.map { it.checksum }.toSet() + otherFiles.flatMap { obj -> obj.keys().asSequence().map { obj.getString(it) }.toList() }
+        val keepAssemblies = other.map { it.assembly }.toSet() + otherFiles.flatMap { it.keys().asSequence().toList() }
+        val edit = prefs.edit().remove(targetKey)
+        book.editions.keys.forEach { edition -> edit.putBoolean("selection:$account:${book.id}:$edition", false).putBoolean("paused:$account:${book.id}:$edition", true) }
+        prefs.all.keys.filter { it.startsWith("selection:$account:${book.id}:") || it.startsWith("paused:$account:${book.id}:") }.forEach { key -> edit.putBoolean(key, key.startsWith("paused:")) }
+        all.filter { it.assembly !in keepAssemblies }.forEach { edit.remove("ready:${it.assembly}") }
+        prefs.all.keys.filter { it.startsWith("progress:${book.id}:") }.forEach { edit.remove(it) }
+        check(edit.commit())
+        synchronized(fileLock) {
+            val dir = File(root, account)
+            all.filter { Regex("[a-f0-9]{64}").matches(it.checksum) && it.checksum !in keepFiles }.forEach { chapter ->
+                File(dir, "${chapter.checksum}.mp3").delete(); File(dir, "${chapter.checksum}.part").delete()
+            }
+        }
+        status("Downloads cleared for ${book.title}. Your listening place is kept.")
     }
     fun requested(story: String, edition: String) = prefs.getBoolean(selectionKey(story, edition), false)
     fun paused(story: String, edition: String) = prefs.getBoolean(pauseKey(story, edition), false)
@@ -70,7 +96,7 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
         prefs.edit().putBoolean(selectionKey(story, edition), false).putBoolean(pauseKey(story, edition), true).apply()
         progress(story, edition, "Downloads paused")
     }
-    fun ready(chapter: Chapter) = chapter.checksum.isNotEmpty() && prefs.getBoolean("ready:${chapter.assembly}", false)
+    fun ready(chapter: Chapter) = chapter.checksum.isNotEmpty() && prefs.getBoolean("ready:${chapter.assembly}", false) && directory()?.let { File(it, "${chapter.checksum}.mp3").isFile } == true
     fun progress(story: String, edition: String): JSONObject = runCatching { JSONObject(prefs.getString("progress:$story:$edition", "{}").orEmpty()) }.getOrDefault(JSONObject())
     fun progress(story: String, edition: String, status: String, bytes: Long = 0, totalBytes: Long = -1, chapter: String = "", retry: Boolean = false) {
         prefs.edit().putString("progress:$story:$edition", JSONObject().put("status", status).put("bytes", bytes).put("totalBytes", totalBytes).put("chapter", chapter).put("retry", retry).toString()).apply()
@@ -79,7 +105,7 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
         if (uri.scheme != "https" || uri.host != Uri.parse(BuildConfig.LISTENER_URL).host) return uri
         val match = Regex("/api/listener/stories/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)/audio/([a-f0-9]{64})").matchEntire(uri.path.orEmpty()) ?: return uri
         val books = ListenerStore.get(context).library()?.let(::booksFromJson) ?: return uri
-        val chapter = books.find { it.id == match.groupValues[1] }?.editions?.get(match.groupValues[2])?.find { it.assembly == match.groupValues[3] } ?: return uri
+        val chapter = books.find { it.id == match.groupValues[1] }?.editions?.get(match.groupValues[2])?.find { it.assembly == match.groupValues[3] } ?: ownedFiles(match.groupValues[1]).optString(match.groupValues[3]).takeIf { Regex("[a-f0-9]{64}").matches(it) }?.let { checksum -> Chapter("", 0, "", match.groupValues[3], 0.0, checksum) } ?: return uri
         return file(chapter)?.let(Uri::fromFile) ?: uri
     }
     fun file(chapter: Chapter): File? {
@@ -92,9 +118,10 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
     }
     suspend fun download(token: String, selection: Selection, onProgress: (Long, Long) -> Unit = { _, _ -> }): Boolean = withContext(Dispatchers.IO) {
         val chapter = selection.chapter
-        if (file(chapter) != null) return@withContext true
+        if (file(chapter) != null) { rememberFile(selection); return@withContext true }
         check(Regex("[a-f0-9]{64}").matches(chapter.checksum)) { "Chapter checksum is missing" }
         val dir = directory() ?: error("Sync your library first")
+        rememberFile(selection)
         check(dir.mkdirs() || dir.isDirectory)
         val remaining = limitGb().toLong() * 1024 * 1024 * 1024 - root.walkTopDown().filter { it.isFile && it.extension != "part" }.sumOf { it.length() }
         if (remaining <= 0 || dir.usableSpace < 512L * 1024 * 1024) return@withContext false

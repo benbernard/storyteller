@@ -1,0 +1,98 @@
+{
+  "repository": "https://github.com/google/material-design-icons",
+  "commit": "49d4db35df873165d6bd6ba09b063c7dafbac2f4",
+  "license": "Apache-2.0",
+  "style": "Material Icons filled, matching existing Android Compose Replay/Forward30/PlayArrow/Pause/Undo",
+  "files": [
+    {
+      "file": "LICENSE",
+      "bytes": 11357,
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "file": "forward_30.svg",
+      "bytes": 974,
+      "sha256": "6be0829ab48df764adbd820437d0fef3131af4557b9398b7681ba2ea556f0b9e"
+    },
+    {
+      "file": "headset.svg",
+      "bytes": 283,
+      "sha256": "f38b5077f926b93ae1693f1726952e24b8d03d745e717eeaad2cfa8d05db1766"
+    },
+    {
+      "file": "pause.svg",
+      "bytes": 169,
+      "sha256": "e761b758c1062e3aed85186ded662bf63dc7ee7f2e495d5feddc5041fe9ccd73"
+    },
+    {
+      "file": "play_arrow.svg",
+      "bytes": 151,
+      "sha256": "39d601c1d4199c5cadddf5f96a1f57157147d1eedc7a147cdadc29805c6d5fea"
+    },
+    {
+      "file": "replay.svg",
+      "bytes": 239,
+      "sha256": "a0de348433c861e90cfd24ff6a43f27c30ab3cf57caa8dfdb977916ea0b69250"
+    },
+    {
+      "file": "speaker.svg",
+      "bytes": 396,
+      "sha256": "1333807f3b3cd08a47bfd82fea144ee9ea6be88d98924527eb8224653a57e9db"
+    },
+    {
+      "file": "undo.svg",
+      "bytes": 280,
+      "sha256": "27e60a2dca53920a90e20ea71eade5c1ba85765b5c52704cfbf1fa2e0c529b0f"
+    },
+    {
+      "file": "settings.svg",
+      "bytes": 1039,
+      "sha256": "86a35d4b8dd844c6a89f6b195b1600367cb52b8465847a0e7bbc8b3365c3983d"
+    },
+    {
+      "file": "expand_more.svg",
+      "bytes": 182,
+      "sha256": "fe0ef658114738f046347758fc2f00dddd7e98fadc930048e34675d9153472ac"
+    },
+    {
+      "file": "search.svg",
+      "bytes": 372,
+      "sha256": "c25d4cdca9972ef7ed9f8e9f32553d0444afd6a7cf8cc6ca9eebf5b4073ef308"
+    },
+    {
+      "file": "refresh.svg",
+      "bytes": 340,
+      "sha256": "48954ebff577688aa2c6d5816133726035103938ab766f6f8763a5da6d0e5fb9"
+    },
+    {
+      "file": "arrow_back.svg",
+      "bytes": 198,
+      "sha256": "e1590e051f577d02ec994e7cc6005a2bc96407a3d1ba2d7ce6825fb80402684c"
+    },
+    {
+      "file": "more_vert.svg",
+      "bytes": 283,
+      "sha256": "4f59e208f5babcf58c07505356ca1f109a9e1972e839b991dff19f709a28eeba"
+    },
+    {
+      "file": "flag.svg",
+      "bytes": 174,
+      "sha256": "3c565c9f14776d2f5c469c117373337df66d0db87a8499492829d09f1bccc4f6"
+    },
+    {
+      "file": "check_circle_outline.svg",
+      "bytes": 324,
+      "sha256": "f50727d9236904497627c3f584f81bae53f2b9103eb56d6c0cdf82d1ea1d34ab"
+    },
+    {
+      "file": "check_circle.svg",
+      "bytes": 254,
+      "sha256": "8cc55033374cb5a5d09fd396e4831ed12ca4915184832856de9e1006fc3b25c2"
+    },
+    {
+      "file": "history.svg",
+      "bytes": 362,
+      "sha256": "3d63bf10617ed68dde0d0c99d5d38892317a6439d6582f30b08bc3727cb26f14"
+    }
+  ]
+}

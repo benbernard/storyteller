@@ -111,3 +111,15 @@ test('explicit repair jobs pin original assemblies and cannot overlap active sto
     assert.throws(() => queue.repair('owner', 'rr-12', { c1: 'old' }, 'Again'), /active/);
   } finally { queue.close(); await rm(path, { recursive: true, force: true }); }
 });
+
+test('pausing automatic checks leaves the active job running until an explicit cancel', async () => {
+  const path = await mkdtemp(join(tmpdir(), 'library-pause-')); const queue = new LibraryQueue(path);
+  try {
+    const input = { url:'https://www.royalroad.com/fiction/12', enabled:true, mode:'buffer' as const, buffer:5, intervalHours:6 };
+    queue.follow('owner', input); queue.lease('worker'); const job = queue.claim('worker')!;
+    queue.follow('owner', {...input,enabled:false});
+    assert.equal(queue.get(job.id)?.status,'running');assert.equal(queue.get(job.id)?.cancel,false);
+    assert.equal(queue.follows('owner')[0]!.enabled,false);
+    queue.action('owner',job.id,'cancel'); assert.equal(queue.get(job.id)?.cancel,true);
+  } finally {queue.close();await rm(path,{recursive:true,force:true});}
+});

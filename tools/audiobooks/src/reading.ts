@@ -3,7 +3,7 @@ import { type BookChapter } from './book.js';
 import { Store, sha } from './store.js';
 
 export type Passage = { id: string; start: number; end: number; text: string; startOffset: number; endOffset: number; speakers: string[]; spans: string[]; sectionKind?: 'author-note' };
-export type Reading = { assembly: string; source: string; chapterId: string; title: string; url: string; duration: number; text: string; passages: Passage[]; sectionMetadataVersion: 1 };
+export type Reading = { assembly: string; source: string; chapterId: string; title: string; url: string; duration: number; text: string; passages: Passage[]; sectionMetadataVersion: 1; checksum: string; sequence: number };
 
 /** Positive section tags only; include the verified short join after a note. */
 export function authorNoteRanges(value: Pick<Reading, 'duration' | 'passages'>): { start: number; end: number }[] {
@@ -46,7 +46,7 @@ export async function reading(store: Store, assembly: Assembly, chapter: BookCha
       spans: segment.spans.map(s => s.uid), speakers: segment.presentation ? [segment.presentation.speaker] : [...new Set(segment.spans.map(s => analysis?.spans.find(a => a.uid === s.uid)?.speaker).filter((s): s is string => !!s))] };
   });
   if (offset !== source.text.length || passages.filter((_, i) => !assembly.timeline[i]!.presentation).map(p => p.text).join('') !== source.text) throw new Error('Incomplete source timeline');
-  return { assembly: assembly.id, source: assembly.source, chapterId: chapter.id, title: chapter.title, url: source.url, duration: assembly.duration, text: source.text, passages, sectionMetadataVersion: 1 };
+  return { checksum: chapter.checksum, sequence: chapter.sequence, assembly: assembly.id, source: assembly.source, chapterId: chapter.id, title: chapter.title, url: source.url, duration: assembly.duration, text: source.text, passages, sectionMetadataVersion: 1 };
 }
 
 // A join pause belongs to the preceding passage; the next highlights at its actual start.

@@ -23,10 +23,12 @@ export class ListeningHistory {
     if (old) { if (old.identity !== identity) throw new Error('bad_request'); return; }
     this.db.prepare('INSERT INTO locations(owner,event_id,story,identity,body) VALUES(?,?,?,?,?)').run(owner, event.eventId, event.location.story, identity, JSON.stringify(event));
   }
-  list(owner: string, story: string | undefined, before: number, limit = 50) {
+  list(owner: string, story: string | undefined, before: number, limit = 50, jumpsOnly = false) {
+    const condition = jumpsOnly ? " AND json_type(body,'$.from')='object' AND json_extract(body,'$.reason') IN ('seek','passage','chapter','restore')" : '';
+    const storyColumn = jumpsOnly ? "json_extract(body,'$.from.story')" : 'story';
     const rows = story
-      ? this.db.prepare('SELECT sequence,body FROM locations WHERE owner=? AND story=? AND sequence<? ORDER BY sequence DESC LIMIT ?').all(owner, story, before, limit + 1)
-      : this.db.prepare('SELECT sequence,body FROM locations WHERE owner=? AND sequence<? ORDER BY sequence DESC LIMIT ?').all(owner, before, limit + 1);
+      ? this.db.prepare(`SELECT sequence,body FROM locations WHERE owner=? AND ${storyColumn}=? AND sequence<?${condition} ORDER BY sequence DESC LIMIT ?`).all(owner, story, before, limit + 1)
+      : this.db.prepare(`SELECT sequence,body FROM locations WHERE owner=? AND sequence<?${condition} ORDER BY sequence DESC LIMIT ?`).all(owner, before, limit + 1);
     const entries = (rows as { body: string; sequence: number }[]).slice(0, limit).map(r => ({ ...JSON.parse(String(r.body)) as LocationEvent, sequence: Number(r.sequence) }));
     return { entries, before: rows.length > limit ? entries.at(-1)!.sequence : null };
   }
