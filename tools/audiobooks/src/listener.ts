@@ -95,7 +95,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         if (method !== 'GET' && method !== 'HEAD' && request.headers.origin !== origin) { json(response, 403, { error: 'Origin mismatch.' }); return; }
       } else {
         const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
-        if (token) { const device = await state.read<Device>(`devices/${sha(token)}.json`); if (device && !device.revoked) owner = device.owner; }
+        if (token) { const device = await state.read<Device>(`devices/${sha(token)}.json`); if (device && (!device.revoked || (route === '/devices/revoke' && method === 'POST'))) owner = device.owner; }
       }
       if (!web && route.startsWith('/signin/') && method === 'POST') {
         if (route === '/signin/start') {

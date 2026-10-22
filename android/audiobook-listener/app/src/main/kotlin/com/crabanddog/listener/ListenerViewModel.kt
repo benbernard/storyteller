@@ -149,7 +149,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         if (!mutable.value.connected || mutable.value.loading) return
         val data = api.call("/library")
         val changed = mutable.value.books != booksFromJson(data)
-        store.library(data); load(data); loadCatalog()
+        store.library(data); load(data); loadCatalog(); mutable.value = mutable.value.copy(offline = false)
         if (changed) OfflineAudio.schedule(getApplication())
     }
     suspend fun poll() { runCatching { pollLibrary() } }

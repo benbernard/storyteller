@@ -56,7 +56,7 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
     fun clear() {
         pause(); synchronized(fileLock) { root.deleteRecursively() }
         val edit = prefs.edit().remove("retry-chapters")
-        prefs.all.keys.filter { it.startsWith("ready:") || it.startsWith("progress:") }.forEach { edit.remove(it) }
+        prefs.all.keys.filter { it.startsWith("ready:") || it.startsWith("progress:") || it.startsWith("files:") }.forEach { edit.remove(it) }
         edit.apply(); progress(0, 0); status("Downloaded audio cleared. Downloads are paused.")
     }
     private fun filesKey(story: String) = "files:${account()}:$story"

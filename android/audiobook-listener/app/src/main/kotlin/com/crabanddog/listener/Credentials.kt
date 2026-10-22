@@ -33,5 +33,5 @@ class Credentials(context: Context) {
     fun pending(): org.json.JSONObject? = readSlot("signin")?.let { runCatching { org.json.JSONObject(it) }.getOrNull() }
     fun pending(value: org.json.JSONObject) = writeSlot("signin", value.toString())
     fun clearPending() { check(prefs.edit().remove("signin").commit()) }
-    fun clear() { prefs.edit().clear().apply() }
+    fun clear() { check(prefs.edit().clear().commit()) }
 }

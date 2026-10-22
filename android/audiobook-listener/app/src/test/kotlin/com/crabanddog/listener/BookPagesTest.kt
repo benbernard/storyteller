@@ -102,4 +102,10 @@ class BookPagesTest {
         compose.setContent { ListenerTheme { DownloadsPage(book, audio, {}) } }
         compose.onNodeWithText("0 of 1 chapters downloaded").assertIsDisplayed()
     }
+    @Test fun signOutCleanupRemovesHistoricalFileOwnershipMetadata() {
+        val audio = OfflineAudio(compose.activity)
+        audio.prefs.edit().putString("files:${"c".repeat(64)}:${book.id}", "{\"old\":\"checksum\"}").commit()
+        audio.clear()
+        assertTrue(audio.prefs.all.keys.none { it.startsWith("files:") })
+    }
 }

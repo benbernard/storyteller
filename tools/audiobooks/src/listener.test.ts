@@ -176,6 +176,8 @@ test('device pairing requires browser confirmation and secret; revoked devices c
   const auth = { ...web, Authorization: `Bearer ${result.token}` };
   assert.equal((await fetch(base + '/api/listener/library', { headers: auth })).status, 200);
   assert.equal((await post(base, '/api/listener/devices/revoke', {}, auth)).status, 200);
+  assert.equal((await post(base, '/api/listener/devices/revoke', {}, auth)).status, 200, 'Lost sign-out response can retry only its own revocation');
+  assert.equal((await fetch(base + '/api/listener/library', {headers: auth})).status, 401);
   assert.equal((await fetch(base + '/api/listener/library', { headers: auth })).status, 401);
   assert.equal((await post(base, '/api/listener/pair/poll', { code: pair.code, secret })).status, 410);
 }));
