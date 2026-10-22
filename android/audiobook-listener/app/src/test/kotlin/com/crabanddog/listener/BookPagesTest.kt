@@ -49,7 +49,7 @@ class BookPagesTest {
         var retried = false
         val source = source().put("job", JSONObject().put("id", "job").put("status", "failed").put("phase", "Needs attention").put("error", "Worker unavailable"))
         compose.setContent { ListenerTheme { PreparationPage(book, source, ListenerUiState(canManage = true, canGenerate = true), {}, { id, action -> retried = id == "job" && action == "retry" }, {}) } }
-        compose.onNodeWithText("Retry").performScrollTo().performClick()
+        compose.onNodeWithText("Retry preparation").performScrollTo().performClick()
         compose.runOnIdle { assertTrue(retried) }
         compose.onNodeWithText("Worker unavailable").assertIsDisplayed()
     }
@@ -91,6 +91,31 @@ class BookPagesTest {
         assertTrue(File(elsewhere, "${chapter.checksum}.mp3").exists()); assertFalse(audio.selected(target, "qwen")); assertFalse(audio.selected(target, "flash")); assertTrue(audio.selected(other, "v3"))
         assertEquals(42.0, store.position(selection), .001)
     }
+    @Test fun pausingRetainsOfflineIntentAndHistoricalPartialsCanBeCleared() {
+        val audio = OfflineAudio(compose.activity)
+        audio.select(book, "qwen", true)
+        audio.pause(book.id, "qwen")
+        assertTrue(audio.kept(book, "qwen")); assertFalse(audio.selected(book, "qwen"))
+        val oldChecksum = "9".repeat(64)
+        val dir = File(compose.activity.filesDir, "offline-audio/${"c".repeat(64)}").apply { mkdirs() }
+        val partial = File(dir, "$oldChecksum.part").apply { writeText("partial") }
+        audio.prefs.edit().putString("files:${"c".repeat(64)}:${book.id}", JSONObject().put("old-assembly", oldChecksum).toString()).commit()
+        assertTrue(audio.hasBookDownloads(book))
+        audio.clearBook(book, listOf(book))
+        assertFalse(partial.exists()); assertFalse(audio.hasBookDownloads(book)); assertFalse(audio.kept(book, "qwen"))
+    }
+    @Test fun savedByteCountVerifiesDataAndDeduplicatesSharedRecordings() {
+        val audio = OfflineAudio(compose.activity)
+        val bytes = "verified audio fixture".toByteArray()
+        val checksum = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        val recording = chapter.copy(checksum = checksum)
+        val dir = File(compose.activity.filesDir, "offline-audio/${"c".repeat(64)}").apply { mkdirs() }
+        val file = File(dir, "$checksum.mp3").apply { writeBytes(bytes) }
+        assertEquals(bytes.size.toLong(), audio.savedBytes(listOf(recording, recording.copy(assembly = "9".repeat(64)))))
+        file.writeText("corrupt")
+        assertEquals(0L, audio.savedBytes(listOf(recording)))
+        assertFalse(file.exists())
+    }
     @Test fun downloadChoicesStayWithAccount() {
         val store = ListenerStore.get(compose.activity); val audio = OfflineAudio(compose.activity)
         audio.select(book, "qwen", true)
@@ -101,7 +126,7 @@ class BookPagesTest {
         val audio = OfflineAudio(compose.activity); audio.prefs.edit().putBoolean("ready:${chapter.assembly}", true).commit()
         assertFalse(audio.ready(chapter))
         compose.setContent { ListenerTheme { DownloadsPage(book, audio, {}) } }
-        compose.onNodeWithText("0 of 1 chapters downloaded").assertIsDisplayed()
+        compose.onNodeWithText("0 of 1 chapters").assertIsDisplayed()
     }
     @Test fun signOutCleanupRemovesHistoricalFileOwnershipMetadata() {
         val audio = OfflineAudio(compose.activity)
@@ -115,13 +140,13 @@ class BookPagesTest {
         compose.setContent { ListenerTheme { PreparationPage(book, source().put("job", work.value), ListenerUiState(canManage = true, canGenerate = true), {}, { _, action -> requested = action == "cancel" }, {}) } }
         compose.onNodeWithText("Cancel job").performScrollTo().performClick()
         compose.runOnIdle { assertTrue(requested) }
-        compose.onNodeWithText("Cancelled").assertDoesNotExist()
+        compose.onNodeWithText("Preparation cancelled").assertDoesNotExist()
         compose.runOnIdle { work.value = JSONObject(work.value.toString()).put("cancel", true) }
         compose.onNodeWithText("Cancellation requested").assertIsDisplayed()
-        compose.onNodeWithText("Cancelled").assertDoesNotExist()
+        compose.onNodeWithText("Preparation cancelled").assertDoesNotExist()
         compose.runOnIdle { work.value = JSONObject(work.value.toString()).put("status", "cancelled") }
-        compose.onNodeWithText("Cancelled").assertIsDisplayed()
+        compose.onNodeWithText("Preparation cancelled").assertIsDisplayed()
         compose.onNodeWithText("Generating chapter 2").assertDoesNotExist()
-        compose.onNodeWithText("Retry").assertIsDisplayed()
+        compose.onNodeWithText("Retry preparation").assertIsDisplayed()
     }
 }

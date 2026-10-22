@@ -1,0 +1,3359 @@
+{
+  "provenance": "Synthetic books and chapter text from the owner-approved Listener flow-review, 2026-10-21. No production data.",
+  "books": [
+    {
+      "id": "lighthouse",
+      "title": "The Lighthouse Letters",
+      "author": "Mara Ellis",
+      "art": "lighthouse",
+      "ready": true,
+      "started": true,
+      "position": "Chapter 12 · 8:16",
+      "unplayed": 17,
+      "left": "4h 12m",
+      "downloaded": true,
+      "description": "A letter leads June to the lighthouse, and to a secret that the town has kept for years.",
+      "initialChapter": 12,
+      "initialAnchor": 2,
+      "initialOffset": 0,
+      "totalChapters": 28,
+      "chapterList": [
+        {
+          "number": 11,
+          "title": "Under the old bridge",
+          "status": "Finished"
+        },
+        {
+          "number": 12,
+          "title": "The keeper’s last letter"
+        },
+        {
+          "number": 13,
+          "title": "Out past the harbour"
+        }
+      ]
+    },
+    {
+      "id": "tides",
+      "title": "A Map of Tides",
+      "author": "Owen Mercer",
+      "art": "tides",
+      "ready": true,
+      "started": true,
+      "position": "Chapter 4 · 2:38",
+      "unplayed": 9,
+      "left": "2h 46m",
+      "downloaded": false,
+      "description": "An old chart marks an island that disappears with the tide. One sailor decides to wait for it.",
+      "initialChapter": 4,
+      "initialAnchor": 0,
+      "initialOffset": 158,
+      "totalChapters": 14,
+      "editions": {
+        "v3": {
+          "name": "v3",
+          "starts": [
+            0,
+            180,
+            420,
+            600
+          ],
+          "duration": 780
+        },
+        "flash": {
+          "name": "Flash",
+          "starts": [
+            0,
+            200,
+            450,
+            650
+          ],
+          "duration": 840
+        },
+        "qwen": {
+          "name": "Qwen local",
+          "starts": [
+            0,
+            190,
+            435,
+            620
+          ],
+          "duration": 810
+        }
+      },
+      "chapters": {
+        "3": {
+          "title": "The missing island",
+          "paragraphs": [
+            "Ivo spread the chart across the cabin table. The island was drawn in pale blue ink, just beyond the line where his father had marked the deepest water. No other chart showed it. He placed a cup over the curling corner and looked again.",
+            "At the harbour office, the clerk had only shaken her head. Boats went around that stretch of coast, she said. Ivo asked what they were avoiding. She turned the map toward the window, as if better light might change the answer.",
+            "By evening he had packed enough water for three days. The small compass went into the breast pocket of his coat. His father had carried it for forty years, and the lid still closed with the same soft click.",
+            "He left before the first fishing boat came back. From the harbour wall, the clerk raised one hand. Ivo could not tell whether she was waving him off or asking him to wait. The wind had already taken the boat beyond her voice."
+          ]
+        },
+        "4": {
+          "title": "Where the water turns",
+          "paragraphs": [
+            "The wind dropped as Ivo passed the last buoy. Ahead, the water changed from slate grey to a clear, unlikely green. He lowered the sail and watched the current carry a line of foam toward an empty patch of sea.",
+            "He checked the chart against the compass. Both agreed that the island should be directly ahead. For a moment he thought he could smell woodsmoke. Then the boat turned, and the smell was gone.",
+            "Beneath the surface, a pale shape moved with the tide. It was too still to be a fish. Ivo leaned over the side until the cold edge of the gunwale pressed against his ribs. A flight of stone steps was rising out of the green.",
+            "He tied the boat to the highest step and waited. With every retreating wave, another part of the shore appeared. By the time he could see the door in the cliff, he understood why his father had written the time beside the island."
+          ]
+        },
+        "5": {
+          "title": "The tide house",
+          "paragraphs": [
+            "The door opened inward without a sound. Ivo stood in a room that smelled of salt and dry paper. Shelves climbed the walls, each one filled with jars of clear water. A lamp burned on the desk, although there was no one beside it.",
+            "He found his name on the first page of the open ledger. Under it was the name of his boat, the date, and the hour he had left the harbour. The ink was still wet enough to shine.",
+            "Outside, a bell began to ring beneath the water. Ivo went back to the doorway. The steps were disappearing again, one by one. His boat rose and fell against the rope, patient as a hand waiting to be taken.",
+            "He put the ledger inside his coat and ran. Only when the island was behind him did he open it again. There was a second line beneath his name now. It gave the hour he would return."
+          ]
+        }
+      },
+      "chapterList": [
+        {
+          "number": 3,
+          "title": "The missing island",
+          "status": "Finished"
+        },
+        {
+          "number": 4,
+          "title": "Where the water turns"
+        },
+        {
+          "number": 5,
+          "title": "The tide house"
+        }
+      ]
+    },
+    {
+      "id": "orchard",
+      "title": "The Glass Orchard",
+      "author": "Livia Reed",
+      "art": "orchard",
+      "ready": true,
+      "started": false,
+      "position": "Not started",
+      "unplayed": 24,
+      "left": "8h 20m",
+      "downloaded": true,
+      "repair": "Audio updating · 6 of 24 chapters",
+      "description": "In a glasshouse above the valley, a gardener begins to notice memories growing among the branches.",
+      "initialChapter": 1,
+      "initialAnchor": 0,
+      "initialOffset": 0,
+      "totalChapters": 24,
+      "editions": {
+        "v3": {
+          "name": "v3",
+          "starts": [
+            0,
+            180,
+            360,
+            600
+          ],
+          "duration": 780
+        },
+        "qwen": {
+          "name": "Qwen local",
+          "starts": [
+            0,
+            200,
+            400,
+            650
+          ],
+          "duration": 840
+        }
+      },
+      "chapters": {
+        "1": {
+          "title": "The first glasshouse",
+          "paragraphs": [
+            "Lena arrived at the orchard with rain in her hair and the key warm inside her glove. The glasshouse stood above the valley, its roof catching the last light. Someone had opened every window except the small round one above the door.",
+            "Inside, the trees were in flower. It was the wrong season for blossom, but the air smelled exactly like the kitchen of the house where she had grown up. She stopped beside the nearest branch and listened to a kettle that was not there.",
+            "A notebook lay on the potting bench. The first page held a list of chores in her aunt’s careful handwriting. Water the south beds. Open the vents at noon. Do not pick anything before you remember why you came.",
+            "Lena read the last line again. In the quiet beyond the bench, a pear fell softly onto the path. It was green and perfect, with a small brown mark near the stem that she knew she had seen before."
+          ]
+        },
+        "2": {
+          "title": "Fruit out of season",
+          "paragraphs": [
+            "By morning, the rain had left bright beads along the glass. Lena carried the watering can between the trees. Whenever she passed beneath the oldest pear, she heard a chair scrape across a floor that had been pulled up twenty years ago.",
+            "She tried to write the sound down. The words looked ordinary on the page. Then the tree beside her moved, though none of the windows was open, and a blossom landed between the lines.",
+            "At the gate, a boy waited with an empty basket. He asked whether the harvest had started. Lena told him she had only just arrived. He looked past her at the glasshouse and said that was what everyone said the first time.",
+            "She let him fill his basket from the lower branches. Before leaving, he put one pear back on the bench. This one belongs to you, he said. Lena knew its weight before she lifted it."
+          ]
+        },
+        "3": {
+          "title": "A remembered room",
+          "paragraphs": [
+            "The pear tasted of late summer. Lena closed her eyes and found herself standing in the old kitchen, with afternoon light on the tiles. Her aunt was at the sink, younger than Lena remembered, turning a cup between both hands.",
+            "Nothing in the room seemed surprised to see her. The clock ticked above the stove. Beyond the window, a bicycle lay in the grass. Lena could almost hear the words her aunt was about to say.",
+            "Then the cup slipped. Lena reached for it, and her hand closed around a branch in the glasshouse. The watering can lay on its side at her feet. Outside, the valley was full of morning light.",
+            "She sat on the bench until her hands stopped shaking. In the notebook, beneath the list of chores, a new sentence had appeared. This time, she was certain it had not been there before."
+          ]
+        }
+      },
+      "chapterList": [
+        {
+          "number": 1,
+          "title": "The first glasshouse"
+        },
+        {
+          "number": 2,
+          "title": "Fruit out of season"
+        },
+        {
+          "number": 3,
+          "title": "A remembered room"
+        }
+      ]
+    },
+    {
+      "id": "midnight",
+      "title": "The Midnight Line",
+      "author": "Elias Hart",
+      "art": "midnight",
+      "ready": false,
+      "started": false,
+      "position": "Preparing audio",
+      "unplayed": 0,
+      "left": "",
+      "downloaded": false,
+      "description": "A night train makes one extra stop, at a station no timetable remembers."
+    }
+  ],
+  "chapters": {
+    "11": {
+      "title": "Under the old bridge",
+      "paragraphs": [
+        "The old bridge creaked beneath June’s feet. The tide had left silver ribbons of water between the stones, and every step sent a little shiver through their reflections. From here she could see the lighthouse above the roofs, its windows catching the last of the afternoon sun.",
+        "A letter lay on the lowest step, just beyond the reach of the tide. Someone had weighted it with a piece of green glass. June looked back toward the road, expecting to find its owner watching from the bend, but the road was empty.",
+        "She recognised the handwriting before she read the name. The long tail of the final letter, the way the ink gathered at the ends of the lines: she had seen both on the postcards her father kept beside his bed. None of those postcards had ever mentioned this town.",
+        "For a while she stayed where she was. A fishing boat passed under the bridge, and its wake lifted the water almost to her shoes. The man at the wheel raised a hand. June raised hers in return, with the unopened envelope hidden against her coat.",
+        "The address was the lighthouse. Beneath it, in smaller writing, someone had added a request to come before the light was lit. She checked the sky. There was still time, if she took the steep path beyond the harbour rather than the long road around the hill.",
+        "She tucked the envelope inside her coat and turned toward the lighthouse. Behind her, the piece of green glass flashed once in the sun. She went back for it, although she could not have said why, and slipped it into the same pocket."
+      ]
+    },
+    "12": {
+      "title": "The keeper’s last letter",
+      "paragraphs": [
+        "By the time June reached the lighthouse, the door had been open for an hour. A pair of boots stood beneath the coat hooks, with a neat fan of sand around their soles. On the table was a cup of tea that had gone cold. Everything suggested that someone had only just stepped outside.",
+        "She stood on the threshold, listening. Somewhere above her, the machinery turned with its familiar, patient rhythm. Beyond the open kitchen window she could hear a loose rope tapping against the flagpole. She called the keeper’s name once, then waited until the sound of it had left the stairwell.",
+        "June unfolded the letter. The paper was thin enough to show the light through it. The first line was not addressed to her, but the second made her sit down. She read that line twice, then set the envelope beside the cold cup so that neither hand would hide the words.",
+        "The light swept across the harbour for the third time. Below it, the boats pulled at their moorings, restless as sleeping animals. June remembered the fishing boat beneath the bridge and the man who had raised his hand. Perhaps he had known where she was going. Perhaps everyone in the town had known.",
+        "She walked to the kitchen window. The last ferry was still at the pier, a square of yellow light beneath the darkening hill. If she left now, she could be on it before anyone noticed the open door. She had the timetable folded in her bag, beside a ticket she had bought that morning.",
+        "Instead, she returned to the table. There was another sheet beneath the first, covered in a careful drawing of the shoreline. Most of the landmarks were familiar. One was not: a narrow inlet marked with a circle, beyond the headland where the old charts showed only rock.",
+        "At the bottom of the drawing the keeper had written a time. June compared it with the clock above the stove. The difference was less than an hour. She took the piece of green glass from her pocket and placed it over the circle, where it made the pale ink look as deep as water.",
+        "Outside, a gull called from the roof. June folded both sheets along their old creases, put them back in the envelope, and stood. This time she took the key from the hook beside the door. The boots could stay where they were. She would need her own for the path down."
+      ]
+    },
+    "13": {
+      "title": "Out past the harbour",
+      "paragraphs": [
+        "The path down from the lighthouse was narrower than June remembered. Brambles caught at her sleeves, and the town lights appeared and disappeared between the branches. She kept one hand on the rail until the rail ended. After that, she let the sound of the water guide her.",
+        "At the bottom of the hill, a small boat waited beside the steps. Its painter was tied with the same loose knot her father had used on everything from parcels to garden gates. June stopped before touching it. There were coincidences, she told herself, and then there were invitations.",
+        "The oars had been laid across the seats. Beneath one of them was a waterproof coat, folded so that the bright lining faced upward. There was no note. June looked back up the hill. From this angle the lighthouse window was a single white point, steady against the evening sky.",
+        "She untied the painter and held it while the boat moved into the deeper water beside the steps. For the first time that day she thought about what she would say when she found someone who could answer her questions. Every version began differently. Every version ended with the letter.",
+        "The harbour fell quiet behind her. A line of ripples reached across the channel, carrying the last reflections from the pier. She followed them until the ferry lights disappeared around the headland. Then she took the drawing from her pocket and found the small circle beneath the green glass.",
+        "Beyond the headland, the inlet opened exactly where the drawing said it would. June rested the oars and let the boat drift. On the shore ahead of her, someone had lit a lamp. Its light was warm enough to make the dark water look almost like a road."
+      ]
+    }
+  },
+  "api": {
+    "library": {
+      "accountKey": "3bbd474727fdfd50604c6bcd96f5d606985d510ad408856f459c8186a033e624",
+      "books": [
+        {
+          "id": "lighthouse",
+          "title": "The Lighthouse Letters",
+          "author": "Mara Ellis",
+          "defaultEdition": "v3",
+          "editions": {
+            "v3": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "Chapter 1",
+                  "assembly": "2c63fd0766718d9ad1eeefd2d5a45070fdd5c6280159fdf308d8168958fccabd",
+                  "duration": 884.75,
+                  "checksum": "548b9394a2d51f7828f7bfd56c7c748b2df3e7725e68d4519afe4feecefcc886"
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Chapter 2",
+                  "assembly": "b9bf545e0bb2d61944d096bec428f26e95e0dcf2e91891ecb7ccf7292b342d21",
+                  "duration": 884.75,
+                  "checksum": "14bf791221daea5ad85ee27cba4f31a5169c455cacba1851a84514091853c96b"
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "Chapter 3",
+                  "assembly": "caca53b9d9e691909d5414a6bdca4ee168347016d1a53038776787a968482c87",
+                  "duration": 884.75,
+                  "checksum": "3a683e5a03504201597d128b0efd2531fce371611ffe73be2b1bba5c6921180b"
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Chapter 4",
+                  "assembly": "0459e638b0d0028ef0c703d8a0de1041a730a1a02714461fa1812b33cc47841a",
+                  "duration": 884.75,
+                  "checksum": "e163dc7de7cb8edf06348fba9b9b4cfa639c03fced159927f203c5f89d3c0c66"
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "Chapter 5",
+                  "assembly": "f8b962e85babe97f90c87e5385edd0b91a0376514e95b946199df9448e693fb8",
+                  "duration": 884.75,
+                  "checksum": "78aca3a8022f4e5ec862f7947a2267480aca431c9125fbdd4c47a5a0db35735c"
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "5de1197d1be89a5cb806d625b0cdd0448f0f48f2c0ead950a669673126a0c931",
+                  "duration": 884.75,
+                  "checksum": "4108d304530867344fbf55da3ecaabf0b89eb4a6ca72ccac47965d02d043f827"
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "9791822534229f21e80bf84a2538bde14a05a7c44fe2b3a0b8985887d156956d",
+                  "duration": 884.75,
+                  "checksum": "a184e236d2cf202eb67946d909c73c285db42d1471bd7a7806287de07b06a81e"
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "a8a41690974f82eeed5070ce669bf3851f3b46c7ac76967633116cd25981e348",
+                  "duration": 884.75,
+                  "checksum": "7309900718d12dacafef2debabab1af44bc4fd04f7db54a06f1bc5b84cc8e9fc"
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "c1f69d645c0dfa03001bcf7e8a0d776149776ae1349fb7523c9bde846b67d76b",
+                  "duration": 884.75,
+                  "checksum": "ac6c693974ebda3f1d347a3a560f224c63197b45dfddf9025ddf3d2d95849421"
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "457ab2c79f09afb453e437e63245a5c6bfa9c1835f150709fee53a5b39c103b1",
+                  "duration": 884.75,
+                  "checksum": "7ef88ddecda7a0f1fc8751d3a38a55de53cccc9194b88c94a172dffb9ea305b7"
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Under the old bridge",
+                  "assembly": "7f5f51e1e8f092c6dcd4a4cb8523dc4c09b4b5644003b861d2434f8a9098f3e6",
+                  "duration": 884.75,
+                  "checksum": "618de89130dd13521f6b8003cdb963d18f5f46ee1fd65694851fe071bf1fab5f"
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "The keeper’s last letter",
+                  "assembly": "2195283c2b077376d458498736eafa81ad0a92b0fdc41fb93c3d8b96a3f6b4e8",
+                  "duration": 1460,
+                  "checksum": "215a7439c702454f1cdefbec351335e482ff493826962412ae7ed66b622af890"
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Out past the harbour",
+                  "assembly": "a99912e490213910f6a6a88c3fa2733821999bd3300a523d9cf0d374c94703c3",
+                  "duration": 884.75,
+                  "checksum": "cc49f077b38b856f242d5ad33daf339c7b48035a31a037daff9032dadb1076ca"
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "f24269c74fcc1e6841c99e79b0b71b22107fb7ef430b6eb6c8c9a01017be33c9",
+                  "duration": 884.75,
+                  "checksum": "0abf6b23507c3c97aecf6737b21a183386906f993ce725dc7129060786ec5b2c"
+                },
+                {
+                  "id": "chapter-15",
+                  "sequence": 15,
+                  "title": "Chapter 15",
+                  "assembly": "3ba5a98b524e7c6e5bb5af79409152ee3468db43241f5a2cc132af862831dcc9",
+                  "duration": 884.75,
+                  "checksum": "59c3504fdb9a6b3b86f8c7672d912dae5234b3b352afb419d569e39877f22858"
+                },
+                {
+                  "id": "chapter-16",
+                  "sequence": 16,
+                  "title": "Chapter 16",
+                  "assembly": "59a24f66afabf33b0c243e05d316bb2745117975816112d92c6d6b6b74cdefd1",
+                  "duration": 884.75,
+                  "checksum": "3ed5deb06aa7027173102e0da109ec765683d4fd29b1838031c6e228804409dd"
+                },
+                {
+                  "id": "chapter-17",
+                  "sequence": 17,
+                  "title": "Chapter 17",
+                  "assembly": "8fa98f80c40a9fd97f736c909d922a23c14920907c1f057ff1af43fdf8fffa66",
+                  "duration": 884.75,
+                  "checksum": "e656eea460a5a45be090295c6e784a0754845e5c5269b02fcab26e4286770260"
+                },
+                {
+                  "id": "chapter-18",
+                  "sequence": 18,
+                  "title": "Chapter 18",
+                  "assembly": "f6d76abe6dedf50882e217253678fcc90a44dac60582da0a5593608e085f973d",
+                  "duration": 884.75,
+                  "checksum": "ff43fea363d19d5e6ab05d7894afd34fab9a0c7a530b5a0171fcffefc56f7103"
+                },
+                {
+                  "id": "chapter-19",
+                  "sequence": 19,
+                  "title": "Chapter 19",
+                  "assembly": "2c593dae434bc3eea1cce3ebf3291949bd6d5dd86cc9f758dcb763a4b848dc49",
+                  "duration": 884.75,
+                  "checksum": "d1e7e234a07b8af4b28442e6dea33071da2d67e24508e9fd05d15783082a63b0"
+                },
+                {
+                  "id": "chapter-20",
+                  "sequence": 20,
+                  "title": "Chapter 20",
+                  "assembly": "06716824c5ca81a798e6b0ce7d7b839aeb0c75f426329b3fb0d2ce22eee9d0dc",
+                  "duration": 884.75,
+                  "checksum": "2cd2e72a4f0622d033026bdff983b8c8db13f0fc1381f7f05ec695a32ca8f744"
+                },
+                {
+                  "id": "chapter-21",
+                  "sequence": 21,
+                  "title": "Chapter 21",
+                  "assembly": "4aa4582a8a077a5095adc30cca4cd077d5f9ff19cd3e628c27e2eca62ed159fc",
+                  "duration": 884.75,
+                  "checksum": "766e5d7133ea1afb1cb3f3d0f1fee36931cd1fc7e2a5f090a3fa6e274329e04f"
+                },
+                {
+                  "id": "chapter-22",
+                  "sequence": 22,
+                  "title": "Chapter 22",
+                  "assembly": "3d8b862f0ef4283bb160d9780b4076787cb1ee5fa4a0b01a8783aba4c96e6b09",
+                  "duration": 884.75,
+                  "checksum": "7353a891675ed6d06ad5112c474e0c4abdba4677c562a2c6e32d3939c1ae8c86"
+                },
+                {
+                  "id": "chapter-23",
+                  "sequence": 23,
+                  "title": "Chapter 23",
+                  "assembly": "bc6bad0b355f43be9a78b963c70793016da82bad86d23c033c7e059a7e7adb14",
+                  "duration": 884.75,
+                  "checksum": "c6f2101b0f0cf6081fec15dd2605a810dcfb691b57678d00d8d9dc85ece350b9"
+                },
+                {
+                  "id": "chapter-24",
+                  "sequence": 24,
+                  "title": "Chapter 24",
+                  "assembly": "8b16e0542ff1c0b7dd8f6f385216cc4014042122b37daf02ac9e68a8a7ffb68f",
+                  "duration": 884.75,
+                  "checksum": "17be3d2248eed7396acf5f940d0b970857d087a7dd2b19a7475a76a9ea3497a5"
+                },
+                {
+                  "id": "chapter-25",
+                  "sequence": 25,
+                  "title": "Chapter 25",
+                  "assembly": "c2ac9c3509c9c01c51e8306c3d6bb5d9582f1d96a16d6955cd6a16a26b9569f8",
+                  "duration": 884.75,
+                  "checksum": "17177cfbd82532ff91bb3cac3c340a281fe06d845e9a6a1c4fed32ad2b1dae52"
+                },
+                {
+                  "id": "chapter-26",
+                  "sequence": 26,
+                  "title": "Chapter 26",
+                  "assembly": "f0e519cfe1dcd089a3662b4ec20517583a308b9cf27a9970eaeec9615fbc776b",
+                  "duration": 884.75,
+                  "checksum": "335eeca29f16a9f3ba74449fd3d5e9f5e0f3c78fd0dbd17d42cf8ef96db4a572"
+                },
+                {
+                  "id": "chapter-27",
+                  "sequence": 27,
+                  "title": "Chapter 27",
+                  "assembly": "c39344b96003d85fd4c74e807a8a2cb58ef676c4884904361dd5a737379b225d",
+                  "duration": 884.75,
+                  "checksum": "5dc9b81da5a8643c06a787d9d5909b52eefe2a38428d4327adb33d80eaa80b94"
+                },
+                {
+                  "id": "chapter-28",
+                  "sequence": 28,
+                  "title": "Chapter 28",
+                  "assembly": "c775246af8ff70874e5216baf017d02b13dab16f0cbf1bdde5c6b333cacf5fe1",
+                  "duration": 884.75,
+                  "checksum": "cdcb87b9510516bfe1d80a0bd9ef0e6f2f78b7e2cc5ffbebe16dd13ba70afd33"
+                }
+              ]
+            },
+            "flash": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "Chapter 1",
+                  "assembly": "fb6ba35725e3f9d4904f7f994e9ab59b1a4729c0af7d45935b4672c85326fd0d",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Chapter 2",
+                  "assembly": "581a9cc0a6bd8f3a394092f221c007686b62aa058512d9822adc41720e45b602",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "Chapter 3",
+                  "assembly": "89433be6910b252eb436f65bc392ce91d754f3c35ad096062aa99278fe0997b6",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Chapter 4",
+                  "assembly": "c628835217293a0e6ac7287c2654f4bae12c8e12d8e165fa3c8c602b8720b9ff",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "Chapter 5",
+                  "assembly": "f73f6364547ee9baa122157e312844fce56ff98d087e45294d8ed015d608df49",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "f4bc922f21c2e81cd352ac55a2e80951dfe67e0af5206dbe4dd05bd08c40461a",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "62da17a167137d7cebbd65bb6169d409f072e4283f5f076cf0cbbdc56b89d076",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "724b0aa4895b8478fef97036da222c05cc3067ea13102dbe9f5e7afc1c756739",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "eb8886dd3286d9c59b7e262ebedf879a17efd91aa9509f07405e217c901ac36f",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "ff5be12a6b074ae6ecfba60be82bd6884a01073c4db8dc7b976fe93f0702b7bb",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Under the old bridge",
+                  "assembly": "5b5d103804e432a3d829c48e30ae0c3f3633ae89ef008a1a2034cb9fa2dd882c",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "The keeper’s last letter",
+                  "assembly": "9902c6b07d0c40a9cc837504d44a9fa124ab88bc45966c392d6aae55573742ea",
+                  "duration": 1460
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Out past the harbour",
+                  "assembly": "2f21ca27840182833a71dcebcee5a8f825a220c66a3088db3c3adce794f95c3f",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "e818385680477678e959eb74b1826c8264d8409bce61e4e248646f2da91574d9",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-15",
+                  "sequence": 15,
+                  "title": "Chapter 15",
+                  "assembly": "415149d3c5563c510c026ac7656ee08c9412ba959a2abf6006ef1cc660aa2c41",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-16",
+                  "sequence": 16,
+                  "title": "Chapter 16",
+                  "assembly": "8960860d2719a1445393a0105df57f13590572238a16c0c88471fc4efde745d0",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-17",
+                  "sequence": 17,
+                  "title": "Chapter 17",
+                  "assembly": "4c24dfaccb3cf83eb837b4e9d0b40e2a256a72afccbf5dc4a442eddad8879e79",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-18",
+                  "sequence": 18,
+                  "title": "Chapter 18",
+                  "assembly": "9d321e9ff49c527790857bccfee227b637d38e10081e9f7877e86eab9724f049",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-19",
+                  "sequence": 19,
+                  "title": "Chapter 19",
+                  "assembly": "e5c184f4d773e362af29816cbe89c9865836020eec1b7d7c4512ef0e3a2b4717",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-20",
+                  "sequence": 20,
+                  "title": "Chapter 20",
+                  "assembly": "dee73cc0cd7abc433db87a0008d11530f5f3f6e6962a3900c131a61ac0b73aae",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-21",
+                  "sequence": 21,
+                  "title": "Chapter 21",
+                  "assembly": "48fa0650f0dc3225655ee38c0ea0640b316287e5cc04d3433bad5eb6bff82703",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-22",
+                  "sequence": 22,
+                  "title": "Chapter 22",
+                  "assembly": "888bf0b567fc0cac2c96077baa2ae20217b2a06aff1dc58ebe61333918965d2a",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-23",
+                  "sequence": 23,
+                  "title": "Chapter 23",
+                  "assembly": "4ae2f5220ad3624111485385eb6ee68580639dfed4b0b0fef20007f7bf1b55ff",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-24",
+                  "sequence": 24,
+                  "title": "Chapter 24",
+                  "assembly": "a5980cf92b4f0bf7f893d6c297ada24e3241b6be5b54b333268a024a87c95f58",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-25",
+                  "sequence": 25,
+                  "title": "Chapter 25",
+                  "assembly": "ac7001e157aa942ca2b23909ff07cc77ce3956ac119848dbf3837d7ff8bb13e6",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-26",
+                  "sequence": 26,
+                  "title": "Chapter 26",
+                  "assembly": "14ed5b894ba81c497d7926518b90b36e80c20383667a7a35b57870214ba8fb0b",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-27",
+                  "sequence": 27,
+                  "title": "Chapter 27",
+                  "assembly": "de300707224773815a9d888a4caa35ec660f6aa29cfa10f052d61734ac13f780",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-28",
+                  "sequence": 28,
+                  "title": "Chapter 28",
+                  "assembly": "e1cca4ed8ff8a8e85c637237eb0c616fc24030064db95e77c434f8000284e8b1",
+                  "duration": 884.75
+                }
+              ]
+            },
+            "qwen": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "Chapter 1",
+                  "assembly": "29dc03291d609d00c016c916dc6183709ca989df5e79ead8cd891ab2a0647ffb",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Chapter 2",
+                  "assembly": "9d818e0720db2586bd08a275dbd6afe23935d838e0377fdcbf2f96d6fb5cafcf",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "Chapter 3",
+                  "assembly": "416e7e1d6f18c6f5913feef4e3431f624d5c9915fee7befadfd006a3b2eeaab7",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Chapter 4",
+                  "assembly": "630ef34f33e9b51bb8ba365cdf4a1c9546ed43d5825b07925570ef1cce28abba",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "Chapter 5",
+                  "assembly": "78a459e783bbdbb4b435e9e23fa5f544b8bce6fb4e0f12a0cc4e38ffb9f50853",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "2ff9e5f3b14b5f989b2235601cb7a68bda719b7a1534fb2cb5e8d18f99ef8d16",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "d258fc238d679782773795c0442fd801236303e8b0698e36cb3901b01735bf1f",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "b64f9c972703c255ea5ec3be9bd27c34397c00b7cd32f9a5260168c6fb166b31",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "3b49b5eabc3c56f7d4b037427d697227367a98a786e9ddb3cdf681cacf54d9e0",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "8678e1531ca91610abc7c6953cc6a2e9ae80c4a01bad29ecd7c1bc08c64eb482",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Under the old bridge",
+                  "assembly": "486a43eba28e5cd02d461255fe39d60640fe345c7c53548839565946d9291553",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "The keeper’s last letter",
+                  "assembly": "230c81fa34e382e9184bbe46b83b154600db798994a6afc2773f4bad7a39da55",
+                  "duration": 1460
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Out past the harbour",
+                  "assembly": "a591167acbf230aba7453b58b01c1558ed0b83f15821b57c12b8d5133a96b4d1",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "08e45c86565b6b841aaf5d96fb3b510ca36237cf7604544e6190596e37617ac9",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-15",
+                  "sequence": 15,
+                  "title": "Chapter 15",
+                  "assembly": "bf0812bf265cde84210c8b083fd0b4c62294149d712ca37f9f0974393dcc03e9",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-16",
+                  "sequence": 16,
+                  "title": "Chapter 16",
+                  "assembly": "9629d88a003d4a1d6fb3cb51c3e8b3d3f37c0d522ef72e7945fd3eba2791b1cd",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-17",
+                  "sequence": 17,
+                  "title": "Chapter 17",
+                  "assembly": "bfe4be5a94770972864c57bb530b59e2d4889ade8f086c15e1076c1a060bcd8e",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-18",
+                  "sequence": 18,
+                  "title": "Chapter 18",
+                  "assembly": "df734288ee27f322cc2599644962309b72878ca7fd8b81d6b9a06ccccdf6301a",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-19",
+                  "sequence": 19,
+                  "title": "Chapter 19",
+                  "assembly": "a96ff403a5baac52b55df7630aa370582439b89c9dcaf463da9f5dc0ba705a53",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-20",
+                  "sequence": 20,
+                  "title": "Chapter 20",
+                  "assembly": "3f06bd43833d87d0e3b48624763b3d0e7c9df8f84abca424f57654dd0be0070a",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-21",
+                  "sequence": 21,
+                  "title": "Chapter 21",
+                  "assembly": "760a4313dd0538f4bff6436386e0a85c35a0f0a6ae9f00806456dca9848882f3",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-22",
+                  "sequence": 22,
+                  "title": "Chapter 22",
+                  "assembly": "0aa752ef9dcb765f69c6a09585a224c08661e3bc1b9e96374eff71132c40089c",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-23",
+                  "sequence": 23,
+                  "title": "Chapter 23",
+                  "assembly": "88661bded0df81ad0960bd265ff5cbae06e554b17dafebf96bb2fc227eadf20a",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-24",
+                  "sequence": 24,
+                  "title": "Chapter 24",
+                  "assembly": "7cc702f98f7f95aeac714d533a09f403d17488005b24d439e4f4281680e21a25",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-25",
+                  "sequence": 25,
+                  "title": "Chapter 25",
+                  "assembly": "aa5f5b94fd40ab917964f727b1eeb8ec8bd0ac73f5e8f4acdc2b23607bbe685f",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-26",
+                  "sequence": 26,
+                  "title": "Chapter 26",
+                  "assembly": "9edd47e955c06d77248a97e3a2ffe3ab5192cf9d968e739887b4d5043617694e",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-27",
+                  "sequence": 27,
+                  "title": "Chapter 27",
+                  "assembly": "11960d524aa50f8203755d1c8e6b17e6cdf72fc4d4a0e4c228a060be366fba31",
+                  "duration": 884.75
+                },
+                {
+                  "id": "chapter-28",
+                  "sequence": 28,
+                  "title": "Chapter 28",
+                  "assembly": "8fba549be84921919ce8f2e05cae8ef869d047028b0cf5b6a0a60f2545f4da60",
+                  "duration": 884.75
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "tides",
+          "title": "A Map of Tides",
+          "author": "Owen Mercer",
+          "defaultEdition": "v3",
+          "editions": {
+            "v3": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "Chapter 1",
+                  "assembly": "a529fac67cb7c6557b459b31378b8b14e3db0809d2c7c34b4ae3e662f24effaf",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Chapter 2",
+                  "assembly": "78ba56aea2541dee24afdeca750f7ada3577657408e251409039ac9c6c79c920",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "The missing island",
+                  "assembly": "e755cc9943ea0a2a93f94d072fe0c92a98cbe4e1224c31d39a5946bfcb152f9a",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Where the water turns",
+                  "assembly": "fd9461b40348930d81e1350cd8e88be9a8694d1b41181098c5a907b695d922bc",
+                  "duration": 780
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "The tide house",
+                  "assembly": "5f4f11809d867fd71adda895a766e62fa278b1ad67e1324d279a4cb3d84006e0",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "96650b97148cd6e00b423ad6673c5dbc7a4ddf9ff3562ad59d5de20dd15cc25f",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "dd567c8a1f243c103426b15c3dbce138398801e3bb3d7ec96dfe1071bf7cb43e",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "3fe26f256c977fbc7dcb23f78d0b578c63c0aec10ba5cd522514cc1af4818c0a",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "a86fd58db08363b9bf9cfc2134057ee9442d1714d0b0dcd2121a7b4a84d63ee6",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "b4202e4b9fbc92403f25cccfdca35ea348f8a77383cef23cf9454a071a2340f5",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Chapter 11",
+                  "assembly": "50b1efa3405f133cbed7a54fca5f68f678113dc75381b2f8ea30eb4300cae951",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "Chapter 12",
+                  "assembly": "7d211bcd41b97b43f0efdddd5f5fa9df302aeb51cc43597747e4dfd743c446a4",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Chapter 13",
+                  "assembly": "d1bdd1d4296be7a5da6d6b3c05c249bcc198320c05914313310923c445bd3aa3",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "2f4c51a08a6f57c2a10d3c79ab49425430f3ae2afd490bccd170468e93cefdd3",
+                  "duration": 1167.25
+                }
+              ]
+            },
+            "flash": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "Chapter 1",
+                  "assembly": "024496039b2cc3df5277d7e066a1b28dc28b30bbd5b0412c63c000334d2f1312",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Chapter 2",
+                  "assembly": "966b7f0fb9519f99b9fa5a6833835be6af71558b90883fcf19326b98320224a1",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "The missing island",
+                  "assembly": "95a87d0171a04745c8e1b26022385a60b824b6fb46e47d3ea958332a3b32fd34",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Where the water turns",
+                  "assembly": "4af38fac26d9f0d9d291f2529ec82f5568472242d1bd075c9d446464bab4582f",
+                  "duration": 780
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "The tide house",
+                  "assembly": "6842972cc8171597add2f2eea5b95f090c2c984e38919121cf1d8336941e31ed",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "65cf8ee50c27893c9468ebbd05bc476ec9506d9b54c126502974ba66c34a23b3",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "aed0949345dbd3524962f04e29ef47bf546b7c4ced2b6756d6f848694211dc87",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "f9e22d0b63f54dea4affa51a0784a1ff4b89324114f8951143f365c44434cae5",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "faece8a4dbacce66204d0fae4d5dd641753686988bd29662b91a8ecb216bf2eb",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "e9874dfc4694439554cb6e6f60d7c18de0cab3f2d7fb1a0e31f87618be717c65",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Chapter 11",
+                  "assembly": "6d56081a219bbaa1bab9cb5bbaa8daefa2712e64237ffd27dd65690fc624a418",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "Chapter 12",
+                  "assembly": "b4746d624d2b1efd09fd8cbc30f9cf3f2f0705d8114e8f4259b0567b3e649d33",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Chapter 13",
+                  "assembly": "a1857e818a2ea0b67cada28996b16f9e58d5bb45bb3981bd0a028eaf7dc0b66a",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "9f4c7f42e60a40ea4f639fae521948e69b165adcadc0ec147b12259260d52c47",
+                  "duration": 1167.25
+                }
+              ]
+            },
+            "qwen": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "Chapter 1",
+                  "assembly": "4c75d08dee1d5dcbfd85c3a8e71f1eed9be93cf239f4a8a19dd45f27976f89c6",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Chapter 2",
+                  "assembly": "f4e52944fd86316ba4c03ff343f069a64de5c7881916d0c9c3863294f0619afd",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "The missing island",
+                  "assembly": "2cf8ee3bc32b47b64e288578de00c77022e907ed401df811ec25cd8f9b4ef859",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Where the water turns",
+                  "assembly": "8912fa89598f35c8111c3c65c862452d5c7b4010c7c744fcb58e39460e2c1517",
+                  "duration": 780
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "The tide house",
+                  "assembly": "46e43e3a0f818533dc0d2c8afe0bc6aa55f8db78e619759aaf312f519744a735",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "0ec38ceced22c1b9d9307f094f69e607eadfb4cc5dd968a9e64c5d7dadf2ac1b",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "a4838ddb9e406a20534262c04eadbc875c47916d8c76412d481104d31ea777e2",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "da188a65fd0e351671e3eceb055548f2f7d728e224dae6b05473e2f5bbf21184",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "f59f3b133a191f6780debd2a783dfd77acc911aeaab86dea13f8cfa471323f9a",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "0dcf988555dc7dd3fa8c839d6ae9426c3080be736e77cc75193b87105dd82b4e",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Chapter 11",
+                  "assembly": "51ed6261674cb3ffff6394ec3c311ca0f15e86dda13c3569f4c16e4771253f34",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "Chapter 12",
+                  "assembly": "63fa583ac24f2eca51cd226495ee60aff0cb774308821a0f3795d6a7c1749ab7",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Chapter 13",
+                  "assembly": "b2a915b672f62939e81ce67b22e55f0f410a8fa80ac4ca69e208dd0a14491827",
+                  "duration": 1167.25
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "58cf7377c55cee2b7523605b0cee447d18c630977ee141bf4f3dcd32b37666e0",
+                  "duration": 1167.25
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "orchard",
+          "title": "The Glass Orchard",
+          "author": "Livia Reed",
+          "defaultEdition": "v3",
+          "editions": {
+            "v3": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "The first glasshouse",
+                  "assembly": "b1b7d9673ca6fac52a480fe538372056c216ed4299a49f951b996b3a0697a72a",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Fruit out of season",
+                  "assembly": "013c68dde85e69396332132bb2414c37c7ccefdb53704cb350bc2dfccb9bc8e2",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "A remembered room",
+                  "assembly": "c29da4373983ad455b169c20bca3da11c5f4dc86842810f2d8fdcc8acfac1a0d",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Chapter 4",
+                  "assembly": "8240a0364e766f15b62e5123cc8cf4af8c5854ca5b9c5dfafca5a7b1897fb248",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "Chapter 5",
+                  "assembly": "cc406f5616cf26dcd0bc519e36d0669b4c93f6b604aa18834149112f3c7eaf84",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "ddd09f147c666adf5ba501c9cb218bd1f8cd497bb38e429a785bba3913a76dd3",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "e96994367a3f78c4e20b6371c95b7325e65fc2edcb8c20e1e88145292ea8b25d",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "99fffa0e48d5762a5cc409832c9e62f562686f0dd0c7e67aa9e14f975c891c70",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "58f25de8a7b79fa91800858499121461fb95c4625a692b079b4e44bcc385230b",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "d03e09f7c6b8e63117c252f3d6309d40e494d2c17a400e2d573c4d3413a3e686",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Chapter 11",
+                  "assembly": "239eb1a6d179a99cae707b98237e247b0e37ae03d2893c1704e91a6bb4af1b38",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "Chapter 12",
+                  "assembly": "e0c703accd04c302670960310ef072461f47227b37ebebf21905b6553fef96de",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Chapter 13",
+                  "assembly": "7595ffc67565ae05b600c493d3dd99d3239aedad4bc263a293bd65d058a27183",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "d5ba0d0ac3015d6ef8200e90de854bb02a0e3855b92bb5e540dedadb15b5ad73",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-15",
+                  "sequence": 15,
+                  "title": "Chapter 15",
+                  "assembly": "6885ce63d2ddb02b22447864bb8f1e76710562221eb6b0de70910de352cdc951",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-16",
+                  "sequence": 16,
+                  "title": "Chapter 16",
+                  "assembly": "f74b28fc4c45284928565a301229894dc366c00ecb1d33e46ec6d72525122afa",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-17",
+                  "sequence": 17,
+                  "title": "Chapter 17",
+                  "assembly": "cadb9ad0b0601abf23f4928100cbf785c4e9f34c1061d6fb8d395966a617fee4",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-18",
+                  "sequence": 18,
+                  "title": "Chapter 18",
+                  "assembly": "39cc556d82b6c1010a3b314b212ca0ee956a6eb96f792c4a87ea5ea8cacff091",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-19",
+                  "sequence": 19,
+                  "title": "Chapter 19",
+                  "assembly": "e2d5b1c4c4a04bf3b64970e7eb950a416ecaaafda927c3368eadf48e189440dc",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-20",
+                  "sequence": 20,
+                  "title": "Chapter 20",
+                  "assembly": "91eaa9e0512a2b354e51933fcf42b007981080c6cac289e969aeda6a7d6784c2",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-21",
+                  "sequence": 21,
+                  "title": "Chapter 21",
+                  "assembly": "d605f68d353d93402b4b97f62c6e9226231679cde38f941063bb91cace25065d",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-22",
+                  "sequence": 22,
+                  "title": "Chapter 22",
+                  "assembly": "035967e4880ccb2154bd146e6b89004cde57ac4b8bf869d628182bc38c5dd9dd",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-23",
+                  "sequence": 23,
+                  "title": "Chapter 23",
+                  "assembly": "d43665ec9cc2e8349a14fc50c0e68008f02b23f5f2617c38c6d842b93638ca3b",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-24",
+                  "sequence": 24,
+                  "title": "Chapter 24",
+                  "assembly": "c432656db2e0fe5c71e01550cd8852373938e62dd1d2979e14274cf496037820",
+                  "duration": 1250
+                }
+              ]
+            },
+            "flash": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "The first glasshouse",
+                  "assembly": "30ff7ccf6e08d05f60b83a109edc96f42db129393b8ac141599f0e809d703bf4",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Fruit out of season",
+                  "assembly": "739fd36bc058c032e3a4c5723d3a15a0e57ab9fad4978b7ef73e937b8857d1c8",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "A remembered room",
+                  "assembly": "7bf83e57667e4d3a3bd3b60b94f82971ca6bb13d70656ddf50e579ca76c3b571",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Chapter 4",
+                  "assembly": "9c697057de0b605c7707cb83469fdc8dfcef34a625ba31d8b7b956797c7d1a3c",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "Chapter 5",
+                  "assembly": "df636630e79f9a9966c5d8d05af19ab29748ca6da6df859bfa0598c41eeee9d5",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "f4c021c61dd9608ae77b9fc53b77790815c45f0da7df4bd70c7aa454fc7b3df5",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-7",
+                  "sequence": 7,
+                  "title": "Chapter 7",
+                  "assembly": "07ab16c22929282f3fa2665b3486867ea40d16bcb6123399c80e936cde4bff20",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-8",
+                  "sequence": 8,
+                  "title": "Chapter 8",
+                  "assembly": "ea8434b03a41d3de4a462254b81099e8b97aad4163b9991c34b5c7384f57580d",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-9",
+                  "sequence": 9,
+                  "title": "Chapter 9",
+                  "assembly": "d7ffbfbfe58f7f04d867408f6e1f079f315efe30d8d3ff004555ef03319730cf",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-10",
+                  "sequence": 10,
+                  "title": "Chapter 10",
+                  "assembly": "85070760ee46af9229c82641fbf714955e003e2ba43f196493b1ed76e9727910",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-11",
+                  "sequence": 11,
+                  "title": "Chapter 11",
+                  "assembly": "041e9629696603d918551dd52bfe51fd30912c03a6a117f6a87783d86db2ece7",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-12",
+                  "sequence": 12,
+                  "title": "Chapter 12",
+                  "assembly": "cd7e4d58fc537cb4a2b147e974633e165b9f2e9fd9a82109af139dccca2cd311",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-13",
+                  "sequence": 13,
+                  "title": "Chapter 13",
+                  "assembly": "f0c9d36710239d93348614d37150ca07e0274a9f6905104d3b9ac37c21c2b79e",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-14",
+                  "sequence": 14,
+                  "title": "Chapter 14",
+                  "assembly": "6b2af9449e83d4ed35e78c8dd84091f7307727381b674a1a303ecd967409db2c",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-15",
+                  "sequence": 15,
+                  "title": "Chapter 15",
+                  "assembly": "478fa3dd0e77e46c9167c86d593c216b40897d79a356870e24ef5ee610f84e2a",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-16",
+                  "sequence": 16,
+                  "title": "Chapter 16",
+                  "assembly": "a06db5fa6ed5d6f7ab556d35182942e400791d747106675e1844a06dce951916",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-17",
+                  "sequence": 17,
+                  "title": "Chapter 17",
+                  "assembly": "94a8b16309accb2c5c5f1d2bb5d80a7cc1d573df4396740483fa6816c994ffd1",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-18",
+                  "sequence": 18,
+                  "title": "Chapter 18",
+                  "assembly": "db299c095857c5db0b5e785ec99b074582c0b23d1efa304bc6d980127b67800a",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-19",
+                  "sequence": 19,
+                  "title": "Chapter 19",
+                  "assembly": "ca7b73740250c879429ff3262b4abaa6a417ed6203e39ba6eb4db2d388d695f5",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-20",
+                  "sequence": 20,
+                  "title": "Chapter 20",
+                  "assembly": "f2954111f9713ed0611278f7951985d49d3047f255c7199e4ab2e541ca8502e6",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-21",
+                  "sequence": 21,
+                  "title": "Chapter 21",
+                  "assembly": "82cad4f3f7c53e33c1822ed49f70656808b479a1b1c8c877f476e9f0a44435cd",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-22",
+                  "sequence": 22,
+                  "title": "Chapter 22",
+                  "assembly": "265695b2b582a3a3a74b35fabe1bcd7ed2df0840b7be46d865aa3b091450dc84",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-23",
+                  "sequence": 23,
+                  "title": "Chapter 23",
+                  "assembly": "db44ce9f5d4d2ea389621aa5f1940d9288fac87bb5c44f8d473dab277b213be5",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-24",
+                  "sequence": 24,
+                  "title": "Chapter 24",
+                  "assembly": "24036cf95a5c6029fea2f9efac351d288c7c8b0bcf6f01cf2b799ed7b1001e5a",
+                  "duration": 1250
+                }
+              ]
+            },
+            "qwen": {
+              "chapters": [
+                {
+                  "id": "chapter-1",
+                  "sequence": 1,
+                  "title": "The first glasshouse",
+                  "assembly": "7a7a483a1862e81f718fadb53eb23b14d13986a76f527049fe517f68cc3e540e",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-2",
+                  "sequence": 2,
+                  "title": "Fruit out of season",
+                  "assembly": "1153675883296d23573dfa8bf0917a9679d917d156fcffa983aaa1efdc03d78e",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-3",
+                  "sequence": 3,
+                  "title": "A remembered room",
+                  "assembly": "61a5513dc89a4afae1c1c5d3d3c4e8ba39c00e71ccf3936e820aaf624c576e9f",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-4",
+                  "sequence": 4,
+                  "title": "Chapter 4",
+                  "assembly": "bb69a288938bd4ff1b0ddf8adef5793c9435fa29d5271e367a00e75c19b46f1c",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-5",
+                  "sequence": 5,
+                  "title": "Chapter 5",
+                  "assembly": "d0809b0f44bf8d4950a5ee15d44a01ab0c97802861c68fc572de11982ecd4706",
+                  "duration": 1250
+                },
+                {
+                  "id": "chapter-6",
+                  "sequence": 6,
+                  "title": "Chapter 6",
+                  "assembly": "d8c5f25d248a7225a5f4071b45b26c80acfd8a947b32fcb5c8b0933ce9110ac3",
+                  "duration": 1250
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "state": {
+        "positions": {
+          "lighthouse:v3:chapter-12": {
+            "story": "lighthouse",
+            "edition": "v3",
+            "assembly": "2195283c2b077376d458498736eafa81ad0a92b0fdc41fb93c3d8b96a3f6b4e8",
+            "seconds": 496,
+            "deviceTime": 1792630800000
+          },
+          "tides:v3:chapter-4": {
+            "story": "tides",
+            "edition": "v3",
+            "assembly": "fd9461b40348930d81e1350cd8e88be9a8694d1b41181098c5a907b695d922bc",
+            "seconds": 158,
+            "deviceTime": 1792630000000
+          }
+        },
+        "completed": {
+          "lighthouse:chapter-1": true,
+          "lighthouse:chapter-2": true,
+          "lighthouse:chapter-3": true,
+          "lighthouse:chapter-4": true,
+          "lighthouse:chapter-5": true,
+          "lighthouse:chapter-6": true,
+          "lighthouse:chapter-7": true,
+          "lighthouse:chapter-8": true,
+          "lighthouse:chapter-9": true,
+          "lighthouse:chapter-10": true,
+          "lighthouse:chapter-11": true,
+          "tides:chapter-1": true,
+          "tides:chapter-2": true,
+          "tides:chapter-3": true,
+          "tides:chapter-5": true,
+          "tides:chapter-6": true
+        },
+        "seen": {},
+        "issues": [
+          {
+            "id": "review-pronunciation",
+            "story": "lighthouse",
+            "chapterId": "chapter-12",
+            "sequence": 12,
+            "edition": "v3",
+            "seconds": 496,
+            "kind": "pronunciation",
+            "status": "open",
+            "note": "The keeper’s name sounds different from the previous chapter.",
+            "createdAt": "2026-10-22T01:00:00.000Z"
+          },
+          {
+            "id": "review-pacing",
+            "story": "lighthouse",
+            "chapterId": "chapter-11",
+            "sequence": 11,
+            "edition": "v3",
+            "seconds": 190,
+            "kind": "delivery",
+            "status": "open",
+            "note": "There is a long pause in the middle of this sentence.",
+            "createdAt": "2026-10-22T00:20:00.000Z"
+          },
+          {
+            "id": "review-repeat",
+            "story": "tides",
+            "chapterId": "chapter-4",
+            "sequence": 4,
+            "edition": "flash",
+            "seconds": 158,
+            "kind": "missing",
+            "status": "resolved",
+            "note": "This line repeats twice.",
+            "createdAt": "2026-10-21T23:40:00.000Z"
+          }
+        ]
+      }
+    },
+    "catalog": {
+      "stories": [
+        {
+          "id": "lighthouse",
+          "title": "The Lighthouse Letters",
+          "author": "Mara Ellis",
+          "description": "A letter leads June to the lighthouse, and to a secret that the town has kept for years.",
+          "url": "https://example.test/story",
+          "hasCover": true,
+          "supported": true,
+          "checkedAt": "2026-10-21T22:20:00Z",
+          "follow": {
+            "enabled": true,
+            "mode": "buffer",
+            "intervalHours": 6
+          },
+          "chapters": [
+            {
+              "title": "Chapter 1",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 2",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 3",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 4",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 5",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 6",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 7",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 8",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 9",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 10",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 11",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 12",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 13",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 14",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 15",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 16",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 17",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 18",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 19",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 20",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 21",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 22",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 23",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 24",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 25",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 26",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 27",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 28",
+              "editions": [
+                "qwen"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "tides",
+          "title": "A Map of Tides",
+          "author": "Owen Mercer",
+          "description": "An old chart marks an island that disappears with the tide. One sailor decides to wait for it.",
+          "url": "https://example.test/story",
+          "hasCover": true,
+          "supported": true,
+          "checkedAt": "2026-10-21T22:20:00Z",
+          "follow": {
+            "enabled": true,
+            "mode": "buffer",
+            "intervalHours": 6
+          },
+          "chapters": [
+            {
+              "title": "Chapter 1",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 2",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 3",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 4",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 5",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 6",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 7",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 8",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 9",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 10",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 11",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 12",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 13",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 14",
+              "editions": [
+                "qwen"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orchard",
+          "title": "The Glass Orchard",
+          "author": "Livia Reed",
+          "description": "In a glasshouse above the valley, a gardener begins to notice memories growing among the branches.",
+          "url": "https://example.test/story",
+          "hasCover": true,
+          "supported": true,
+          "checkedAt": "2026-10-21T22:20:00Z",
+          "follow": {
+            "enabled": true,
+            "mode": "buffer",
+            "intervalHours": 6
+          },
+          "chapters": [
+            {
+              "title": "Chapter 1",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 2",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 3",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 4",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 5",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 6",
+              "editions": [
+                "qwen"
+              ]
+            },
+            {
+              "title": "Chapter 7",
+              "editions": []
+            },
+            {
+              "title": "Chapter 8",
+              "editions": []
+            },
+            {
+              "title": "Chapter 9",
+              "editions": []
+            },
+            {
+              "title": "Chapter 10",
+              "editions": []
+            },
+            {
+              "title": "Chapter 11",
+              "editions": []
+            },
+            {
+              "title": "Chapter 12",
+              "editions": []
+            },
+            {
+              "title": "Chapter 13",
+              "editions": []
+            },
+            {
+              "title": "Chapter 14",
+              "editions": []
+            },
+            {
+              "title": "Chapter 15",
+              "editions": []
+            },
+            {
+              "title": "Chapter 16",
+              "editions": []
+            },
+            {
+              "title": "Chapter 17",
+              "editions": []
+            },
+            {
+              "title": "Chapter 18",
+              "editions": []
+            },
+            {
+              "title": "Chapter 19",
+              "editions": []
+            },
+            {
+              "title": "Chapter 20",
+              "editions": []
+            },
+            {
+              "title": "Chapter 21",
+              "editions": []
+            },
+            {
+              "title": "Chapter 22",
+              "editions": []
+            },
+            {
+              "title": "Chapter 23",
+              "editions": []
+            },
+            {
+              "title": "Chapter 24",
+              "editions": []
+            }
+          ],
+          "repair": {
+            "title": "Audio updating",
+            "detail": "Published audio remains available.",
+            "completed": 6,
+            "total": 24,
+            "chapters": [
+              {
+                "id": "chapter-7",
+                "title": "Chapter 7",
+                "label": "Generating audio"
+              },
+              {
+                "id": "chapter-8",
+                "title": "Chapter 8",
+                "label": "Queued"
+              }
+            ]
+          }
+        },
+        {
+          "id": "midnight",
+          "title": "The Midnight Line",
+          "author": "Elias Hart",
+          "description": "A night train makes one extra stop, at a station no timetable remembers.",
+          "url": "https://example.test/story",
+          "hasCover": true,
+          "supported": true,
+          "checkedAt": "2026-10-21T22:20:00Z",
+          "follow": {
+            "enabled": true,
+            "mode": "buffer",
+            "intervalHours": 6
+          },
+          "chapters": [
+            {
+              "title": "Chapter 1",
+              "editions": []
+            },
+            {
+              "title": "Chapter 2",
+              "editions": []
+            },
+            {
+              "title": "Chapter 3",
+              "editions": []
+            },
+            {
+              "title": "Chapter 4",
+              "editions": []
+            },
+            {
+              "title": "Chapter 5",
+              "editions": []
+            },
+            {
+              "title": "Chapter 6",
+              "editions": []
+            },
+            {
+              "title": "Chapter 7",
+              "editions": []
+            },
+            {
+              "title": "Chapter 8",
+              "editions": []
+            },
+            {
+              "title": "Chapter 9",
+              "editions": []
+            },
+            {
+              "title": "Chapter 10",
+              "editions": []
+            },
+            {
+              "title": "Chapter 11",
+              "editions": []
+            },
+            {
+              "title": "Chapter 12",
+              "editions": []
+            },
+            {
+              "title": "Chapter 13",
+              "editions": []
+            },
+            {
+              "title": "Chapter 14",
+              "editions": []
+            },
+            {
+              "title": "Chapter 15",
+              "editions": []
+            },
+            {
+              "title": "Chapter 16",
+              "editions": []
+            },
+            {
+              "title": "Chapter 17",
+              "editions": []
+            },
+            {
+              "title": "Chapter 18",
+              "editions": []
+            },
+            {
+              "title": "Chapter 19",
+              "editions": []
+            },
+            {
+              "title": "Chapter 20",
+              "editions": []
+            }
+          ]
+        }
+      ],
+      "jobs": [
+        {
+          "id": "fictional-preparation",
+          "story": "orchard",
+          "status": "running",
+          "phase": "Working on chapter 7."
+        },
+        {
+          "id": "fictional-unpublished",
+          "story": "midnight",
+          "status": "running",
+          "phase": "6 of 20 chapters prepared"
+        }
+      ]
+    },
+    "readings": {
+      "7f5f51e1e8f092c6dcd4a4cb8523dc4c09b4b5644003b861d2434f8a9098f3e6": {
+        "assembly": "7f5f51e1e8f092c6dcd4a4cb8523dc4c09b4b5644003b861d2434f8a9098f3e6",
+        "chapterId": "chapter-11",
+        "sequence": 11,
+        "title": "Under the old bridge",
+        "duration": 884.75,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 109.07876712328768,
+            "text": "The old bridge creaked beneath June’s feet. The tide had left silver ribbons of water between the stones, and every step sent a little shiver through their reflections. From here she could see the lighthouse above the roofs, its windows catching the last of the afternoon sun.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 109.07876712328768,
+            "end": 300.57260273972605,
+            "text": "A letter lay on the lowest step, just beyond the reach of the tide. Someone had weighted it with a piece of green glass. June looked back toward the road, expecting to find its owner watching from the bend, but the road was empty.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 300.57260273972605,
+            "end": 557.513698630137,
+            "text": "She recognised the handwriting before she read the name. The long tail of the final letter, the way the ink gathered at the ends of the lines: she had seen both on the postcards her father kept beside his bed. None of those postcards had ever mentioned this town.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 557.513698630137,
+            "end": 630.2328767123288,
+            "text": "For a while she stayed where she was. A fishing boat passed under the bridge, and its wake lifted the water almost to her shoes. The man at the wheel raised a hand. June raised hers in return, with the unopened envelope hidden against her coat.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 630.2328767123288,
+            "end": 690.832191780822,
+            "text": "The address was the lighthouse. Beneath it, in smaller writing, someone had added a request to come before the light was lit. She checked the sky. There was still time, if she took the steep path beyond the harbour rather than the long road around the hill.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 690.832191780822,
+            "end": 763.5513698630137,
+            "text": "She tucked the envelope inside her coat and turned toward the lighthouse. Behind her, the piece of green glass flashed once in the sun. She went back for it, although she could not have said why, and slipped it into the same pocket.\n\n"
+          }
+        ]
+      },
+      "2195283c2b077376d458498736eafa81ad0a92b0fdc41fb93c3d8b96a3f6b4e8": {
+        "assembly": "2195283c2b077376d458498736eafa81ad0a92b0fdc41fb93c3d8b96a3f6b4e8",
+        "chapterId": "chapter-12",
+        "sequence": 12,
+        "title": "The keeper’s last letter",
+        "duration": 1460,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 180,
+            "text": "By the time June reached the lighthouse, the door had been open for an hour. A pair of boots stood beneath the coat hooks, with a neat fan of sand around their soles. On the table was a cup of tea that had gone cold. Everything suggested that someone had only just stepped outside.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 180,
+            "end": 496,
+            "text": "She stood on the threshold, listening. Somewhere above her, the machinery turned with its familiar, patient rhythm. Beyond the open kitchen window she could hear a loose rope tapping against the flagpole. She called the keeper’s name once, then waited until the sound of it had left the stairwell.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 496,
+            "end": 920,
+            "text": "June unfolded the letter. The paper was thin enough to show the light through it. The first line was not addressed to her, but the second made her sit down. She read that line twice, then set the envelope beside the cold cup so that neither hand would hide the words.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 920,
+            "end": 1040,
+            "text": "The light swept across the harbour for the third time. Below it, the boats pulled at their moorings, restless as sleeping animals. June remembered the fishing boat beneath the bridge and the man who had raised his hand. Perhaps he had known where she was going. Perhaps everyone in the town had known.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 1040,
+            "end": 1140,
+            "text": "She walked to the kitchen window. The last ferry was still at the pier, a square of yellow light beneath the darkening hill. If she left now, she could be on it before anyone noticed the open door. She had the timetable folded in her bag, beside a ticket she had bought that morning.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 1140,
+            "end": 1260,
+            "text": "Instead, she returned to the table. There was another sheet beneath the first, covered in a careful drawing of the shoreline. Most of the landmarks were familiar. One was not: a narrow inlet marked with a circle, beyond the headland where the old charts showed only rock.\n\n"
+          },
+          {
+            "id": "paragraph-6",
+            "start": 1260,
+            "end": 1380,
+            "text": "At the bottom of the drawing the keeper had written a time. June compared it with the clock above the stove. The difference was less than an hour. She took the piece of green glass from her pocket and placed it over the circle, where it made the pale ink look as deep as water.\n\n"
+          },
+          {
+            "id": "paragraph-7",
+            "start": 1380,
+            "end": 1460,
+            "text": "Outside, a gull called from the roof. June folded both sheets along their old creases, put them back in the envelope, and stood. This time she took the key from the hook beside the door. The boots could stay where they were. She would need her own for the path down.\n\n"
+          }
+        ]
+      },
+      "a99912e490213910f6a6a88c3fa2733821999bd3300a523d9cf0d374c94703c3": {
+        "assembly": "a99912e490213910f6a6a88c3fa2733821999bd3300a523d9cf0d374c94703c3",
+        "chapterId": "chapter-13",
+        "sequence": 13,
+        "title": "Out past the harbour",
+        "duration": 884.75,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 109.07876712328768,
+            "text": "The path down from the lighthouse was narrower than June remembered. Brambles caught at her sleeves, and the town lights appeared and disappeared between the branches. She kept one hand on the rail until the rail ended. After that, she let the sound of the water guide her.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 109.07876712328768,
+            "end": 300.57260273972605,
+            "text": "At the bottom of the hill, a small boat waited beside the steps. Its painter was tied with the same loose knot her father had used on everything from parcels to garden gates. June stopped before touching it. There were coincidences, she told herself, and then there were invitations.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 300.57260273972605,
+            "end": 557.513698630137,
+            "text": "The oars had been laid across the seats. Beneath one of them was a waterproof coat, folded so that the bright lining faced upward. There was no note. June looked back up the hill. From this angle the lighthouse window was a single white point, steady against the evening sky.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 557.513698630137,
+            "end": 630.2328767123288,
+            "text": "She untied the painter and held it while the boat moved into the deeper water beside the steps. For the first time that day she thought about what she would say when she found someone who could answer her questions. Every version began differently. Every version ended with the letter.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 630.2328767123288,
+            "end": 690.832191780822,
+            "text": "The harbour fell quiet behind her. A line of ripples reached across the channel, carrying the last reflections from the pier. She followed them until the ferry lights disappeared around the headland. Then she took the drawing from her pocket and found the small circle beneath the green glass.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 690.832191780822,
+            "end": 763.5513698630137,
+            "text": "Beyond the headland, the inlet opened exactly where the drawing said it would. June rested the oars and let the boat drift. On the shore ahead of her, someone had lit a lamp. Its light was warm enough to make the dark water look almost like a road.\n\n"
+          }
+        ]
+      },
+      "5b5d103804e432a3d829c48e30ae0c3f3633ae89ef008a1a2034cb9fa2dd882c": {
+        "assembly": "5b5d103804e432a3d829c48e30ae0c3f3633ae89ef008a1a2034cb9fa2dd882c",
+        "chapterId": "chapter-11",
+        "sequence": 11,
+        "title": "Under the old bridge",
+        "duration": 884.75,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 109.07876712328768,
+            "text": "The old bridge creaked beneath June’s feet. The tide had left silver ribbons of water between the stones, and every step sent a little shiver through their reflections. From here she could see the lighthouse above the roofs, its windows catching the last of the afternoon sun.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 109.07876712328768,
+            "end": 300.57260273972605,
+            "text": "A letter lay on the lowest step, just beyond the reach of the tide. Someone had weighted it with a piece of green glass. June looked back toward the road, expecting to find its owner watching from the bend, but the road was empty.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 300.57260273972605,
+            "end": 557.513698630137,
+            "text": "She recognised the handwriting before she read the name. The long tail of the final letter, the way the ink gathered at the ends of the lines: she had seen both on the postcards her father kept beside his bed. None of those postcards had ever mentioned this town.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 557.513698630137,
+            "end": 630.2328767123288,
+            "text": "For a while she stayed where she was. A fishing boat passed under the bridge, and its wake lifted the water almost to her shoes. The man at the wheel raised a hand. June raised hers in return, with the unopened envelope hidden against her coat.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 630.2328767123288,
+            "end": 690.832191780822,
+            "text": "The address was the lighthouse. Beneath it, in smaller writing, someone had added a request to come before the light was lit. She checked the sky. There was still time, if she took the steep path beyond the harbour rather than the long road around the hill.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 690.832191780822,
+            "end": 763.5513698630137,
+            "text": "She tucked the envelope inside her coat and turned toward the lighthouse. Behind her, the piece of green glass flashed once in the sun. She went back for it, although she could not have said why, and slipped it into the same pocket.\n\n"
+          }
+        ]
+      },
+      "9902c6b07d0c40a9cc837504d44a9fa124ab88bc45966c392d6aae55573742ea": {
+        "assembly": "9902c6b07d0c40a9cc837504d44a9fa124ab88bc45966c392d6aae55573742ea",
+        "chapterId": "chapter-12",
+        "sequence": 12,
+        "title": "The keeper’s last letter",
+        "duration": 1460,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 180,
+            "text": "By the time June reached the lighthouse, the door had been open for an hour. A pair of boots stood beneath the coat hooks, with a neat fan of sand around their soles. On the table was a cup of tea that had gone cold. Everything suggested that someone had only just stepped outside.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 180,
+            "end": 496,
+            "text": "She stood on the threshold, listening. Somewhere above her, the machinery turned with its familiar, patient rhythm. Beyond the open kitchen window she could hear a loose rope tapping against the flagpole. She called the keeper’s name once, then waited until the sound of it had left the stairwell.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 496,
+            "end": 920,
+            "text": "June unfolded the letter. The paper was thin enough to show the light through it. The first line was not addressed to her, but the second made her sit down. She read that line twice, then set the envelope beside the cold cup so that neither hand would hide the words.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 920,
+            "end": 1040,
+            "text": "The light swept across the harbour for the third time. Below it, the boats pulled at their moorings, restless as sleeping animals. June remembered the fishing boat beneath the bridge and the man who had raised his hand. Perhaps he had known where she was going. Perhaps everyone in the town had known.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 1040,
+            "end": 1140,
+            "text": "She walked to the kitchen window. The last ferry was still at the pier, a square of yellow light beneath the darkening hill. If she left now, she could be on it before anyone noticed the open door. She had the timetable folded in her bag, beside a ticket she had bought that morning.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 1140,
+            "end": 1260,
+            "text": "Instead, she returned to the table. There was another sheet beneath the first, covered in a careful drawing of the shoreline. Most of the landmarks were familiar. One was not: a narrow inlet marked with a circle, beyond the headland where the old charts showed only rock.\n\n"
+          },
+          {
+            "id": "paragraph-6",
+            "start": 1260,
+            "end": 1380,
+            "text": "At the bottom of the drawing the keeper had written a time. June compared it with the clock above the stove. The difference was less than an hour. She took the piece of green glass from her pocket and placed it over the circle, where it made the pale ink look as deep as water.\n\n"
+          },
+          {
+            "id": "paragraph-7",
+            "start": 1380,
+            "end": 1460,
+            "text": "Outside, a gull called from the roof. June folded both sheets along their old creases, put them back in the envelope, and stood. This time she took the key from the hook beside the door. The boots could stay where they were. She would need her own for the path down.\n\n"
+          }
+        ]
+      },
+      "2f21ca27840182833a71dcebcee5a8f825a220c66a3088db3c3adce794f95c3f": {
+        "assembly": "2f21ca27840182833a71dcebcee5a8f825a220c66a3088db3c3adce794f95c3f",
+        "chapterId": "chapter-13",
+        "sequence": 13,
+        "title": "Out past the harbour",
+        "duration": 884.75,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 109.07876712328768,
+            "text": "The path down from the lighthouse was narrower than June remembered. Brambles caught at her sleeves, and the town lights appeared and disappeared between the branches. She kept one hand on the rail until the rail ended. After that, she let the sound of the water guide her.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 109.07876712328768,
+            "end": 300.57260273972605,
+            "text": "At the bottom of the hill, a small boat waited beside the steps. Its painter was tied with the same loose knot her father had used on everything from parcels to garden gates. June stopped before touching it. There were coincidences, she told herself, and then there were invitations.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 300.57260273972605,
+            "end": 557.513698630137,
+            "text": "The oars had been laid across the seats. Beneath one of them was a waterproof coat, folded so that the bright lining faced upward. There was no note. June looked back up the hill. From this angle the lighthouse window was a single white point, steady against the evening sky.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 557.513698630137,
+            "end": 630.2328767123288,
+            "text": "She untied the painter and held it while the boat moved into the deeper water beside the steps. For the first time that day she thought about what she would say when she found someone who could answer her questions. Every version began differently. Every version ended with the letter.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 630.2328767123288,
+            "end": 690.832191780822,
+            "text": "The harbour fell quiet behind her. A line of ripples reached across the channel, carrying the last reflections from the pier. She followed them until the ferry lights disappeared around the headland. Then she took the drawing from her pocket and found the small circle beneath the green glass.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 690.832191780822,
+            "end": 763.5513698630137,
+            "text": "Beyond the headland, the inlet opened exactly where the drawing said it would. June rested the oars and let the boat drift. On the shore ahead of her, someone had lit a lamp. Its light was warm enough to make the dark water look almost like a road.\n\n"
+          }
+        ]
+      },
+      "486a43eba28e5cd02d461255fe39d60640fe345c7c53548839565946d9291553": {
+        "assembly": "486a43eba28e5cd02d461255fe39d60640fe345c7c53548839565946d9291553",
+        "chapterId": "chapter-11",
+        "sequence": 11,
+        "title": "Under the old bridge",
+        "duration": 884.75,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 109.07876712328768,
+            "text": "The old bridge creaked beneath June’s feet. The tide had left silver ribbons of water between the stones, and every step sent a little shiver through their reflections. From here she could see the lighthouse above the roofs, its windows catching the last of the afternoon sun.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 109.07876712328768,
+            "end": 300.57260273972605,
+            "text": "A letter lay on the lowest step, just beyond the reach of the tide. Someone had weighted it with a piece of green glass. June looked back toward the road, expecting to find its owner watching from the bend, but the road was empty.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 300.57260273972605,
+            "end": 557.513698630137,
+            "text": "She recognised the handwriting before she read the name. The long tail of the final letter, the way the ink gathered at the ends of the lines: she had seen both on the postcards her father kept beside his bed. None of those postcards had ever mentioned this town.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 557.513698630137,
+            "end": 630.2328767123288,
+            "text": "For a while she stayed where she was. A fishing boat passed under the bridge, and its wake lifted the water almost to her shoes. The man at the wheel raised a hand. June raised hers in return, with the unopened envelope hidden against her coat.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 630.2328767123288,
+            "end": 690.832191780822,
+            "text": "The address was the lighthouse. Beneath it, in smaller writing, someone had added a request to come before the light was lit. She checked the sky. There was still time, if she took the steep path beyond the harbour rather than the long road around the hill.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 690.832191780822,
+            "end": 763.5513698630137,
+            "text": "She tucked the envelope inside her coat and turned toward the lighthouse. Behind her, the piece of green glass flashed once in the sun. She went back for it, although she could not have said why, and slipped it into the same pocket.\n\n"
+          }
+        ]
+      },
+      "230c81fa34e382e9184bbe46b83b154600db798994a6afc2773f4bad7a39da55": {
+        "assembly": "230c81fa34e382e9184bbe46b83b154600db798994a6afc2773f4bad7a39da55",
+        "chapterId": "chapter-12",
+        "sequence": 12,
+        "title": "The keeper’s last letter",
+        "duration": 1460,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 180,
+            "text": "By the time June reached the lighthouse, the door had been open for an hour. A pair of boots stood beneath the coat hooks, with a neat fan of sand around their soles. On the table was a cup of tea that had gone cold. Everything suggested that someone had only just stepped outside.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 180,
+            "end": 496,
+            "text": "She stood on the threshold, listening. Somewhere above her, the machinery turned with its familiar, patient rhythm. Beyond the open kitchen window she could hear a loose rope tapping against the flagpole. She called the keeper’s name once, then waited until the sound of it had left the stairwell.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 496,
+            "end": 920,
+            "text": "June unfolded the letter. The paper was thin enough to show the light through it. The first line was not addressed to her, but the second made her sit down. She read that line twice, then set the envelope beside the cold cup so that neither hand would hide the words.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 920,
+            "end": 1040,
+            "text": "The light swept across the harbour for the third time. Below it, the boats pulled at their moorings, restless as sleeping animals. June remembered the fishing boat beneath the bridge and the man who had raised his hand. Perhaps he had known where she was going. Perhaps everyone in the town had known.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 1040,
+            "end": 1140,
+            "text": "She walked to the kitchen window. The last ferry was still at the pier, a square of yellow light beneath the darkening hill. If she left now, she could be on it before anyone noticed the open door. She had the timetable folded in her bag, beside a ticket she had bought that morning.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 1140,
+            "end": 1260,
+            "text": "Instead, she returned to the table. There was another sheet beneath the first, covered in a careful drawing of the shoreline. Most of the landmarks were familiar. One was not: a narrow inlet marked with a circle, beyond the headland where the old charts showed only rock.\n\n"
+          },
+          {
+            "id": "paragraph-6",
+            "start": 1260,
+            "end": 1380,
+            "text": "At the bottom of the drawing the keeper had written a time. June compared it with the clock above the stove. The difference was less than an hour. She took the piece of green glass from her pocket and placed it over the circle, where it made the pale ink look as deep as water.\n\n"
+          },
+          {
+            "id": "paragraph-7",
+            "start": 1380,
+            "end": 1460,
+            "text": "Outside, a gull called from the roof. June folded both sheets along their old creases, put them back in the envelope, and stood. This time she took the key from the hook beside the door. The boots could stay where they were. She would need her own for the path down.\n\n"
+          }
+        ]
+      },
+      "a591167acbf230aba7453b58b01c1558ed0b83f15821b57c12b8d5133a96b4d1": {
+        "assembly": "a591167acbf230aba7453b58b01c1558ed0b83f15821b57c12b8d5133a96b4d1",
+        "chapterId": "chapter-13",
+        "sequence": 13,
+        "title": "Out past the harbour",
+        "duration": 884.75,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 109.07876712328768,
+            "text": "The path down from the lighthouse was narrower than June remembered. Brambles caught at her sleeves, and the town lights appeared and disappeared between the branches. She kept one hand on the rail until the rail ended. After that, she let the sound of the water guide her.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 109.07876712328768,
+            "end": 300.57260273972605,
+            "text": "At the bottom of the hill, a small boat waited beside the steps. Its painter was tied with the same loose knot her father had used on everything from parcels to garden gates. June stopped before touching it. There were coincidences, she told herself, and then there were invitations.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 300.57260273972605,
+            "end": 557.513698630137,
+            "text": "The oars had been laid across the seats. Beneath one of them was a waterproof coat, folded so that the bright lining faced upward. There was no note. June looked back up the hill. From this angle the lighthouse window was a single white point, steady against the evening sky.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 557.513698630137,
+            "end": 630.2328767123288,
+            "text": "She untied the painter and held it while the boat moved into the deeper water beside the steps. For the first time that day she thought about what she would say when she found someone who could answer her questions. Every version began differently. Every version ended with the letter.\n\n"
+          },
+          {
+            "id": "paragraph-4",
+            "start": 630.2328767123288,
+            "end": 690.832191780822,
+            "text": "The harbour fell quiet behind her. A line of ripples reached across the channel, carrying the last reflections from the pier. She followed them until the ferry lights disappeared around the headland. Then she took the drawing from her pocket and found the small circle beneath the green glass.\n\n"
+          },
+          {
+            "id": "paragraph-5",
+            "start": 690.832191780822,
+            "end": 763.5513698630137,
+            "text": "Beyond the headland, the inlet opened exactly where the drawing said it would. June rested the oars and let the boat drift. On the shore ahead of her, someone had lit a lamp. Its light was warm enough to make the dark water look almost like a road.\n\n"
+          }
+        ]
+      },
+      "e755cc9943ea0a2a93f94d072fe0c92a98cbe4e1224c31d39a5946bfcb152f9a": {
+        "assembly": "e755cc9943ea0a2a93f94d072fe0c92a98cbe4e1224c31d39a5946bfcb152f9a",
+        "chapterId": "chapter-3",
+        "sequence": 3,
+        "title": "The missing island",
+        "duration": 1167.25,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 269.36538461538464,
+            "text": "Ivo spread the chart across the cabin table. The island was drawn in pale blue ink, just beyond the line where his father had marked the deepest water. No other chart showed it. He placed a cup over the curling corner and looked again.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 269.36538461538464,
+            "end": 628.5192307692307,
+            "text": "At the harbour office, the clerk had only shaken her head. Boats went around that stretch of coast, she said. Ivo asked what they were avoiding. She turned the map toward the window, as if better light might change the answer.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 628.5192307692307,
+            "end": 897.8846153846154,
+            "text": "By evening he had packed enough water for three days. The small compass went into the breast pocket of his coat. His father had carried it for forty years, and the lid still closed with the same soft click.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 897.8846153846154,
+            "end": 1167.25,
+            "text": "He left before the first fishing boat came back. From the harbour wall, the clerk raised one hand. Ivo could not tell whether she was waving him off or asking him to wait. The wind had already taken the boat beyond her voice.\n\n"
+          }
+        ]
+      },
+      "fd9461b40348930d81e1350cd8e88be9a8694d1b41181098c5a907b695d922bc": {
+        "assembly": "fd9461b40348930d81e1350cd8e88be9a8694d1b41181098c5a907b695d922bc",
+        "chapterId": "chapter-4",
+        "sequence": 4,
+        "title": "Where the water turns",
+        "duration": 780,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 180,
+            "text": "The wind dropped as Ivo passed the last buoy. Ahead, the water changed from slate grey to a clear, unlikely green. He lowered the sail and watched the current carry a line of foam toward an empty patch of sea.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 180,
+            "end": 420,
+            "text": "He checked the chart against the compass. Both agreed that the island should be directly ahead. For a moment he thought he could smell woodsmoke. Then the boat turned, and the smell was gone.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 420,
+            "end": 600,
+            "text": "Beneath the surface, a pale shape moved with the tide. It was too still to be a fish. Ivo leaned over the side until the cold edge of the gunwale pressed against his ribs. A flight of stone steps was rising out of the green.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 600,
+            "end": 780,
+            "text": "He tied the boat to the highest step and waited. With every retreating wave, another part of the shore appeared. By the time he could see the door in the cliff, he understood why his father had written the time beside the island.\n\n"
+          }
+        ]
+      },
+      "5f4f11809d867fd71adda895a766e62fa278b1ad67e1324d279a4cb3d84006e0": {
+        "assembly": "5f4f11809d867fd71adda895a766e62fa278b1ad67e1324d279a4cb3d84006e0",
+        "chapterId": "chapter-5",
+        "sequence": 5,
+        "title": "The tide house",
+        "duration": 1167.25,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 269.36538461538464,
+            "text": "The door opened inward without a sound. Ivo stood in a room that smelled of salt and dry paper. Shelves climbed the walls, each one filled with jars of clear water. A lamp burned on the desk, although there was no one beside it.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 269.36538461538464,
+            "end": 628.5192307692307,
+            "text": "He found his name on the first page of the open ledger. Under it was the name of his boat, the date, and the hour he had left the harbour. The ink was still wet enough to shine.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 628.5192307692307,
+            "end": 897.8846153846154,
+            "text": "Outside, a bell began to ring beneath the water. Ivo went back to the doorway. The steps were disappearing again, one by one. His boat rose and fell against the rope, patient as a hand waiting to be taken.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 897.8846153846154,
+            "end": 1167.25,
+            "text": "He put the ledger inside his coat and ran. Only when the island was behind him did he open it again. There was a second line beneath his name now. It gave the hour he would return.\n\n"
+          }
+        ]
+      },
+      "95a87d0171a04745c8e1b26022385a60b824b6fb46e47d3ea958332a3b32fd34": {
+        "assembly": "95a87d0171a04745c8e1b26022385a60b824b6fb46e47d3ea958332a3b32fd34",
+        "chapterId": "chapter-3",
+        "sequence": 3,
+        "title": "The missing island",
+        "duration": 1167.25,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 277.9166666666667,
+            "text": "Ivo spread the chart across the cabin table. The island was drawn in pale blue ink, just beyond the line where his father had marked the deepest water. No other chart showed it. He placed a cup over the curling corner and looked again.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 277.9166666666667,
+            "end": 625.3125,
+            "text": "At the harbour office, the clerk had only shaken her head. Boats went around that stretch of coast, she said. Ivo asked what they were avoiding. She turned the map toward the window, as if better light might change the answer.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 625.3125,
+            "end": 903.2291666666666,
+            "text": "By evening he had packed enough water for three days. The small compass went into the breast pocket of his coat. His father had carried it for forty years, and the lid still closed with the same soft click.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 903.2291666666666,
+            "end": 1167.25,
+            "text": "He left before the first fishing boat came back. From the harbour wall, the clerk raised one hand. Ivo could not tell whether she was waving him off or asking him to wait. The wind had already taken the boat beyond her voice.\n\n"
+          }
+        ]
+      },
+      "4af38fac26d9f0d9d291f2529ec82f5568472242d1bd075c9d446464bab4582f": {
+        "assembly": "4af38fac26d9f0d9d291f2529ec82f5568472242d1bd075c9d446464bab4582f",
+        "chapterId": "chapter-4",
+        "sequence": 4,
+        "title": "Where the water turns",
+        "duration": 780,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 185.71428571428572,
+            "text": "The wind dropped as Ivo passed the last buoy. Ahead, the water changed from slate grey to a clear, unlikely green. He lowered the sail and watched the current carry a line of foam toward an empty patch of sea.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 185.71428571428572,
+            "end": 417.85714285714283,
+            "text": "He checked the chart against the compass. Both agreed that the island should be directly ahead. For a moment he thought he could smell woodsmoke. Then the boat turned, and the smell was gone.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 417.85714285714283,
+            "end": 603.5714285714286,
+            "text": "Beneath the surface, a pale shape moved with the tide. It was too still to be a fish. Ivo leaned over the side until the cold edge of the gunwale pressed against his ribs. A flight of stone steps was rising out of the green.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 603.5714285714286,
+            "end": 780,
+            "text": "He tied the boat to the highest step and waited. With every retreating wave, another part of the shore appeared. By the time he could see the door in the cliff, he understood why his father had written the time beside the island.\n\n"
+          }
+        ]
+      },
+      "6842972cc8171597add2f2eea5b95f090c2c984e38919121cf1d8336941e31ed": {
+        "assembly": "6842972cc8171597add2f2eea5b95f090c2c984e38919121cf1d8336941e31ed",
+        "chapterId": "chapter-5",
+        "sequence": 5,
+        "title": "The tide house",
+        "duration": 1167.25,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 277.9166666666667,
+            "text": "The door opened inward without a sound. Ivo stood in a room that smelled of salt and dry paper. Shelves climbed the walls, each one filled with jars of clear water. A lamp burned on the desk, although there was no one beside it.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 277.9166666666667,
+            "end": 625.3125,
+            "text": "He found his name on the first page of the open ledger. Under it was the name of his boat, the date, and the hour he had left the harbour. The ink was still wet enough to shine.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 625.3125,
+            "end": 903.2291666666666,
+            "text": "Outside, a bell began to ring beneath the water. Ivo went back to the doorway. The steps were disappearing again, one by one. His boat rose and fell against the rope, patient as a hand waiting to be taken.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 903.2291666666666,
+            "end": 1167.25,
+            "text": "He put the ledger inside his coat and ran. Only when the island was behind him did he open it again. There was a second line beneath his name now. It gave the hour he would return.\n\n"
+          }
+        ]
+      },
+      "2cf8ee3bc32b47b64e288578de00c77022e907ed401df811ec25cd8f9b4ef859": {
+        "assembly": "2cf8ee3bc32b47b64e288578de00c77022e907ed401df811ec25cd8f9b4ef859",
+        "chapterId": "chapter-3",
+        "sequence": 3,
+        "title": "The missing island",
+        "duration": 1167.25,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 273.79938271604937,
+            "text": "Ivo spread the chart across the cabin table. The island was drawn in pale blue ink, just beyond the line where his father had marked the deepest water. No other chart showed it. He placed a cup over the curling corner and looked again.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 273.79938271604937,
+            "end": 626.8564814814815,
+            "text": "At the harbour office, the clerk had only shaken her head. Boats went around that stretch of coast, she said. Ivo asked what they were avoiding. She turned the map toward the window, as if better light might change the answer.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 626.8564814814815,
+            "end": 893.4506172839506,
+            "text": "By evening he had packed enough water for three days. The small compass went into the breast pocket of his coat. His father had carried it for forty years, and the lid still closed with the same soft click.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 893.4506172839506,
+            "end": 1167.25,
+            "text": "He left before the first fishing boat came back. From the harbour wall, the clerk raised one hand. Ivo could not tell whether she was waving him off or asking him to wait. The wind had already taken the boat beyond her voice.\n\n"
+          }
+        ]
+      },
+      "8912fa89598f35c8111c3c65c862452d5c7b4010c7c744fcb58e39460e2c1517": {
+        "assembly": "8912fa89598f35c8111c3c65c862452d5c7b4010c7c744fcb58e39460e2c1517",
+        "chapterId": "chapter-4",
+        "sequence": 4,
+        "title": "Where the water turns",
+        "duration": 780,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 182.96296296296296,
+            "text": "The wind dropped as Ivo passed the last buoy. Ahead, the water changed from slate grey to a clear, unlikely green. He lowered the sail and watched the current carry a line of foam toward an empty patch of sea.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 182.96296296296296,
+            "end": 418.8888888888889,
+            "text": "He checked the chart against the compass. Both agreed that the island should be directly ahead. For a moment he thought he could smell woodsmoke. Then the boat turned, and the smell was gone.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 418.8888888888889,
+            "end": 597.0370370370371,
+            "text": "Beneath the surface, a pale shape moved with the tide. It was too still to be a fish. Ivo leaned over the side until the cold edge of the gunwale pressed against his ribs. A flight of stone steps was rising out of the green.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 597.0370370370371,
+            "end": 780,
+            "text": "He tied the boat to the highest step and waited. With every retreating wave, another part of the shore appeared. By the time he could see the door in the cliff, he understood why his father had written the time beside the island.\n\n"
+          }
+        ]
+      },
+      "46e43e3a0f818533dc0d2c8afe0bc6aa55f8db78e619759aaf312f519744a735": {
+        "assembly": "46e43e3a0f818533dc0d2c8afe0bc6aa55f8db78e619759aaf312f519744a735",
+        "chapterId": "chapter-5",
+        "sequence": 5,
+        "title": "The tide house",
+        "duration": 1167.25,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 273.79938271604937,
+            "text": "The door opened inward without a sound. Ivo stood in a room that smelled of salt and dry paper. Shelves climbed the walls, each one filled with jars of clear water. A lamp burned on the desk, although there was no one beside it.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 273.79938271604937,
+            "end": 626.8564814814815,
+            "text": "He found his name on the first page of the open ledger. Under it was the name of his boat, the date, and the hour he had left the harbour. The ink was still wet enough to shine.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 626.8564814814815,
+            "end": 893.4506172839506,
+            "text": "Outside, a bell began to ring beneath the water. Ivo went back to the doorway. The steps were disappearing again, one by one. His boat rose and fell against the rope, patient as a hand waiting to be taken.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 893.4506172839506,
+            "end": 1167.25,
+            "text": "He put the ledger inside his coat and ran. Only when the island was behind him did he open it again. There was a second line beneath his name now. It gave the hour he would return.\n\n"
+          }
+        ]
+      },
+      "b1b7d9673ca6fac52a480fe538372056c216ed4299a49f951b996b3a0697a72a": {
+        "assembly": "b1b7d9673ca6fac52a480fe538372056c216ed4299a49f951b996b3a0697a72a",
+        "chapterId": "chapter-1",
+        "sequence": 1,
+        "title": "The first glasshouse",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 288.46153846153845,
+            "text": "Lena arrived at the orchard with rain in her hair and the key warm inside her glove. The glasshouse stood above the valley, its roof catching the last light. Someone had opened every window except the small round one above the door.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 288.46153846153845,
+            "end": 576.9230769230769,
+            "text": "Inside, the trees were in flower. It was the wrong season for blossom, but the air smelled exactly like the kitchen of the house where she had grown up. She stopped beside the nearest branch and listened to a kettle that was not there.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 576.9230769230769,
+            "end": 961.5384615384615,
+            "text": "A notebook lay on the potting bench. The first page held a list of chores in her aunt’s careful handwriting. Water the south beds. Open the vents at noon. Do not pick anything before you remember why you came.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 961.5384615384615,
+            "end": 1250,
+            "text": "Lena read the last line again. In the quiet beyond the bench, a pear fell softly onto the path. It was green and perfect, with a small brown mark near the stem that she knew she had seen before.\n\n"
+          }
+        ]
+      },
+      "013c68dde85e69396332132bb2414c37c7ccefdb53704cb350bc2dfccb9bc8e2": {
+        "assembly": "013c68dde85e69396332132bb2414c37c7ccefdb53704cb350bc2dfccb9bc8e2",
+        "chapterId": "chapter-2",
+        "sequence": 2,
+        "title": "Fruit out of season",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 288.46153846153845,
+            "text": "By morning, the rain had left bright beads along the glass. Lena carried the watering can between the trees. Whenever she passed beneath the oldest pear, she heard a chair scrape across a floor that had been pulled up twenty years ago.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 288.46153846153845,
+            "end": 576.9230769230769,
+            "text": "She tried to write the sound down. The words looked ordinary on the page. Then the tree beside her moved, though none of the windows was open, and a blossom landed between the lines.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 576.9230769230769,
+            "end": 961.5384615384615,
+            "text": "At the gate, a boy waited with an empty basket. He asked whether the harvest had started. Lena told him she had only just arrived. He looked past her at the glasshouse and said that was what everyone said the first time.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 961.5384615384615,
+            "end": 1250,
+            "text": "She let him fill his basket from the lower branches. Before leaving, he put one pear back on the bench. This one belongs to you, he said. Lena knew its weight before she lifted it.\n\n"
+          }
+        ]
+      },
+      "c29da4373983ad455b169c20bca3da11c5f4dc86842810f2d8fdcc8acfac1a0d": {
+        "assembly": "c29da4373983ad455b169c20bca3da11c5f4dc86842810f2d8fdcc8acfac1a0d",
+        "chapterId": "chapter-3",
+        "sequence": 3,
+        "title": "A remembered room",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 288.46153846153845,
+            "text": "The pear tasted of late summer. Lena closed her eyes and found herself standing in the old kitchen, with afternoon light on the tiles. Her aunt was at the sink, younger than Lena remembered, turning a cup between both hands.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 288.46153846153845,
+            "end": 576.9230769230769,
+            "text": "Nothing in the room seemed surprised to see her. The clock ticked above the stove. Beyond the window, a bicycle lay in the grass. Lena could almost hear the words her aunt was about to say.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 576.9230769230769,
+            "end": 961.5384615384615,
+            "text": "Then the cup slipped. Lena reached for it, and her hand closed around a branch in the glasshouse. The watering can lay on its side at her feet. Outside, the valley was full of morning light.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 961.5384615384615,
+            "end": 1250,
+            "text": "She sat on the bench until her hands stopped shaking. In the notebook, beneath the list of chores, a new sentence had appeared. This time, she was certain it had not been there before.\n\n"
+          }
+        ]
+      },
+      "30ff7ccf6e08d05f60b83a109edc96f42db129393b8ac141599f0e809d703bf4": {
+        "assembly": "30ff7ccf6e08d05f60b83a109edc96f42db129393b8ac141599f0e809d703bf4",
+        "chapterId": "chapter-1",
+        "sequence": 1,
+        "title": "The first glasshouse",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 154.1095890410959,
+            "text": "Lena arrived at the orchard with rain in her hair and the key warm inside her glove. The glasshouse stood above the valley, its roof catching the last light. Someone had opened every window except the small round one above the door.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 154.1095890410959,
+            "end": 424.6575342465753,
+            "text": "Inside, the trees were in flower. It was the wrong season for blossom, but the air smelled exactly like the kitchen of the house where she had grown up. She stopped beside the nearest branch and listened to a kettle that was not there.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 424.6575342465753,
+            "end": 787.6712328767123,
+            "text": "A notebook lay on the potting bench. The first page held a list of chores in her aunt’s careful handwriting. Water the south beds. Open the vents at noon. Do not pick anything before you remember why you came.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 787.6712328767123,
+            "end": 890.4109589041096,
+            "text": "Lena read the last line again. In the quiet beyond the bench, a pear fell softly onto the path. It was green and perfect, with a small brown mark near the stem that she knew she had seen before.\n\n"
+          }
+        ]
+      },
+      "739fd36bc058c032e3a4c5723d3a15a0e57ab9fad4978b7ef73e937b8857d1c8": {
+        "assembly": "739fd36bc058c032e3a4c5723d3a15a0e57ab9fad4978b7ef73e937b8857d1c8",
+        "chapterId": "chapter-2",
+        "sequence": 2,
+        "title": "Fruit out of season",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 154.1095890410959,
+            "text": "By morning, the rain had left bright beads along the glass. Lena carried the watering can between the trees. Whenever she passed beneath the oldest pear, she heard a chair scrape across a floor that had been pulled up twenty years ago.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 154.1095890410959,
+            "end": 424.6575342465753,
+            "text": "She tried to write the sound down. The words looked ordinary on the page. Then the tree beside her moved, though none of the windows was open, and a blossom landed between the lines.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 424.6575342465753,
+            "end": 787.6712328767123,
+            "text": "At the gate, a boy waited with an empty basket. He asked whether the harvest had started. Lena told him she had only just arrived. He looked past her at the glasshouse and said that was what everyone said the first time.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 787.6712328767123,
+            "end": 890.4109589041096,
+            "text": "She let him fill his basket from the lower branches. Before leaving, he put one pear back on the bench. This one belongs to you, he said. Lena knew its weight before she lifted it.\n\n"
+          }
+        ]
+      },
+      "7bf83e57667e4d3a3bd3b60b94f82971ca6bb13d70656ddf50e579ca76c3b571": {
+        "assembly": "7bf83e57667e4d3a3bd3b60b94f82971ca6bb13d70656ddf50e579ca76c3b571",
+        "chapterId": "chapter-3",
+        "sequence": 3,
+        "title": "A remembered room",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 154.1095890410959,
+            "text": "The pear tasted of late summer. Lena closed her eyes and found herself standing in the old kitchen, with afternoon light on the tiles. Her aunt was at the sink, younger than Lena remembered, turning a cup between both hands.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 154.1095890410959,
+            "end": 424.6575342465753,
+            "text": "Nothing in the room seemed surprised to see her. The clock ticked above the stove. Beyond the window, a bicycle lay in the grass. Lena could almost hear the words her aunt was about to say.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 424.6575342465753,
+            "end": 787.6712328767123,
+            "text": "Then the cup slipped. Lena reached for it, and her hand closed around a branch in the glasshouse. The watering can lay on its side at her feet. Outside, the valley was full of morning light.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 787.6712328767123,
+            "end": 890.4109589041096,
+            "text": "She sat on the bench until her hands stopped shaking. In the notebook, beneath the list of chores, a new sentence had appeared. This time, she was certain it had not been there before.\n\n"
+          }
+        ]
+      },
+      "7a7a483a1862e81f718fadb53eb23b14d13986a76f527049fe517f68cc3e540e": {
+        "assembly": "7a7a483a1862e81f718fadb53eb23b14d13986a76f527049fe517f68cc3e540e",
+        "chapterId": "chapter-1",
+        "sequence": 1,
+        "title": "The first glasshouse",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 297.6190476190476,
+            "text": "Lena arrived at the orchard with rain in her hair and the key warm inside her glove. The glasshouse stood above the valley, its roof catching the last light. Someone had opened every window except the small round one above the door.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 297.6190476190476,
+            "end": 595.2380952380952,
+            "text": "Inside, the trees were in flower. It was the wrong season for blossom, but the air smelled exactly like the kitchen of the house where she had grown up. She stopped beside the nearest branch and listened to a kettle that was not there.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 595.2380952380952,
+            "end": 967.2619047619048,
+            "text": "A notebook lay on the potting bench. The first page held a list of chores in her aunt’s careful handwriting. Water the south beds. Open the vents at noon. Do not pick anything before you remember why you came.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 967.2619047619048,
+            "end": 1250,
+            "text": "Lena read the last line again. In the quiet beyond the bench, a pear fell softly onto the path. It was green and perfect, with a small brown mark near the stem that she knew she had seen before.\n\n"
+          }
+        ]
+      },
+      "1153675883296d23573dfa8bf0917a9679d917d156fcffa983aaa1efdc03d78e": {
+        "assembly": "1153675883296d23573dfa8bf0917a9679d917d156fcffa983aaa1efdc03d78e",
+        "chapterId": "chapter-2",
+        "sequence": 2,
+        "title": "Fruit out of season",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 297.6190476190476,
+            "text": "By morning, the rain had left bright beads along the glass. Lena carried the watering can between the trees. Whenever she passed beneath the oldest pear, she heard a chair scrape across a floor that had been pulled up twenty years ago.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 297.6190476190476,
+            "end": 595.2380952380952,
+            "text": "She tried to write the sound down. The words looked ordinary on the page. Then the tree beside her moved, though none of the windows was open, and a blossom landed between the lines.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 595.2380952380952,
+            "end": 967.2619047619048,
+            "text": "At the gate, a boy waited with an empty basket. He asked whether the harvest had started. Lena told him she had only just arrived. He looked past her at the glasshouse and said that was what everyone said the first time.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 967.2619047619048,
+            "end": 1250,
+            "text": "She let him fill his basket from the lower branches. Before leaving, he put one pear back on the bench. This one belongs to you, he said. Lena knew its weight before she lifted it.\n\n"
+          }
+        ]
+      },
+      "61a5513dc89a4afae1c1c5d3d3c4e8ba39c00e71ccf3936e820aaf624c576e9f": {
+        "assembly": "61a5513dc89a4afae1c1c5d3d3c4e8ba39c00e71ccf3936e820aaf624c576e9f",
+        "chapterId": "chapter-3",
+        "sequence": 3,
+        "title": "A remembered room",
+        "duration": 1250,
+        "passages": [
+          {
+            "id": "paragraph-0",
+            "start": 0,
+            "end": 297.6190476190476,
+            "text": "The pear tasted of late summer. Lena closed her eyes and found herself standing in the old kitchen, with afternoon light on the tiles. Her aunt was at the sink, younger than Lena remembered, turning a cup between both hands.\n\n"
+          },
+          {
+            "id": "paragraph-1",
+            "start": 297.6190476190476,
+            "end": 595.2380952380952,
+            "text": "Nothing in the room seemed surprised to see her. The clock ticked above the stove. Beyond the window, a bicycle lay in the grass. Lena could almost hear the words her aunt was about to say.\n\n"
+          },
+          {
+            "id": "paragraph-2",
+            "start": 595.2380952380952,
+            "end": 967.2619047619048,
+            "text": "Then the cup slipped. Lena reached for it, and her hand closed around a branch in the glasshouse. The watering can lay on its side at her feet. Outside, the valley was full of morning light.\n\n"
+          },
+          {
+            "id": "paragraph-3",
+            "start": 967.2619047619048,
+            "end": 1250,
+            "text": "She sat on the bench until her hands stopped shaking. In the notebook, beneath the list of chores, a new sentence had appeared. This time, she was certain it had not been there before.\n\n"
+          }
+        ]
+      }
+    },
+    "history": [
+      {
+        "eventId": "fictional-jump-0",
+        "reason": "chapter",
+        "deviceTime": 1792630080000,
+        "from": {
+          "story": "lighthouse",
+          "bookTitle": "The Lighthouse Letters",
+          "edition": "v3",
+          "assembly": "2195283c2b077376d458498736eafa81ad0a92b0fdc41fb93c3d8b96a3f6b4e8",
+          "chapter": 12,
+          "chapterTitle": "The keeper’s last letter",
+          "seconds": 496,
+          "excerpt": "June unfolded the letter. The paper was thin enough to show the light through it. The first line was not addressed to her, but the second made her sit down. She read that line twice, then set the enve",
+          "selection": {
+            "story": "lighthouse",
+            "bookTitle": "The Lighthouse Letters",
+            "edition": "v3",
+            "chapter": {
+              "id": "chapter-12",
+              "sequence": 12,
+              "title": "The keeper’s last letter",
+              "assembly": "2195283c2b077376d458498736eafa81ad0a92b0fdc41fb93c3d8b96a3f6b4e8",
+              "duration": 1460,
+              "checksum": "215a7439c702454f1cdefbec351335e482ff493826962412ae7ed66b622af890"
+            }
+          }
+        }
+      },
+      {
+        "eventId": "fictional-jump-1",
+        "reason": "passage",
+        "deviceTime": 1792628520000,
+        "from": {
+          "story": "lighthouse",
+          "bookTitle": "The Lighthouse Letters",
+          "edition": "v3",
+          "assembly": "7f5f51e1e8f092c6dcd4a4cb8523dc4c09b4b5644003b861d2434f8a9098f3e6",
+          "chapter": 11,
+          "chapterTitle": "Under the old bridge",
+          "seconds": 184,
+          "excerpt": "A letter lay on the lowest step, just beyond the reach of the tide. Someone had weighted it with a piece of green glass. June looked back toward the road, expecting to find its owner watching from the",
+          "selection": {
+            "story": "lighthouse",
+            "bookTitle": "The Lighthouse Letters",
+            "edition": "v3",
+            "chapter": {
+              "id": "chapter-11",
+              "sequence": 11,
+              "title": "Under the old bridge",
+              "assembly": "7f5f51e1e8f092c6dcd4a4cb8523dc4c09b4b5644003b861d2434f8a9098f3e6",
+              "duration": 884.75,
+              "checksum": "618de89130dd13521f6b8003cdb963d18f5f46ee1fd65694851fe071bf1fab5f"
+            }
+          }
+        }
+      },
+      {
+        "eventId": "fictional-jump-2",
+        "reason": "seek",
+        "deviceTime": 1792544400000,
+        "from": {
+          "story": "lighthouse",
+          "bookTitle": "The Lighthouse Letters",
+          "edition": "flash",
+          "assembly": "9902c6b07d0c40a9cc837504d44a9fa124ab88bc45966c392d6aae55573742ea",
+          "chapter": 12,
+          "chapterTitle": "The keeper’s last letter",
+          "seconds": 215,
+          "excerpt": "She stood on the threshold, listening. Somewhere above her, the machinery turned with its familiar, patient rhythm. Beyond the open kitchen window she could hear a loose rope tapping against the flagp",
+          "selection": {
+            "story": "lighthouse",
+            "bookTitle": "The Lighthouse Letters",
+            "edition": "flash",
+            "chapter": {
+              "id": "chapter-12",
+              "sequence": 12,
+              "title": "The keeper’s last letter",
+              "assembly": "9902c6b07d0c40a9cc837504d44a9fa124ab88bc45966c392d6aae55573742ea",
+              "duration": 1460
+            }
+          }
+        }
+      }
+    ]
+  }
+}

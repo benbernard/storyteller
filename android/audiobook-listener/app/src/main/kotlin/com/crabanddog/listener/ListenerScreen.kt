@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,9 +14,11 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,8 +41,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,6 +68,11 @@ internal fun listeningSummary(book: Book, state: ListenerUiState): ListeningSumm
     return ListeningSummary(edition, current?.location(state.position) ?: latest, unread.size, remaining)
 }
 
+internal fun listeningPlace(book: Book, state: ListenerUiState, point: JSONObject?): String {
+    val chapter = point?.let { book.editions[it.optString("edition")]?.find { chapter -> chapter.assembly == it.optString("assembly") } } ?: return "Not started"
+    return "Chapter ${chapter.sequence} · ${formatTime(chapterView(chapter, state.reading, state.includeAuthorNotes).position(point.optDouble("seconds")))}"
+}
+
 @Suppress("UNUSED_PARAMETER")
 @Composable
 fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () -> Unit,
@@ -71,6 +83,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     onFollow: (String, Boolean, String) -> Unit = { _, _, _ -> }, onCheck: (String) -> Unit = {}, onJob: (String, String) -> Unit = { _, _ -> }, onAudio: (String, Boolean) -> Unit = { _, _ -> }, onIncludeAuthorNotes: (Boolean) -> Unit = {}, onSkip: ((Int) -> Unit)? = null,
     onEdition: (String) -> Unit = {}, onCancelSignIn: () -> Unit = {}, onCancelReturn: () -> Unit = {}, onPassageSelection: ((Selection, Double) -> Unit)? = null, onSaveIssue: ((Selection, Double, String, String) -> Boolean)? = null, onChapterPlay: ((Book, String, Chapter) -> Unit)? = null) {
     val context = LocalContext.current
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700
     val store = remember(context) { ListenerStore.get(context) }
     val offline = remember(context) { OfflineAudio(context) }
     val scope = rememberCoroutineScope()
@@ -124,45 +137,56 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
         }
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
-        Column(Modifier.widthIn(max = 840.dp).fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (state.connected && screen != "library") IconButton(onClick = { back() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-                StorytellerMark(32.dp)
-                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                    Text(if (!state.connected) "Listener" else when (screen) { "library" -> "Your library"; "listening" -> state.selection?.chapter?.title ?: browsing?.chapter?.title ?: "Listening"; "chapters" -> "Chapters"; "downloads" -> "Downloads"; "preparation" -> "Preparation"; "issues" -> "Marked issues"; "account" -> "Account"; else -> "Book" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (screen == "listening" && state.connected) Text(state.selection?.bookTitle ?: browsing?.bookTitle.orEmpty(), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+        Column(Modifier.widthIn(max = 860.dp).fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().heightIn(min = if (screen == "listening" && state.connected) 80.dp else 64.dp).padding(horizontal = if (wide && screen != "listening") 32.dp else 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if ((state.connected && screen != "library") || (!state.connected && (state.signingIn || state.signInUrl.isNotEmpty()))) IconButton(onClick = { if (state.connected) back() else onCancelSignIn() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", modifier = Modifier.size(22.dp)) }
+                StorytellerMark(if (screen == "listening") 30.dp else 32.dp)
+                if (screen == "listening" && state.connected) {
+                    val audio = state.selection ?: browsing
+                    val count = state.books.find { it.id == audio?.story }?.editions?.values?.flatten()?.distinctBy { it.id }?.size ?: 0
+                    Column(Modifier.weight(1f).clickable(role = Role.Button) { navigate("chapters", audio?.story) }.semantics { contentDescription = "Chapters" }.padding(horizontal = 2.dp)) {
+                        Text(audio?.bookTitle.orEmpty(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (count > 0) "Chapter ${audio?.chapter?.sequence} of $count" else "Chapter ${audio?.chapter?.sequence ?: 1}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 3.dp, bottom = 3.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { Text(audio?.chapter?.title ?: "Listening", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false)); Icon(Icons.Default.ExpandMore, null, modifier = Modifier.size(16.dp)) }
+                    }
+                } else Text(if (!state.connected) "Listener" else when (screen) { "library" -> "Your library"; "chapters" -> "Chapters"; "downloads" -> "Downloads"; "preparation" -> "Preparation"; "issues" -> "Marked issues"; "account" -> "Account"; else -> "Book" }, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontSize = 17.6.sp, fontWeight = FontWeight.SemiBold)
                 if (state.connected) {
                     when (screen) {
-                        "listening" -> IconButton(onClick = { sheet = "settings" }) { Icon(Icons.Default.Settings, "Listening settings") }
-                        "downloads" -> IconButton(onClick = { sheet = "download-settings" }) { Icon(Icons.Default.Settings, "Download settings") }
-                        "preparation" -> IconButton(onClick = { sheet = "preparation-settings" }) { Icon(Icons.Default.Settings, "Preparation settings") }
+                        "listening" -> IconButton(onClick = { sheet = "settings" }) { Icon(Icons.Default.Settings, "Listening settings", modifier = Modifier.size(20.dp)) }
+                        "downloads" -> IconButton(onClick = { sheet = "download-settings" }) { Icon(Icons.Default.Settings, "Download settings", modifier = Modifier.size(20.dp)) }
+                        "preparation" -> IconButton(onClick = { sheet = "preparation-settings" }) { Icon(Icons.Default.Settings, "Preparation settings", modifier = Modifier.size(20.dp)) }
                         "account" -> Unit
-                        else -> IconButton(onClick = onRefresh, enabled = !state.loading) { Icon(Icons.Default.Refresh, "Sync library") }
+                        "library", "book", "chapters", "issues" -> IconButton(onClick = onRefresh, enabled = !state.loading) { Icon(Icons.Default.Refresh, "Sync library", modifier = Modifier.size(20.dp)) }
                     }
-                    if (screen == "library") IconButton(onClick = { navigate("account", null) }) { Icon(Icons.Default.MoreVert, "Account") }
+                    if (screen != "listening" && screen != "account") IconButton(onClick = { navigate("account", null) }) { Icon(Icons.Default.MoreVert, "Account", modifier = Modifier.size(20.dp)) }
                 }
             }
             HorizontalDivider()
-            if (state.message.isNotEmpty() && state.message != "Your progress is synced.") Text(state.message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+            if (state.connected && screen !in listOf("library", "issues", "preparation", "account") && state.message.isNotEmpty() && state.message != "Your progress is synced." && !state.message.startsWith("Issue saved at")) Text(state.message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             if (!state.connected) {
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Spacer(Modifier.height(20.dp)); StorytellerMark(86.dp)
-                    Text("Pick up the story", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                    Text("Sign in to open your library and keep your place across devices.", style = MaterialTheme.typography.bodyMedium)
-                    if (state.signInUrl.isNotEmpty()) {
-                        TextButton(onClick = { uri.openUri(state.signInUrl) }) { Text("Continue sign in") }
-                        TextButton(onClick = onCancelSignIn) { Text("Cancel") }
-                    } else Button(onClick = onConnect, enabled = !state.signingIn) { Text(if (state.signingIn) "Opening sign in…" else "Sign in") }
+                Column(Modifier.weight(1f).widthIn(max = 500.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 38.dp, vertical = if (state.signInUrl.isNotEmpty() || state.message.startsWith("Sign in timed out")) 40.dp else 26.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    val waiting = state.signInUrl.isNotEmpty()
+                    val expired = state.message.startsWith("Sign in timed out")
+                    if (!waiting && !expired) { Spacer(Modifier.height(20.dp)); StorytellerMark(86.dp); Spacer(Modifier.height(3.dp)) }
+                    Text(if (waiting) "Sign in through your browser" else if (expired) "Sign in timed out" else "Pick up the story", fontSize = 22.4.sp, lineHeight = 29.1.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (waiting) "Return here after signing in. Your library will open automatically." else if (expired) "Try signing in again." else "Sign in to open your library and keep your place across devices.", fontSize = 13.76.sp, lineHeight = 22.sp)
+                    if (waiting) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(onClick = { uri.openUri(state.signInUrl) }, enabled = !state.offline && !state.signingIn, shape = RoundedCornerShape(8.dp), modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 14.dp)) { Text(if (state.signingIn) "Signing in…" else "Continue sign in", fontWeight = FontWeight.Normal) }
+                            TextButton(onClick = onCancelSignIn, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Text("Cancel", fontWeight = FontWeight.Normal) }
+                        }
+                    } else Button(onClick = onConnect, enabled = !state.signingIn && !state.offline, shape = RoundedCornerShape(8.dp), modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 14.dp)) { Text(if (state.signingIn) "Opening sign in…" else if (expired) "Start again" else "Sign in", fontWeight = FontWeight.Normal) }
+                    if (state.offline) Text("Connect to the internet to continue.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.message.isNotEmpty() && state.message != "Finish signing in through your browser." && !expired) Text(state.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
             } else {
                 holder.SaveableStateProvider(screen + ":" + storyId) {
-                    Box(Modifier.weight(1f)) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = if (wide && screen in listOf("preparation", "issues", "account")) Alignment.TopCenter else Alignment.TopStart) {
                         when (screen) {
-                            "library" -> LibraryPage(state, ::openBook, playBook, { menuStory = it })
+                            "library" -> LibraryPage(state, ::openBook, playBook, { menuStory = it }, onRefresh)
                             "book" -> BookPage(selectedBook, source, state, playBook, { navigate(it) })
-                            "chapters" -> ChaptersPage(selectedBook, state, { selection, playable -> browseJson = selection.json().put("playable", playable).toString(); openReader() }, { book, edition, chapter -> browseJson = null; (onChapterPlay ?: onPlay)(book, edition, chapter); openReader() })
-                            "listening" -> ListeningPage(state, browsing, browsingCanPlay, textSize, { if (state.selection == null && browsing != null) { state.books.find { it.id == browsing.story }?.let { onPlay(it, browsing.edition, browsing.chapter); browseJson = null } } else onToggle() }, onSeek, onPassage, onPassageSelection, onSkip, mark, { sheet = "speed" }, { sheet = "history"; onHistory(false) }, { navigate("chapters", state.selection?.story ?: browsing?.story) }, { browseJson = null }, onReturn)
+                            "chapters" -> ChaptersPage(selectedBook, state, { selection, playable -> browseJson = selection.json().put("playable", playable).toString(); openReader() }, { book, edition, chapter -> browseJson = null; val current = state.selection?.chapter?.assembly == chapter.assembly; val saved = listeningSummary(book, state).latest?.optString("assembly") == chapter.assembly; (if (saved && !current) onPlay else onChapterPlay ?: onPlay)(book, edition, chapter); openReader() })
+                            "listening" -> ListeningPage(state, browsing, browsingCanPlay, textSize, { if (state.selection == null && browsing != null) { state.books.find { it.id == browsing.story }?.let { onPlay(it, browsing.edition, browsing.chapter); browseJson = null } } else onToggle() }, onSeek, onPassage, onPassageSelection, onSkip, mark, { sheet = "speed" }, { sheet = "history"; onHistory(false) }, { navigate("chapters", state.selection?.story ?: browsing?.story) }, { browseJson = null }, onReturn, { selected, playable -> browseJson = selected.json().put("playable", playable).toString() }, onRefresh)
                             "downloads" -> selectedBook?.let { DownloadsPage(it, offline, { clearStory = it.id }) }
                             "preparation" -> PreparationPage(selectedBook, source, state, onCheck, onJob, onRefresh)
                             "issues" -> IssuesPage(state, storyId, onResolve)
@@ -173,7 +197,7 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
                 if (screen != "listening") state.selection?.let { selection ->
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { browseJson = null; openReader() }, modifier = Modifier.weight(1f).testTag("open-player")) { Column(Modifier.fillMaxWidth()) { Text(selection.bookTitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge); Text("${selection.chapter.title} · ${formatTime(state.position)}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall) } }
+                        TextButton(onClick = { browseJson = null; openReader() }, modifier = Modifier.weight(1f).testTag("open-player"), contentPadding = PaddingValues(horizontal = 4.dp)) { Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) { StoryCover(selection.story, Modifier.size(28.dp, 42.dp)); Column(Modifier.weight(1f)) { Text(selection.bookTitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface); Text("Chapter ${selection.chapter.sequence} · ${formatTime(chapterView(selection.chapter, state.reading, state.includeAuthorNotes).position(state.position))}", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
                         IconButton(onClick = onToggle) { Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) "Pause" else "Play") }
                     }
                 }
@@ -189,10 +213,20 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     }
     menuStory?.let { id ->
         val book = state.books.find { it.id == id }
-        AlertDialog(onDismissRequest = { menuStory = null }, title = { Text(book?.title ?: "Book") }, text = { Column { TextButton(onClick = { menuStory = null; navigate("downloads", id) }, enabled = book != null) { Text("Downloads") }; TextButton(onClick = { menuStory = null; clearStory = id }, enabled = book != null) { Text("Clear downloads") } } }, confirmButton = { TextButton(onClick = { menuStory = null }) { Text("Close") } })
+        ListenerSheet(book?.title ?: "Book", { menuStory = null }) {
+            TextButton(onClick = { menuStory = null; navigate("downloads", id) }, enabled = book != null, contentPadding = PaddingValues(0.dp)) { Text("Downloads") }
+            TextButton(onClick = { menuStory = null; clearStory = id }, enabled = book != null && offline.hasBookDownloads(book), contentPadding = PaddingValues(0.dp)) { Text("Clear downloads") }
+        }
     }
     clearStory?.let { id -> state.books.find { it.id == id }?.let { book ->
-        AlertDialog(onDismissRequest = { clearStory = null }, title = { Text("Clear downloads?") }, text = { Column { Text("Remove downloaded audio for ${book.title} from this phone? Downloads for this book will pause. Your listening place is kept."); if (clearError.isNotEmpty()) Text(clearError, color = MaterialTheme.colorScheme.error) } }, confirmButton = { TextButton(onClick = { val books = state.books; clearing = true; clearError = ""; scope.launch { try { withContext(Dispatchers.IO) { offline.clearBook(book, books) }; clearStory = null } catch (e: Exception) { clearError = "Couldn’t clear all downloads. Try again." } finally { clearing = false } } }, enabled = !clearing) { Text(if (clearing) "Clearing…" else "Clear downloads") } }, dismissButton = { TextButton(onClick = { clearStory = null }) { Text("Keep downloads") } })
+        ListenerSheet("Clear downloads?", { if (!clearing) clearStory = null }, showClose = false) {
+            Text("Remove downloaded audio for ${book.title} from this phone? Downloads for this book will pause. Your listening place is kept.", style = MaterialTheme.typography.bodyMedium)
+            if (clearError.isNotEmpty()) Text(clearError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            FlowRow(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                TextButton(onClick = { clearStory = null }, enabled = !clearing, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Text("Keep downloads", fontWeight = FontWeight.Normal) }
+                Button(onClick = { val books = state.books; clearing = true; clearError = ""; scope.launch { try { withContext(Dispatchers.IO) { offline.clearBook(book, books) }; clearStory = null } catch (e: Exception) { clearError = "Couldn’t clear all downloads. Try again." } finally { clearing = false } } }, enabled = !clearing, shape = RoundedCornerShape(8.dp), modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 12.dp)) { Text(if (clearing) "Clearing…" else "Clear downloads", fontWeight = FontWeight.Normal) }
+            }
+        }
     } }
     issueDraft?.let { draft ->
         MarkIssueSheet(draft, draftError, { updated -> issueDraft = updated; draftError = if (runCatching { store.draft(updated.getString("story"), updated) }.isSuccess) "" else "Couldn’t keep the draft on this phone. Your text stays open. Try saving again." }, { if (runCatching { store.draft(draft.getString("story"), draft) }.isSuccess) issueDraft = null else draftError = "Couldn’t keep the draft on this phone. Try again before closing." }, { if (runCatching { store.draft(draft.getString("story"), null) }.isSuccess) issueDraft = null else draftError = "Couldn’t discard the draft. Try again." }) { kind, note ->
@@ -206,47 +240,65 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LibraryPage(state: ListenerUiState, open: (String) -> Unit, play: (Book) -> Unit, menu: (String) -> Unit) {
+private fun LibraryPage(state: ListenerUiState, open: (String) -> Unit, play: (Book) -> Unit, menu: (String) -> Unit, refresh: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("All") }
-    val scroll = rememberLazyListState()
+    val scroll = rememberLazyGridState()
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700
     val keyboard = LocalSoftwareKeyboardController.current
     val active = state.books.find { it.id == state.selection?.story }
-    val matches: (String, String, Boolean) -> Boolean = { title, author, started -> "$title $author".contains(query.trim(), true) && (filter == "All" || (filter == "In progress") == started) }
-    LazyColumn(Modifier.fillMaxSize().testTag("library"), state = scroll, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { OutlinedTextField(query, { query = it }, label = { Text("Find a book") }, placeholder = { Text("Title or author") }, leadingIcon = { Icon(Icons.Default.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "Clear search") } }, singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }), modifier = Modifier.fillMaxWidth()) }
-        item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("All", "In progress", "Not started").forEach { option -> FilterChip(selected = filter == option, onClick = { filter = option }, label = { Text(option) }) } } }
-        if (state.offline) item { Text("Offline · showing your saved library", style = MaterialTheme.typography.bodySmall) }
-        if (active != null && query.isBlank() && filter == "All") item {
-            Text("Keep listening", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(16.dp)) { BookRow(active, state, { open(active.id) }, { play(active) }, { menu(active.id) }) }
-            Text("More stories", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 24.dp, bottom = 8.dp))
+        ?: state.positions.sortedByDescending { it.optLong("deviceTime") }.firstNotNullOfOrNull { point -> state.books.find { it.id == point.optString("story") } }
+    val all = state.books + state.catalog.filter { source -> state.books.none { it.id == source.optString("id") } }.map { source -> Book(source.optString("id"), source.optString("title"), source.optString("author"), emptyMap()) }
+    val featured = active != null && query.isBlank() && filter == "All"
+    val shown = all.filter { book ->
+        val started = state.positions.any { it.optString("story") == book.id } || state.selection?.story == book.id
+        (!featured || book.id != active?.id) && "${book.title} ${book.author}".contains(query.trim(), true) && (filter == "All" || (filter == "In progress") == started)
+    }
+    LazyVerticalGrid(columns = GridCells.Fixed(if (wide) 2 else 1), modifier = Modifier.fillMaxSize().testTag("library"), state = scroll, contentPadding = PaddingValues(horizontal = if (wide) 32.dp else 18.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+        item(span = { GridItemSpan(maxLineSpan) }) { Box(Modifier.fillMaxWidth()) { Box(Modifier.widthIn(max = 480.dp)) { SearchField(query, { query = it }, "Find a book", "Title or author", KeyboardActions(onSearch = { keyboard?.hide() })) } } }
+        item(span = { GridItemSpan(maxLineSpan) }) { FilterTabs(listOf("All", "In progress", "Not started"), filter, { filter = it }) }
+        if (state.message.isNotEmpty() && state.message != "Your progress is synced.") item(span = { GridItemSpan(maxLineSpan) }) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Text(state.message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall); if (!state.loading) TextButton(onClick = refresh) { Text("Retry") } }
+        } else if (state.offline) item(span = { GridItemSpan(maxLineSpan) }) { Text("Offline. Showing your saved library.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp)) }
+        if (state.loading && all.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Text("Loading your books…", style = MaterialTheme.typography.bodyMedium) }
+            items(3, span = { GridItemSpan(maxLineSpan) }) { Surface(Modifier.fillMaxWidth().padding(vertical = 7.dp).height(76.dp), shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f)) {} }
+        } else if (all.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+            Column(Modifier.padding(vertical = 32.dp)) { SectionTitle("No books yet"); Text("Your books will appear here after sync.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp)); TextButton(onClick = refresh) { Text("Sync library") } }
+        } else {
+            if (featured) item(span = { GridItemSpan(maxLineSpan) }) {
+                Column { Text("Keep listening", fontSize = 12.8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 10.dp))
+                Surface(modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) { BookRow(active, state, { play(active) }, { play(active) }, { menu(active.id) }, true) } }
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) { Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) { Text(if (featured) "More stories" else "Your books", fontSize = 12.8.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); Text("${shown.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+            if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.padding(vertical = 32.dp)) { SectionTitle("No matching books"); Text("Try another title or author, or show all books.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp)); TextButton(onClick = { query = ""; filter = "All" }) { Text("Show all books") } } }
+            items(shown, key = { it.id }) { book -> Column { BookRow(book, state, { open(book.id) }, null, { menu(book.id) }); HorizontalDivider() } }
         }
-        val shown = state.books.filter { (it != active || query.isNotBlank() || filter != "All") && matches(it.title, it.author, state.positions.any { p -> p.optString("story") == it.id } || state.selection?.story == it.id) }
-        items(shown, key = { it.id }) { book -> BookRow(book, state, { open(book.id) }, { play(book) }, { menu(book.id) }); HorizontalDivider() }
-        val preparing = state.catalog.filter { source -> state.books.none { it.id == source.optString("id") } && source.optJSONObject("follow") != null && matches(source.optString("title"), source.optString("author"), false) }
-        items(preparing, key = { it.optString("id") }) { source ->
-            TextButton(onClick = { open(source.getString("id")) }, modifier = Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth()) { Text(source.optString("title"), style = MaterialTheme.typography.titleSmall); Text("Audio isn’t ready", style = MaterialTheme.typography.bodySmall) } }
-        }
-        if (shown.isEmpty() && preparing.isEmpty() && !(active != null && query.isBlank() && filter == "All")) item { Text(if (state.loading) "Loading your books…" else if (state.books.isEmpty() && query.isBlank()) "No books yet. Your prepared stories will appear here." else "No matching books. Try another title or author.", style = MaterialTheme.typography.bodyMedium) }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BookRow(book: Book, state: ListenerUiState, open: () -> Unit, play: (() -> Unit)?, menu: () -> Unit) {
+private fun BookRow(book: Book, state: ListenerUiState, open: () -> Unit, play: (() -> Unit)?, menu: () -> Unit, featured: Boolean = false) {
     val summary = listeningSummary(book, state)
-    Row(Modifier.fillMaxWidth().combinedClickable(onClick = open, onLongClick = menu).padding(vertical = 12.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        StoryCover(book.id, Modifier.size(52.dp, 76.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(book.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(summary.latest?.let { "${book.editions[summary.edition]?.find { c -> c.assembly == it.optString("assembly") }?.title ?: "Your place"} · ${formatTime(it.optDouble("seconds"))}" } ?: "Not started", style = MaterialTheme.typography.labelSmall)
-            Text("${summary.unread} unplayed · ${formatTime(summary.remaining)} left", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val source = state.catalog.find { it.optString("id") == book.id }
+    val ready = book.editions.values.any { it.isNotEmpty() }
+    val repair = source?.optJSONObject("repair")
+    val context = LocalContext.current
+    val offline = remember(context) { OfflineAudio(context) }
+    Row(Modifier.fillMaxWidth().combinedClickable(role = Role.Button, onClick = open, onLongClick = menu).padding(vertical = 14.dp, horizontal = if (featured) 12.dp else 0.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        StoryCover(book.id, Modifier.size(if (featured) 64.dp else 48.dp, if (featured) 96.dp else 72.dp))
+        Column(Modifier.weight(1f)) {
+            Text(book.title, fontSize = if (featured) 15.52.sp else 14.08.sp, lineHeight = if (featured) 19.4.sp else 18.3.sp, fontWeight = FontWeight.SemiBold)
+            Text(book.author, style = MaterialTheme.typography.bodySmall, fontSize = if (featured) 11.04.sp else 11.52.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+            Text(if (!ready) "Preparing audio" else listeningPlace(book, state, summary.latest), style = MaterialTheme.typography.labelSmall, color = if (featured) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+            Text(if (featured) "${formatRemaining(summary.remaining)} left" else if (ready) "${summary.unread} unplayed · ${formatRemaining(summary.remaining)} left" else source?.optJSONObject("job")?.optString("phase")?.takeIf { it.isNotBlank() } ?: "Audio isn’t ready", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = if (featured) 8.dp else 4.dp))
+            if (repair != null) Text(repair.optString("title", "Audio updating") + (if (repair.optInt("total") > 0) " · ${repair.optInt("completed")} of ${repair.optInt("total")} chapters" else ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+            if (state.offline) Text(if (ready && book.editions[summary.edition].orEmpty().any(offline::ready)) "Downloaded" else if (ready) "Internet needed" else "Preparation status saved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
         }
         Column {
-            if (play != null) IconButton(onClick = play, enabled = book.editions[summary.edition]?.isNotEmpty() == true) { Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.PlayArrow, "${if (summary.latest != null) "Continue" else "Play"} ${book.title}", tint = MaterialTheme.colorScheme.onPrimary) } }
-            IconButton(onClick = menu) { Icon(Icons.Default.MoreVert, "More options for ${book.title}", modifier = Modifier.size(20.dp)) }
+            if (featured && play != null) IconButton(onClick = play, enabled = ready) { Box(Modifier.size(38.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.PlayArrow, "Continue ${book.title}", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp)) } }
+            IconButton(onClick = menu) { Icon(Icons.Default.MoreVert, "More options for ${book.title}", modifier = Modifier.size(18.dp)) }
         }
     }
 }
@@ -254,8 +306,10 @@ private fun BookRow(book: Book, state: ListenerUiState, open: () -> Unit, play: 
 @Composable
 internal fun StoryCover(story: String, modifier: Modifier) {
     val context = LocalContext.current
-    val cover by produceState<ImageBitmap?>(null, story) { value = withContext(Dispatchers.IO) { runCatching { ListenerApi(context).cover(story).let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }.getOrNull() } }
-    Surface(modifier, color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(6.dp)) { Box(contentAlignment = Alignment.Center) { if (cover != null) Image(cover!!, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else Icon(Icons.AutoMirrored.Filled.LibraryBooks, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) } }
+    val supplied = LocalStoryCovers.current[story]
+    val cover by produceState<ImageBitmap?>(supplied, story, supplied) { if (supplied == null) value = withContext(Dispatchers.IO) { runCatching { ListenerApi(context).cover(story).let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }.getOrNull() } }
+    val image = supplied ?: cover
+    Surface(modifier, color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(4.dp)) { Box(contentAlignment = Alignment.Center) { if (image != null) Image(image, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else Icon(Icons.AutoMirrored.Filled.LibraryBooks, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) } }
 }
 @Composable
 internal fun StorytellerMark(size: Dp) { Image(painterResource(R.drawable.storyteller_mark), null, Modifier.size(size)) }

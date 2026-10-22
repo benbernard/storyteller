@@ -5,8 +5,9 @@ android {
  if (!(listenerUrl ==~ /https:\/\/[^\/\s]+/)) throw new GradleException('Use -PlistenerUrl=https://your-host (no path or trailing slash)')
  defaultConfig {
   buildConfigField 'String', 'LISTENER_URL', '"' + listenerUrl + '"'
-  applicationId providers.gradleProperty('storytellerApplicationId').getOrElse('io.github.benbernard.audiobooklistener'); minSdk 33; targetSdk 36; versionCode Integer.parseInt(System.getenv('AUDIOBOOK_LISTENER_VERSION_CODE') ?: '2'); versionName '0.4.0'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
+  applicationId providers.gradleProperty('storytellerApplicationId').getOrElse('io.github.benbernard.audiobooklistener'); minSdk 33; targetSdk 36; versionCode Integer.parseInt(System.getenv('AUDIOBOOK_LISTENER_VERSION_CODE') ?: '2'); versionName '0.4.1'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
  if (providers.gradleProperty('storytellerManifest').isPresent()) sourceSets.main.manifest.srcFile(providers.gradleProperty('storytellerManifest').get())
+ sourceSets.androidTest.assets.srcDir("../../../tools/audiobooks/test-fixtures")
  buildFeatures { compose true; buildConfig true }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
  signingConfigs { release { storeFile file(System.getenv('AUDIOBOOK_LISTENER_KEYSTORE') ?: '/signing/audiobook-listener.jks'); storePassword System.getenv('AUDIOBOOK_LISTENER_STORE_PASSWORD'); keyAlias 'audiobook-listener'; keyPassword System.getenv('AUDIOBOOK_LISTENER_STORE_PASSWORD') } }
