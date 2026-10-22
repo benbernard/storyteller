@@ -1,3 +1,13 @@
+## Audio output and continuous passage highlights
+
+Choose a connected Bluetooth device or the phone speaker directly from Listener.
+The chooser keeps its device rows in place, confirms the player’s actual output,
+and shows an error when a switch is not confirmed. Its volume bar is smooth,
+without dots. Listener volume changes only this player’s volume.
+
+A passage that spans several paragraphs now has one continuous mint background
+and left rule. Paragraph spacing and tap-to-listen locations are retained.
+
 ## Silent author-note skips
 
 Excluded author notes are silenced in decoded audio before they reach the output

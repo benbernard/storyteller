@@ -122,6 +122,8 @@ main:has(#reading-view:not([hidden])) { overflow: hidden; }
 .reading-paragraph { white-space: pre-wrap; max-width: 62ch; margin: 0 auto 8px; padding: 8px 12px; border-radius: 7px; border-left: 2px solid transparent; }
 .passage { cursor: pointer; outline-offset: 2px; }
 .reading-paragraph[aria-current] { background: var(--mint); border-left-color: var(--teal); }
+.reading-paragraph.joins-previous { border-top-left-radius: 0; border-top-right-radius: 0; }
+.reading-paragraph.joins-next { margin-bottom: 0; padding-bottom: 16px; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .adjacent-chapters { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; max-width: 62ch; margin: 12px auto 0; font: .8rem/1.5 system-ui, sans-serif; color: var(--teal); }
 .browsing-heading { max-width: 62ch; margin: 0 auto 16px; padding-inline: 12px; font-family: system-ui, sans-serif; }
 .browsing-heading h2 { font-size: 1rem; margin-top: 6px; }

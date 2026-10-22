@@ -30,7 +30,7 @@ const server=createServer(async(req,res)=>{
     if(path.endsWith('/capabilities'))return json({accountLabel:'reader@example.test',permissions:{listen:true,manageLibrary:scenario!=='view-only',generate:scenario!=='view-only'}});
     if(path.endsWith('/catalog')){if(scenario==='library-empty')return json({stories:[],jobs:[]});const value=structuredClone(catalog);if(scenario==='preparation-unsupported')value.stories.find(b=>b.id==='orchard').supported=false;return json(value);}
     if(path.endsWith('/history'))return json({entries:scenario==='history-empty'?[]:fixture.api.history,before:null});
-    if(path.includes('/text/')){if(scenario==='edition-failure'&&path.includes('/qwen/')){res.statusCode=503;return json({error:'This passage is unavailable in that edition. Your place is kept.'});}const reading=texts.get(path.split('/').at(-1));if(scenario==='split-boundary')return json({...reading,passages:['First para','graph.\n','\nSecond paragraph.'].map((text,index)=>({id:`segment-${index}`,start:index*100,end:(index+1)*100,text}))});return json(reading);}
+    if(path.includes('/text/')){if(scenario==='edition-failure'&&path.includes('/qwen/')){res.statusCode=503;return json({error:'This passage is unavailable in that edition. Your place is kept.'});}const reading=texts.get(path.split('/').at(-1));if(scenario==='joined-highlight')return json({...reading,passages:[{id:'before',start:0,end:100,text:'Before.\n\n'},{id:'current',start:100,end:800,text:'First paragraph.\n\nSecond paragraph.\n\nThird paragraph.\n\n'},{id:'after',start:800,end:1460,text:'After.'}]});if(scenario==='split-boundary')return json({...reading,passages:['First para','graph.\n','\nSecond paragraph.'].map((text,index)=>({id:`segment-${index}`,start:index*100,end:(index+1)*100,text}))});return json(reading);}
     if(path.endsWith('/cover') && process.env.DESIGN_COVERS) { res.setHeader('Content-Type','image/png');res.end(await readFile(join(process.env.DESIGN_COVERS,path.split('/').at(-2)+'.png')));return; }
     if(path.includes('/audio/')) {const range=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range||''),start=range?Number(range[1]):0,end=range?.[2]?Math.min(Number(range[2]),wave.length-1):wave.length-1;res.setHeader('Content-Type','audio/wav');res.setHeader('Accept-Ranges','bytes');res.setHeader('Content-Length',end-start+1);if(range){res.statusCode=206;res.setHeader('Content-Range',`bytes ${start}-${end}/${wave.length}`);}res.end(wave.subarray(start,end+1));return;}
     const name=path.split('/').at(-1),file=['app.js','icons.js','chapter-view.js','note-output.js','style.css','storyteller-mark.png'].includes(name)?name:'index.html';
@@ -56,6 +56,20 @@ else {
     await boundaryPage.waitForFunction(()=>document.getElementById('audio').currentTime===200);
     await boundaryPage.close();scenario='';
     console.log('PASS: paragraph boundaries across recording segments retain exact text and seek targets');
+    scenario='joined-highlight';
+    const highlightPage=await browser.newPage({viewport:{width:840,height:900},reducedMotion:'reduce'});
+    await highlightPage.goto(base+'/listen#reading');
+    await highlightPage.locator('.reading-paragraph[aria-current]').nth(2).waitFor();
+    const joined=await highlightPage.locator('.reading-paragraph[aria-current]').evaluateAll(nodes=>nodes.map(node=>({top:node.getBoundingClientRect().top,bottom:node.getBoundingClientRect().bottom,background:getComputedStyle(node).backgroundColor,border:getComputedStyle(node).borderLeftColor,joinsPrevious:node.classList.contains('joins-previous'),joinsNext:node.classList.contains('joins-next')})));
+    assert.equal(joined.length,3);
+    assert.deepEqual(joined.map(p=>[p.joinsPrevious,p.joinsNext]),[[false,true],[true,true],[true,false]]);
+    for(let i=1;i<joined.length;i++){assert.equal(joined[i].top,joined[i-1].bottom,'No background or rule gap');assert.equal(joined[i].background,joined[0].background);assert.equal(joined[i].border,joined[0].border);}
+    if(output)await highlightPage.screenshot({path:join(output,'web-continuous-highlight.png')});
+    await highlightPage.locator('#audio').evaluate(audio=>{audio.currentTime=900;audio.dispatchEvent(new Event('timeupdate'));});
+    await highlightPage.waitForFunction(()=>document.querySelectorAll('.reading-paragraph[aria-current]').length===1);
+    assert.equal(await highlightPage.locator('.joins-next,.joins-previous').count(),0,'Moving away removes all joined highlight styling');
+    await highlightPage.close();scenario='';
+    console.log('PASS: one audio passage highlights all its paragraphs with a continuous background and rule');
     for(const profile of [{name:'phone',width:390,height:844},{name:'narrow-large',width:320,height:900,scale:2},{name:'landscape-large',width:844,height:390,scale:2},{name:'expanded-dark',width:840,height:900,dark:true},{name:'wide',width:1440,height:900}]) {
       const page=await browser.newPage({viewport:{width:profile.width,height:profile.height},colorScheme:profile.dark?'dark':'light',reducedMotion:'reduce'}),errors=[];
       page.on('pageerror',error=>errors.push(error.message));

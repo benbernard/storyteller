@@ -87,7 +87,8 @@ authentication follow their platform contracts.
   Play/Pause circle, original Forward 30, audio output.
 - [x] Keep playback centered when Undo appears. Avoid a second toolbar row.
 - [x] Retain playing/paused intent through seeks, edition changes, and loading.
-- [x] Audio output opens the real system/browser chooser or honest fallback.
+- [x] Android audio output opens Listener’s connected-device chooser; the browser
+  uses its supported chooser or an honest fallback.
 
 ## Listening settings and speed
 
@@ -257,7 +258,10 @@ refresh changes made during the initial diagnosis were removed.
 Android uses native font metrics, nonlinear text scaling, native form/range
 controls, system bars and accessible touch targets. These change some line breaks
 and control rendering. The approved palette, layout, hierarchy, icon geometry and
-flow are retained. System audio routing uses the real Android device panel.
+flow are retained. The later October 22 output fix replaces Android’s device panel
+with a Listener sheet: stable device rows, a smooth volume bar, and selection
+confirmed against the actual audio track. Passage highlights also join across
+paragraph breaks. The earlier gallery records the earlier implementation.
 Bluetooth hardware handoff has not been tested on a physical device.
 
 Downloads and app sign-out are Android functions. The website keeps its existing

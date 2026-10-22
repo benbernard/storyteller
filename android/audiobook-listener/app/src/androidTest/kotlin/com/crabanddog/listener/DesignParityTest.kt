@@ -136,21 +136,14 @@ class DesignParityTest {
         compose.onNodeWithText("Sign out", substring = false).performScrollTo().performClick(); capture("15-sign-out")
         compose.onNodeWithText("Stay signed in").performScrollTo().assertIsDisplayed()
     }
-    @Test fun audioOutputOpensThePlatformSelectorWithoutMovingPlayback() {
+    @Test fun audioOutputOpensListenerChoicesWithoutMovingPlayback() {
         val state = mutableStateOf(initialState())
         stateScreen(state)
         compose.onNodeWithTag("open-player").performClick()
         compose.onNodeWithContentDescription("Audio output").performClick()
-        compose.waitUntil(10000) {
-            instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() in setOf("com.android.systemui", "com.android.settings")
-        }
-        instrumentation.waitForIdleSync()
-        android.os.SystemClock.sleep(500) // System panel transition is outside Compose’s animation clock.
-        assertTrue(instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString() in setOf("com.android.systemui", "com.android.settings"))
-        val dir = File(compose.activity.getExternalFilesDir(null), "design-parity").apply { mkdirs() }
-        File(dir, "state-system-audio-output.png").outputStream().use { instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
-        instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
-        compose.waitForIdle()
+        compose.onNodeWithText("Device settings").assertIsDisplayed()
+        capture("state-audio-output")
+        closeSheet()
         compose.runOnIdle { assertEquals(selection, state.value.selection); assertEquals(496.0, state.value.position, .001) }
     }
     @Test fun signInAndWaitingScreens() {

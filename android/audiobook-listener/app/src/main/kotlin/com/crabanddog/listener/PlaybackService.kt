@@ -15,6 +15,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -37,6 +38,7 @@ class PlaybackService : MediaSessionService() {
     private var active: Selection? = null
     private lateinit var audioPlayer: ExoPlayer
     private lateinit var noteAudio: AuthorNoteAudioPolicy
+    private lateinit var outputs: AudioOutputs
     private var chapterPlayer: ChapterPlayer? = null
     private var reading: Reading? = null
     private var readingJob: Job? = null
@@ -76,9 +78,13 @@ class PlaybackService : MediaSessionService() {
         }.followRedirects(false).followSslRedirects(false).build()
         val source = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(client))
         noteAudio = AuthorNoteAudioPolicy(store.includeAuthorNotes())
+        outputs = AudioOutputs.get(this)
         val renderer = object : DefaultRenderersFactory(this) {
-            override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink? =
-                super.buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams)?.let { AuthorNoteAudioSink(it, noteAudio) }
+            override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+                AuthorNoteAudioSink(DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioTrackProvider(outputs.trackProvider()).build(), noteAudio)
         }
         val sources = NoteMediaSourceFactory(ResolvingDataSource.Factory(source) { spec -> spec.withUri(OfflineAudio(this).resolve(spec.uri)) }, noteAudio, onPending = { selected -> scope.launch { sectionReading(selected) } }) { selected ->
             store.reading(selected.chapter.assembly)?.let { runCatching { readingFromJson(it) }.getOrNull() }?.takeIf { it.assembly == selected.chapter.assembly }
@@ -90,6 +96,7 @@ class PlaybackService : MediaSessionService() {
             setPlaybackSpeed(store.speed())
         }
         audioPlayer = player
+        outputs.start(player)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         // Keep play/pause intent separate from a temporary metadata-loading pause.
         // All controllers, including the lock screen, use this same gate.
@@ -270,5 +277,5 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         if (controllerInfo.packageName == packageName || controllerInfo.isTrusted) session else null
     override fun onTaskRemoved(rootIntent: Intent?) { save(); if (session?.player?.isPlaying != true) stopSelf() }
-    override fun onDestroy() { save(); store.stopObservingSettings(settingsListener); scope.cancel(); session?.run { player.release(); release() }; session = null; super.onDestroy() }
+    override fun onDestroy() { save(); store.stopObservingSettings(settingsListener); scope.cancel(); outputs.stop(); session?.run { player.release(); release() }; session = null; super.onDestroy() }
 }
