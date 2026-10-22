@@ -246,10 +246,11 @@ cover split words, split blank lines, hidden author notes and exact seek targets
 These checks supplement the linked captures from `bf3d4bd`; they do not relabel
 those images as captures of a later commit.
 
-The private candidate check also exposed a report refresh race after an offline
-issue synced. Refresh now waits for an existing queue flush and updates the open
-reports page when the server state arrives. A delayed-response regression checks
-that the saved report becomes actionable without reopening the page.
+The private browser candidate failed because its container used `--network none`.
+Loopback HTTP still worked, but Chromium correctly reported an offline network
+interface and disabled report updates. Chromium checks now require Docker bridge
+networking; offline cases use Playwright's explicit offline setting. The app
+refresh changes made during the initial diagnosis were removed.
 
 ## Platform differences and limits
 

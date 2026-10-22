@@ -47,6 +47,7 @@ else {
     if(output)await mkdir(output,{recursive:true});
     scenario='split-boundary';
     const boundaryPage=await browser.newPage({viewport:{width:390,height:844}});
+    assert.equal(await boundaryPage.evaluate(()=>navigator.onLine),true,'Chromium tests require Docker --network bridge; offline cases switch offline explicitly.');
     await boundaryPage.goto(base+'/listen#reading');
     await boundaryPage.locator('.reading-paragraph').nth(1).waitFor();
     assert.deepEqual(await boundaryPage.locator('.reading-paragraph').allTextContents(),['First paragraph.','Second paragraph.']);

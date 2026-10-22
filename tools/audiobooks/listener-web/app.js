@@ -241,20 +241,15 @@ async function passageSeek(seconds) {
   else seek(seconds, 'passage');
 }
 
-let flushPromise;
 async function flush() {
-  if (!local) return;
-  if (flushPromise) return flushPromise;
+  if (flushing || !local) return;
   flushing = true;
-  flushPromise = (async () => {
-    try {
-      while (local.pending.length) { const event = local.pending[0]; await api('/progress', event); local.pending.shift(); persist(); }
-      while (local.issueQueue?.length) { const event = local.issueQueue[0], { _localIssue, ...payload } = event; await api('/issues', payload); local.issueQueue.shift(); persist(); }
-      if (/^\d+ locations saved on this device/.test($('message').textContent)) say('Your listening positions are synced.');
-    } catch { say(`${local.pending.length + (local.issueQueue?.length || 0)} changes saved in this browser. Sync will retry when connected.`); }
-    finally { flushing = false; renderIssueStatus(); }
-  })();
-  try { await flushPromise; } finally { flushPromise = undefined; }
+  try {
+    while (local.pending.length) { const event = local.pending[0]; await api('/progress', event); local.pending.shift(); persist(); }
+    while (local.issueQueue?.length) { const event = local.issueQueue[0], { _localIssue, ...payload } = event; await api('/issues', payload); local.issueQueue.shift(); persist(); }
+    if (/^\d+ locations saved on this device/.test($('message').textContent)) say('Your listening positions are synced.');
+  } catch { say(`${local.pending.length + (local.issueQueue?.length || 0)} changes saved in this browser. Sync will retry when connected.`); }
+  finally { flushing = false; renderIssueStatus(); }
 }
 function save(reason = 'pause', from, completed = false) {
   if (!playing || switching || !local) return;
@@ -352,7 +347,6 @@ async function refresh() {
   if (!local) { try { local = JSON.parse(localStorage.getItem(storageKey)); } catch {} local ||= { positions: {}, pending: [] }; }
   for (const [key, value] of Object.entries(library.state.positions)) if (!local.positions[key] || value.deviceTime > local.positions[key].deviceTime) local.positions[key] = value;
   persist(); renderLibrary();
-  if (page === 'issues') renderIssues();
   say(library.books.length ? 'Ready to listen.' : 'Your chapters will appear here when generation finishes.');
   await flush();
   await refreshCatalog();

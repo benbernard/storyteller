@@ -63,6 +63,7 @@ try {
   for (const width of [320, 768, 840, 1024, 1440]) {
     accountKey = 'test'; offline = false; state.issues = []; state.positions = {}; state.completed = {}; posts.length = 0;
     const page = await browser.newPage({ viewport: { width, height: 900 }, colorScheme: width === 840 ? 'dark' : 'light', reducedMotion: 'reduce' });
+    assert.equal(await page.evaluate(() => navigator.onLine), true, 'Chromium tests need a connected interface; run Docker with --network bridge. Offline cases control connectivity explicitly.');
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.goto(base + '/listen');
     await page.getByRole('heading', { name: book.title }).waitFor();
