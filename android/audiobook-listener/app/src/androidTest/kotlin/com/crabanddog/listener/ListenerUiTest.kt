@@ -46,8 +46,10 @@ class ListenerUiTest {
         compose.onNodeWithText("Chapters").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNode(hasSetTextAction()).assertTextContains("Violet")
+        compose.onNodeWithTag("library").performScrollToNode(hasContentDescription("Find a book"))
+        compose.onNodeWithContentDescription("Find a book").assertTextContains("Violet")
         compose.runOnIdle { assertEquals(0, plays) }
+        compose.onNodeWithTag("library").performScrollToNode(hasText(book.title))
         compose.onNodeWithText(book.title).performClick()
         compose.onNodeWithTag("book-content").performScrollToNode(hasText("Chapters"))
         compose.onNodeWithText("Chapters").performClick()
