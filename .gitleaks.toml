@@ -24,3 +24,11 @@ regexes = [
   '''^bb7068de1150661a10b55f9e4b12a0e77af8bf91f5e45e1b58afaf1d0e17f675$''',
   '''^1273ec458332cc55226ec596904bae811420755ace7e5d69462b61c4f480b457$''',
 ]
+
+# Synthetic account identifier: SHA256("fictional-design-review"), not a credential.
+# Restrict this exception to the generated design fixture and this exact digest.
+[[allowlists]]
+condition = "AND"
+paths = ['''^tools/audiobooks/test-fixtures/listener-design\.json$''']
+regexTarget = "secret"
+regexes = ['''^3bbd474727fdfd50604c6bcd96f5d606985d510ad408856f459c8186a033e624$''']
