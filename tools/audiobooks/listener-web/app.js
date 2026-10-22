@@ -142,7 +142,7 @@ function renderStory() {
     start.disabled = !info.chapters.length; start.className = 'primary';
     el('p', `${unreadAudio(info.unread.length)} · ${time(info.remaining)} left`, parent);
     button('Chapters', parent, () => view('chapters'));
-  } else { const unavailable = button('Audio is preparing', parent, () => {}); unavailable.disabled = true; el('p', 'Play will be available when audio is published.', parent); }
+  } else { const unavailable = button('Audio isn’t ready', parent, () => {}); unavailable.disabled = true; el('p', 'Play will be available when audio is published.', parent); }
   if (source?.description) el('p', source.description, parent);
   button('Marked issues', parent, () => { $('issue-book').value = selectedStoryId; view('issues'); });
   if (source) button('Preparation', parent, () => view('preparation'));
@@ -225,7 +225,7 @@ function renderLibrary() {
       el('p', chapter ? `${chapter.title} · ${time(chapterView(chapter).position(info.latest.seconds))}` : 'Not started', content).className = 'fine';
       el('p', `${unreadAudio(info.unread.length)} · ${time(info.remaining)} left`, content).className = 'fine';
       const start = button('', row, () => info.latest ? openLocation(info.latest, true, 'chapter') : play(book, info.edition, info.chapters[0], 0, true, 'chapter')); start.className = 'icon'; start.disabled = !info.chapters.length; icon(start, 'play_arrow', `${started ? 'Continue' : 'Play'} ${book.title}`);
-    } else el('p', 'Audio is preparing', content).className = 'fine';
+    } else el('p', 'Audio isn’t ready', content).className = 'fine';
   }
   if (!$('library').children.length && !$('continue').children.length) el('p', stories.size ? 'No matching books. Try another title or author.' : 'No books yet. Your prepared stories will appear here.', $('library'));
   renderIssues();

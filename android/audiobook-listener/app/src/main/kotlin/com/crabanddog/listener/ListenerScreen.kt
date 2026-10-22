@@ -226,7 +226,7 @@ private fun LibraryPage(state: ListenerUiState, open: (String) -> Unit, play: (B
         items(shown, key = { it.id }) { book -> BookRow(book, state, { open(book.id) }, { play(book) }, { menu(book.id) }); HorizontalDivider() }
         val preparing = state.catalog.filter { source -> state.books.none { it.id == source.optString("id") } && source.optJSONObject("follow") != null && matches(source.optString("title"), source.optString("author"), false) }
         items(preparing, key = { it.optString("id") }) { source ->
-            TextButton(onClick = { open(source.getString("id")) }, modifier = Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth()) { Text(source.optString("title"), style = MaterialTheme.typography.titleSmall); Text("Audio is preparing", style = MaterialTheme.typography.bodySmall) } }
+            TextButton(onClick = { open(source.getString("id")) }, modifier = Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth()) { Text(source.optString("title"), style = MaterialTheme.typography.titleSmall); Text("Audio isn’t ready", style = MaterialTheme.typography.bodySmall) } }
         }
         if (shown.isEmpty() && preparing.isEmpty() && !(active != null && query.isBlank() && filter == "All")) item { Text(if (state.loading) "Loading your books…" else if (state.books.isEmpty() && query.isBlank()) "No books yet. Your prepared stories will appear here." else "No matching books. Try another title or author.", style = MaterialTheme.typography.bodyMedium) }
     }
