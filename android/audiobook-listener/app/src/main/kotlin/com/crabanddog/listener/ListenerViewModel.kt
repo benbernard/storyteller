@@ -51,7 +51,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { while (true) { controller?.let { p ->
             val state = mutable.value
             val position = if (p.currentMediaItem != null) state.selection?.let { chapterView(it.chapter, state.reading, state.includeAuthorNotes).source(p.currentPosition.coerceAtLeast(0) / 1000.0) } ?: 0.0 else state.selection?.let { store.position(it) } ?: 0.0
-            mutable.value = state.copy(playing = p.isPlaying, position = position, positions = store.positions(), undo = store.undo(), localJumps = state.selection?.let { store.recentJumps(it.story) }.orEmpty(), pending = store.pendingIssues().size)
+            mutable.value = state.copy(playing = p.playWhenReady && p.playbackState != Player.STATE_ENDED, position = position, positions = store.positions(), undo = store.undo(), localJumps = state.selection?.let { store.recentJumps(it.story) }.orEmpty(), pending = store.pendingIssues().size)
         }; delay(500) } }
     }
     private fun message(value: String) { mutable.value = mutable.value.copy(message = value) }
@@ -237,7 +237,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
             val book = mutable.value.books.find { it.id == s.story } ?: return
             val chapter = book.editions[s.edition]?.find { it.id == s.chapter.id } ?: return
             play(book, s.edition, chapter)
-        } else if (p.isPlaying) p.pause() else { if (p.playbackState == Player.STATE_IDLE) p.prepare(); p.play() }
+        } else if (p.playWhenReady && p.playbackState != Player.STATE_ENDED) p.pause() else { if (p.playbackState == Player.STATE_ENDED) p.seekToDefaultPosition(); if (p.playbackState == Player.STATE_IDLE) p.prepare(); p.play() }
     }
     fun seek(seconds: Double) { move(seconds, "seek") }
     fun skip(seconds: Int) {

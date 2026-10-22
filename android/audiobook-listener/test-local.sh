@@ -30,7 +30,7 @@ run() {
   if ! rg -q '^OK \(' "$output/$name.log"; then exit 1; fi
 }
 restore
-run portrait 'com.crabanddog.listener.ListenerUiTest,com.crabanddog.listener.PlaybackTest,com.crabanddog.listener.AuthorNotePlaybackTest,com.crabanddog.listener.AuthorNoteOutputTest,com.crabanddog.listener.OfflineAudioTest'
+run portrait 'com.crabanddog.listener.EditionPlaybackTest,com.crabanddog.listener.ListenerUiTest,com.crabanddog.listener.PlaybackTest,com.crabanddog.listener.AuthorNotePlaybackTest,com.crabanddog.listener.AuthorNoteOutputTest,com.crabanddog.listener.OfflineAudioTest'
 "$adb" -s "$serial" shell wm density 160 >/dev/null
 "$adb" -s "$serial" shell wm size 320x800 >/dev/null
 "$adb" -s "$serial" shell settings put system font_scale 2.0 >/dev/null
