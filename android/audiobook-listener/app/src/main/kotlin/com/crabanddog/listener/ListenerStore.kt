@@ -10,7 +10,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 /** Progress is durable locally before it enters the retryable server outbox. */
-class ListenerStore private constructor(context: Context) {
+class ListenerStore private constructor(private val context: Context) {
     companion object {
         @Volatile private var instance: ListenerStore? = null
         fun get(context: Context): ListenerStore = instance ?: synchronized(this) { instance ?: ListenerStore(context.applicationContext).also { instance = it } }
@@ -68,7 +68,7 @@ class ListenerStore private constructor(context: Context) {
         val draft = draft(value.story)
         database.beginTransaction()
         try {
-            enqueue("/issues", value.location(seconds).put("eventId", draft?.optString("eventId")?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()).put("kind", kind).put("note", note))
+            enqueue("/issues", value.location(seconds).put("eventId", draft?.optString("eventId")?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()).put("kind", kind).put("note", note).put("_localIssue", draft ?: describeLocalLocation(value, reading(value.chapter.assembly)?.let(::readingFromJson), seconds)))
             database.delete("issue_drafts", "story=?", arrayOf(value.story))
             database.setTransactionSuccessful()
         } finally { database.endTransaction() }
@@ -120,12 +120,12 @@ class ListenerStore private constructor(context: Context) {
         database.rawQuery("SELECT body FROM issue_drafts ORDER BY story", null).use { cursor -> while (cursor.moveToNext()) add(JSONObject(cursor.getString(0))) }
     }
     @Synchronized fun pendingIssues(): List<JSONObject> = buildList {
-        database.rawQuery("SELECT body FROM events WHERE acknowledged=0 AND path='/issues' ORDER BY sequence DESC", null).use { cursor -> while (cursor.moveToNext()) { val body = JSONObject(cursor.getString(0)); body.put("id", body.getString("eventId")).put("status", "pending"); add(body) } }
+        database.rawQuery("SELECT body FROM events WHERE acknowledged=0 AND path='/issues' ORDER BY sequence DESC", null).use { cursor -> while (cursor.moveToNext()) { val body = JSONObject(cursor.getString(0)); body.put("id", body.getString("eventId")).put("status", "pending"); body.optJSONObject("_localIssue")?.let { location -> body.put("sequence", location.optInt("chapter")).put("excerpt", location.optString("excerpt")) }; add(body) } }
     }
     fun cachedHistory(): List<JSONObject> = jsonObjects(JSONArray(prefs.getString("history-cache", "[]")!!))
     fun cachedHistory(value: List<JSONObject>) { prefs.edit().putString("history-cache", JSONArray(value).toString()).apply() }
     @Synchronized fun hasPending(): Boolean = database.rawQuery("SELECT 1 FROM events WHERE acknowledged=0 LIMIT 1", null).use { it.moveToFirst() }
-    fun textSize(): Float = prefs.getFloat("text-size", 14f).coerceIn(12f, 28f)
+    fun textSize(): Float = prefs.getFloat("text-size", 16.64f).coerceIn(12f, 28f)
     fun textSize(value: Float) { prefs.edit().putFloat("text-size", value.coerceIn(12f, 28f)).apply() }
     @Synchronized fun draft(story: String): JSONObject? = database.rawQuery("SELECT body FROM issue_drafts WHERE story=?", arrayOf(story)).use { if (it.moveToFirst()) JSONObject(it.getString(0)) else null }
     @Synchronized fun hasDrafts(): Boolean = database.rawQuery("SELECT 1 FROM issue_drafts LIMIT 1", null).use { it.moveToFirst() }
@@ -146,5 +146,5 @@ class ListenerStore private constructor(context: Context) {
             }
         }
     }
-    @Synchronized fun clear() { database.delete("events", null, null); database.delete("readings", null, null); database.delete("issue_drafts", null, null); check(prefs.edit().clear().commit()) }
+    @Synchronized fun clear() { database.delete("events", null, null); database.delete("readings", null, null); database.delete("issue_drafts", null, null); check(prefs.edit().clear().commit()); java.io.File(context.filesDir, "listener-covers").deleteRecursively() }
 }

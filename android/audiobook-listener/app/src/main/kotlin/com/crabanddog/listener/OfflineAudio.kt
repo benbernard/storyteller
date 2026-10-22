@@ -29,7 +29,8 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
     private fun selectionKey(story: String, edition: String) = "selection:${account()}:$story:$edition"
     private fun selectionKey(book: Book, edition: String) = selectionKey(book.id, edition)
     private fun pauseKey(story: String, edition: String) = "paused:${account()}:$story:$edition"
-    fun selected(book: Book, edition: String): Boolean = !paused(book.id, edition) && prefs.getBoolean(selectionKey(book, edition), book.autoDownload && edition == "qwen")
+    fun kept(book: Book, edition: String): Boolean = prefs.getBoolean(selectionKey(book, edition), book.autoDownload && edition == "qwen")
+    fun selected(book: Book, edition: String): Boolean = !paused(book.id, edition) && kept(book, edition)
     fun select(book: Book, edition: String, selected: Boolean) {
         prefs.edit().putBoolean(selectionKey(book, edition), selected).putBoolean(pauseKey(book.id, edition), !selected).apply()
     }
@@ -61,6 +62,19 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
     }
     private fun filesKey(story: String) = "files:${account()}:$story"
     private fun ownedFiles(story: String): JSONObject = runCatching { JSONObject(prefs.getString(filesKey(story), "{}").orEmpty()) }.getOrDefault(JSONObject())
+    fun hasBookDownloads(book: Book): Boolean {
+        val dir = directory() ?: return false
+        val owned = ownedFiles(book.id)
+        val checksums = book.editions.values.flatten().map { it.checksum } + owned.keys().asSequence().map { owned.getString(it) }.toList()
+        return checksums.filter { Regex("[a-f0-9]{64}").matches(it) }.any { File(dir, "$it.mp3").isFile || File(dir, "$it.part").isFile }
+    }
+    fun bookBytes(book: Book): Long = synchronized(fileLock) {
+        val dir = directory() ?: return@synchronized 0L
+        val owned = ownedFiles(book.id)
+        val checksums = book.editions.values.flatten().map { it.checksum } + owned.keys().asSequence().map { owned.getString(it) }.toList()
+        checksums.distinct().filter { Regex("[a-f0-9]{64}").matches(it) }.flatMap { checksum -> listOf(File(dir, "$checksum.mp3"), File(dir, "$checksum.part")) }.filter { it.isFile }.sumOf { it.length() }
+    }
+    fun savedBytes(chapters: List<Chapter>): Long = synchronized(fileLock) { chapters.mapNotNull(::file).distinctBy { it.name }.sumOf { it.length() } }
     private fun rememberFile(selection: Selection) { val files = ownedFiles(selection.story).put(selection.chapter.assembly, selection.chapter.checksum); check(prefs.edit().putString(filesKey(selection.story), files.toString()).commit()) }
     fun clearBook(book: Book, books: List<Book>) {
         val account = account() ?: return
@@ -93,7 +107,7 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
         resume()
     }
     fun pause(story: String, edition: String) {
-        prefs.edit().putBoolean(selectionKey(story, edition), false).putBoolean(pauseKey(story, edition), true).apply()
+        prefs.edit().putBoolean(pauseKey(story, edition), true).apply()
         progress(story, edition, "Downloads paused")
     }
     fun ready(chapter: Chapter) = chapter.checksum.isNotEmpty() && prefs.getBoolean("ready:${chapter.assembly}", false) && directory()?.let { File(it, "${chapter.checksum}.mp3").isFile } == true

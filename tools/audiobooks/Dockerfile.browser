@@ -6,5 +6,6 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=homelab-pnpm-10,target=/pnpm/store,sharing=locked pnpm install --store-dir=/pnpm/store --package-import-method=copy --frozen-lockfile
 COPY listener-web ./listener-web
-COPY test-listener.mjs ./
+COPY test-listener.mjs test-design-parity.mjs ./
+COPY test-fixtures ./test-fixtures
 CMD ["pnpm", "run", "test:browser"]

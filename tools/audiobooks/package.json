@@ -6,7 +6,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build && node --test dist/*.test.js",
-    "test:browser": "node test-listener.mjs"
+    "test:browser": "node test-listener.mjs && node test-design-parity.mjs"
   },
   "dependencies": {
     "cheerio": "1.1.2",

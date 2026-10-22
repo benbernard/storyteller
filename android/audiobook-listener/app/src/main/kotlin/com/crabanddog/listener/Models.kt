@@ -29,6 +29,17 @@ fun formatTime(seconds: Double): String {
     return if (total >= 3600) "%d:%02d:%02d".format(total / 3600, total / 60 % 60, total % 60) else "%d:%02d".format(total / 60, total % 60)
 }
 
+fun formatRemaining(seconds: Double): String {
+    val minutes = (seconds.coerceAtLeast(0.0) / 60).toLong()
+    return if (minutes >= 60) "${minutes / 60}h ${minutes % 60}m" else "${minutes}m"
+}
+
+fun formatBytes(bytes: Long): String {
+    val divisor = if (bytes >= 1073741824L) 1073741824.0 else if (bytes >= 1048576L) 1048576.0 else 1024.0
+    val unit = if (bytes >= 1073741824L) "GB" else if (bytes >= 1048576L) "MB" else "KB"
+    return String.format(java.util.Locale.ROOT, "%.1f", bytes.coerceAtLeast(0) / divisor).removeSuffix(".0") + " " + unit
+}
+
 fun editionName(edition: String): String = when (edition) {
     "v3" -> "v3"
     "flash" -> "Flash"

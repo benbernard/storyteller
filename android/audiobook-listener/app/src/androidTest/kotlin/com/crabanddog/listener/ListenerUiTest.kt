@@ -37,22 +37,26 @@ class ListenerUiTest {
     @Test fun libraryAndChapterBackPreserveSearchWithoutStartingAudio() {
         var plays = 0
         screen(ListenerUiState(connected = true, books = listOf(book)), onPlay = { _, _, _ -> plays++ })
-        compose.onNodeWithText("Find a book").performTextInput("Violet")
-        compose.onNodeWithText("Find a book").performImeAction()
+        compose.onNodeWithContentDescription("Find a book").performTextInput("Violet")
+        compose.onNodeWithContentDescription("Find a book").performImeAction()
         compose.onNodeWithTag("library").performScrollToNode(hasText(book.title))
         compose.onNodeWithText(book.title).performClick()
         compose.onNodeWithContentDescription("Back").assertIsDisplayed()
+        compose.onNodeWithTag("book-content").performScrollToNode(hasText("Chapters"))
         compose.onNodeWithText("Chapters").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNode(hasSetTextAction()).assertTextContains("Violet")
+        compose.onNodeWithTag("library").performScrollToNode(hasContentDescription("Find a book"))
+        compose.onNodeWithContentDescription("Find a book").assertTextContains("Violet")
         compose.runOnIdle { assertEquals(0, plays) }
+        compose.onNodeWithTag("library").performScrollToNode(hasText(book.title))
         compose.onNodeWithText(book.title).performClick()
+        compose.onNodeWithTag("book-content").performScrollToNode(hasText("Chapters"))
         compose.onNodeWithText("Chapters").performClick()
         compose.onNodeWithContentDescription("Play ${chapter.title} from start").performClick()
         compose.runOnIdle { assertEquals(1, plays) }
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.onNodeWithText("Find a chapter").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Find a chapter").assertIsDisplayed()
         screenshot("chapters")
     }
     @Test fun compactReaderFollowsWithoutSeekingAndUsesOriginalTransportIcons() {
@@ -102,12 +106,15 @@ class ListenerUiTest {
         var saved: Triple<Double, String, String>? = null
         screen(ListenerUiState(connected = true, books = listOf(book), selection = selected, reading = reading, position = 61.0), onIssue = { selection, seconds, kind, note -> assertEquals(chapter.assembly, selection.chapter.assembly); saved = Triple(seconds, kind, note) })
         openReader(); compose.onNodeWithContentDescription("Mark issue").performClick()
-        compose.onNodeWithText("Optional note").performTextInput("Voice changes here")
+        compose.onNodeWithContentDescription("Optional note").performTextInput("Voice changes here")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
+        if (compose.onAllNodesWithTag("listener-sheet").fetchSemanticsNodes().isNotEmpty()) InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
         val store = ListenerStore.get(compose.activity)
         assertEquals("Voice changes here", store.draft(book.id)?.getString("note"))
-        compose.onNodeWithContentDescription("Mark issue").performClick()
-        compose.onNodeWithText("Save issue").performClick()
+        compose.onNodeWithContentDescription("Continue issue draft at 1:01").performClick()
+        compose.onNodeWithText("Save issue").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(Triple(61.0, "delivery", "Voice changes here"), saved) }
         screenshot("issue-saved")
     }
@@ -120,7 +127,7 @@ class ListenerUiTest {
         compose.onNodeWithText("Actual chapter content.").assertIsDisplayed()
         compose.onNodeWithText("Before author note.").assertDoesNotExist()
         compose.onNodeWithText("After author note.").assertDoesNotExist()
-        compose.onNodeWithText("0:41").assertIsDisplayed(); compose.onNodeWithText("−0:29").assertIsDisplayed()
+        compose.onNodeWithText("0:41").assertIsDisplayed(); compose.onNodeWithText("1:10").assertIsDisplayed()
         screenshot("author-notes-excluded")
     }
     @Test fun offlineOutboxKeepsDraftIdentityAndPermanentJumpOrigins() {

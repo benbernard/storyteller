@@ -23,14 +23,23 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
     private val api = ListenerApi(app)
     private val store = ListenerStore.get(app)
     private val credentials = Credentials(app)
-    private val mutable = MutableStateFlow(ListenerUiState(connected = credentials.read() != null, selection = store.selection(), speed = store.speed(), includeAuthorNotes = store.includeAuthorNotes(), signInUrl = credentials.pending()?.takeIf { it.optLong("expiresAt") > System.currentTimeMillis() }?.let { "${BuildConfig.LISTENER_URL}/listen/signin?request=${it.getString("request")}" }.orEmpty(), history = store.cachedHistory(), catalog = jsonObjects(store.catalog()?.optJSONArray("stories")), jobs = jsonObjects(store.catalog()?.optJSONArray("jobs")), catalogReportedAt = store.catalogReportedAt()))
+    private val network = app.getSystemService(android.net.ConnectivityManager::class.java)
+    private fun hasNetwork(): Boolean = network.getNetworkCapabilities(network.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    private val mutable = MutableStateFlow(ListenerUiState(offline = !hasNetwork(), connected = credentials.read() != null, selection = store.selection(), speed = store.speed(), includeAuthorNotes = store.includeAuthorNotes(), signInUrl = credentials.pending()?.takeIf { it.optLong("expiresAt") > System.currentTimeMillis() }?.let { "${BuildConfig.LISTENER_URL}/listen/signin?request=${it.getString("request")}" }.orEmpty(), history = store.cachedHistory(), catalog = jsonObjects(store.catalog()?.optJSONArray("stories")), jobs = jsonObjects(store.catalog()?.optJSONArray("jobs")), catalogReportedAt = store.catalogReportedAt()))
     val state = mutable.asStateFlow()
     var controller: MediaController? = null
         private set
     private var signInGeneration = 0
     private var navigationGeneration = 0
     private val future = MediaController.Builder(app, SessionToken(app, ComponentName(app, PlaybackService::class.java))).buildAsync()
+    private val networkCallback = object : android.net.ConnectivityManager.NetworkCallback() {
+        private fun changed() { viewModelScope.launch { mutable.value = mutable.value.copy(offline = !hasNetwork()) } }
+        override fun onAvailable(network: android.net.Network) = changed()
+        override fun onLost(network: android.net.Network) = changed()
+        override fun onCapabilitiesChanged(network: android.net.Network, capabilities: android.net.NetworkCapabilities) = changed()
+    }
     init {
+        network.registerDefaultNetworkCallback(networkCallback)
         store.library()?.let { load(it) }
         future.addListener({
             runCatching {
@@ -56,7 +65,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
     }
     private fun message(value: String) { mutable.value = mutable.value.copy(message = value) }
     fun connect(open: (String) -> Unit) {
-        if (mutable.value.signingIn) return
+        if (mutable.value.signingIn || !hasNetwork()) return
         credentials.pending()?.let { previous -> viewModelScope.launch { runCatching { api.call("/signin/cancel", signInProof(previous), false) } } }; credentials.clearPending()
         val generation = ++signInGeneration
         mutable.value = mutable.value.copy(signingIn = true, message = "")
@@ -135,7 +144,17 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         finally { mutable.value = mutable.value.copy(updatingStories = mutable.value.updatingStories - story) }
     } }
     fun check(story: String) { viewModelScope.launch { try { api.call("/check", JSONObject().put("story", story)); loadCatalog() } catch (e: Exception) { message(e.message ?: "Could not check this story.") } } }
-    fun job(id: String, action: String) { viewModelScope.launch { try { api.call("/jobs", JSONObject().put("id", id).put("action", action)); loadCatalog() } catch (e: Exception) { message(e.message ?: "Could not update the job.") } } }
+    fun job(id: String, action: String) {
+        val story = mutable.value.jobs.find { it.optString("id") == id }?.optString("story")
+            ?: mutable.value.catalog.find { it.optJSONObject("job")?.optString("id") == id }?.optString("id") ?: return
+        if (story in mutable.value.updatingStories || mutable.value.offline || !mutable.value.canManage || !mutable.value.canGenerate) return
+        mutable.value = mutable.value.copy(updatingStories = mutable.value.updatingStories + story, storyErrors = mutable.value.storyErrors - story)
+        viewModelScope.launch {
+            try { api.call("/jobs", JSONObject().put("id", id).put("action", action)); loadCatalog() }
+            catch (e: Exception) { mutable.value = mutable.value.copy(storyErrors = mutable.value.storyErrors + (story to (e.message ?: "Couldn’t update preparation. Try again."))) }
+            finally { mutable.value = mutable.value.copy(updatingStories = mutable.value.updatingStories - story) }
+        }
+    }
     fun audio(story: String, enabled: Boolean) { viewModelScope.launch {
         if (story in mutable.value.updatingStories) return@launch
         mutable.value = mutable.value.copy(updatingStories = mutable.value.updatingStories + story, storyErrors = mutable.value.storyErrors - story)
@@ -177,7 +196,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh() { viewModelScope.launch {
         mutable.value = mutable.value.copy(loading = true)
         try { api.sync(); val capabilities = api.call("/capabilities"); mutable.value = mutable.value.copy(accountLabel = capabilities.optString("accountLabel"), canManage = capabilities.getJSONObject("permissions").optBoolean("manageLibrary"), canGenerate = capabilities.getJSONObject("permissions").optBoolean("generate")); val data = api.call("/library"); store.library(data); OfflineAudio.schedule(getApplication()); load(data); loadCatalog(); mutable.value = mutable.value.copy(offline = false); message("Your progress is synced.") }
-        catch (e: Exception) { mutable.value = mutable.value.copy(offline = true); message("${e.message ?: "Offline."} Progress and issues stay saved on this phone.") }
+        catch (e: Exception) { mutable.value = mutable.value.copy(offline = !hasNetwork()); message("${e.message ?: "Offline."} Progress and issues stay saved on this phone.") }
         finally { mutable.value = mutable.value.copy(loading = false) }
     } }
     private fun select(selected: Selection) {
@@ -264,11 +283,11 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         store.saveProgress(selected, target, reason = reason, from = from)
         mutable.value = mutable.value.copy(position = target, undo = from)
     }
-    fun cancelReturn() { navigationGeneration++; mutable.value = mutable.value.copy(returning = false) }
+    fun cancelReturn() { navigationGeneration++; mutable.value = mutable.value.copy(returning = false, returnError = "") }
     fun returnTo(location: JSONObject) {
         val generation = ++navigationGeneration
         val departure = mutable.value.selection?.let { describeLocalLocation(it, mutable.value.reading, mutable.value.position) }
-        mutable.value = mutable.value.copy(returning = true)
+        mutable.value = mutable.value.copy(returning = true, returnError = "")
         viewModelScope.launch {
             try {
                 val book = mutable.value.books.find { it.id == location.getString("story") } ?: error("Story is unavailable.")
@@ -284,7 +303,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
                 val wasPlaying = controller?.playWhenReady == true
                 if (controller == null) select(selected) else prepare(selected, target, wasPlaying, false)
                 if (departure != null) { store.saveProgress(selected, target, reason = "restore", from = departure); mutable.value = mutable.value.copy(undo = departure, returnVersion = mutable.value.returnVersion + 1) }
-            } catch (e: Exception) { if (generation == navigationGeneration) message(e.message ?: "Couldn’t return. Your current audio is kept.") }
+            } catch (e: Exception) { if (generation == navigationGeneration) { val error = e.message ?: "Couldn’t open this recording. Your current audio is still in place. Try again."; mutable.value = mutable.value.copy(returnError = error); message(error) } }
             finally { if (generation == navigationGeneration) mutable.value = mutable.value.copy(returning = false) }
         }
     }
@@ -292,9 +311,9 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         val old = mutable.value.selection ?: return
         if (edition == old.edition || mutable.value.switchingEdition) return
         val book = mutable.value.books.find { it.id == old.story } ?: return
-        val chapter = book.editions[edition]?.find { it.id == old.chapter.id } ?: return message("This chapter is unavailable in that edition. Your place is kept.")
+        val chapter = book.editions[edition]?.find { it.id == old.chapter.id } ?: run { val error = "This chapter is unavailable in that edition. Your place is kept."; mutable.value = mutable.value.copy(editionError = error); message(error); return }
         val generation = ++navigationGeneration
-        mutable.value = mutable.value.copy(switchingEdition = true)
+        mutable.value = mutable.value.copy(switchingEdition = true, editionError = "")
         viewModelScope.launch {
             try {
                 val source = store.reading(old.chapter.assembly)?.let(::readingFromJson) ?: mutable.value.reading ?: error("Wait for the current passage to load.")
@@ -307,12 +326,13 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
                 prepare(selected, seconds, wasPlaying, false)
                 store.saveProgress(selected, seconds, reason = "playing")
                 message("")
-            } catch (e: Exception) { if (generation == navigationGeneration) message(e.message ?: "Couldn’t change edition. Your place is kept.") }
+            } catch (e: Exception) { if (generation == navigationGeneration) { val error = e.message ?: "Couldn’t change edition. Your place is kept."; mutable.value = mutable.value.copy(editionError = error); message(error) } }
             finally { mutable.value = mutable.value.copy(switchingEdition = false) }
         }
     }
     fun history(earlier: Boolean = false) { viewModelScope.launch {
         val story = mutable.value.selection?.story ?: return@launch
+        mutable.value = mutable.value.copy(returnError = "")
         try {
             api.sync()
             val before = mutable.value.historyBefore.takeIf { earlier && mutable.value.historyStory == story }
@@ -322,7 +342,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
             val unique = merged.distinctBy { it.optString("eventId") }
             store.cachedHistory(unique)
             mutable.value = mutable.value.copy(history = unique, historyStory = story, historyBefore = if (page.isNull("before")) null else page.getLong("before"))
-        } catch (e: Exception) { message("Recent jumps could not sync. Saved locations are still here.") }
+        } catch (e: Exception) { mutable.value = mutable.value.copy(returnError = "Recent jumps could not sync. Saved locations are still here."); message("Recent jumps could not sync. Saved locations are still here.") }
     } }
 
     fun speed(value: Float) { if (!value.isFinite() || value !in .1f..4f) return; store.speed(value); controller?.setPlaybackSpeed(value); mutable.value = mutable.value.copy(speed = value) }
@@ -338,7 +358,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
         val id = issue.getString("id")
         if (!mutable.value.canManage || mutable.value.offline || id in mutable.value.resolvingIssues) return
         val resolved = issue.getString("status") == "open"
-        mutable.value = mutable.value.copy(resolvingIssues = mutable.value.resolvingIssues + id)
+        mutable.value = mutable.value.copy(resolvingIssues = mutable.value.resolvingIssues + id, issueErrors = mutable.value.issueErrors - id)
         viewModelScope.launch {
             try {
                 api.call("/issues/resolve", JSONObject().put("id", id).put("resolved", resolved))
@@ -349,18 +369,18 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
                     store.library(canonical)
                     mutable.value = mutable.value.copy(issues = jsonObjects(canonical.getJSONObject("state").optJSONArray("issues")))
                 }.onFailure { message("Status saved. Reports couldn’t refresh. Sync to retry.") }
-            } catch (e: Exception) { message(e.message ?: "Couldn’t update the issue. Try again.") }
+            } catch (e: Exception) { mutable.value = mutable.value.copy(issueErrors = mutable.value.issueErrors + (id to (e.message ?: "Couldn’t update the issue. Try again."))) }
             finally { mutable.value = mutable.value.copy(resolvingIssues = mutable.value.resolvingIssues - id) }
         }
     }
     fun characters(story: String) { viewModelScope.launch { try { val a = api.call("/stories/$story/characters").getJSONArray("characters"); mutable.value = mutable.value.copy(characters = (0 until a.length()).map { a.getJSONObject(it) }) } catch (e: Exception) { message(e.message ?: "Could not load characters.") } } }
-    override fun onCleared() { MediaController.releaseFuture(future); super.onCleared() }
+    override fun onCleared() { network.unregisterNetworkCallback(networkCallback); MediaController.releaseFuture(future); super.onCleared() }
 }
 data class ListenerUiState(val connected: Boolean = false, val books: List<Book> = emptyList(), val selection: Selection? = null,
     val playing: Boolean = false, val position: Double = 0.0, val speed: Float = 1f, val loading: Boolean = false, val includeAuthorNotes: Boolean = true,
     val offline: Boolean = false, val catalogReportedAt: Long = 0, val returnVersion: Int = 0, val message: String = "", val pairCode: String = "", val signingIn: Boolean = false, val signInUrl: String = "", val issues: List<JSONObject> = emptyList(), val pending: Int = 0,
-    val accountLabel: String = "", val historyStory: String = "", val canManage: Boolean = false, val canGenerate: Boolean = false, val returning: Boolean = false, val switchingEdition: Boolean = false, val localJumps: List<JSONObject> = emptyList(),
+    val accountLabel: String = "", val historyStory: String = "", val canManage: Boolean = false, val canGenerate: Boolean = false, val returning: Boolean = false, val returnError: String = "", val switchingEdition: Boolean = false, val editionError: String = "", val localJumps: List<JSONObject> = emptyList(),
     val catalog: List<JSONObject> = emptyList(), val jobs: List<JSONObject> = emptyList(),
-    val resolvingIssues: Set<String> = emptySet(), val updatingStories: Set<String> = emptySet(), val storyErrors: Map<String, String> = emptyMap(),
+    val issueErrors: Map<String, String> = emptyMap(), val resolvingIssues: Set<String> = emptySet(), val updatingStories: Set<String> = emptySet(), val storyErrors: Map<String, String> = emptyMap(),
     val reading: Reading? = null, val history: List<JSONObject> = emptyList(), val historyBefore: Long? = null, val undo: JSONObject? = null,
     val positions: List<JSONObject> = emptyList(), val completed: Set<String> = emptySet(), val characters: List<JSONObject> = emptyList())

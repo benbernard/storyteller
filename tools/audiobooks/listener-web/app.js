@@ -1,21 +1,32 @@
 const editionNames = { v3: 'v3', flash: 'Flash', qwen: 'Qwen local', chatterbox: 'Chatterbox local' };
 function icon(element, name, label) { element.innerHTML = listenerIcons[name]; if (label) element.setAttribute('aria-label', label); }
 const $ = id => document.getElementById(id), audio = $('audio');
-const say = text => { $('message').textContent = text; $('message').dataset.routine = String(text === 'Ready to listen.'); };
+const say = text => { $('message').textContent = text; $('message').dataset.routine = String(text === 'Ready to listen.' || page === 'reading' && text.startsWith('Issue saved')); if (text.startsWith('Issue saved')) issueNotice = text; renderIssueStatus(); };
 const unreadAudio = count => `${count} unread audio ${count === 1 ? 'chapter' : 'chapters'}`;
 const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 let library, playing, reading, issueDraft, storageKey, local, historyBefore, catalog, selectedStoryId;
-let routingDialog = false;
+let routingDialog = false, closingSheet = false, afterSheetClose;
 let page = 'library', libraryFilter = 'All', issueFilter = 'All', browsed, browseReading, browseVersion = 0, returnGeneration = 0, capabilities = {}, accountLabel = '', connected = navigator.onLine;
+let libraryError = '', catalogError = '';
 const scrollPositions = new Map();
-for (const [id, name] of Object.entries({ 'nav-back': 'arrow_back', settings: 'settings', refresh: 'refresh', account: 'more_vert', undo: 'undo', back: 'replay', forward: 'forward_30', toggle: 'play_arrow', 'mark-issue': 'flag', 'audio-output': 'speaker', 'open-history': 'history', 'browse-chapters': 'headset', 'mini-toggle': 'play_arrow' })) icon($(id), name);
+for (const [id, name] of Object.entries({ 'nav-back': 'arrow_back', settings: 'settings', refresh: 'refresh', account: 'more_vert', undo: 'undo', back: 'replay', forward: 'forward_30', toggle: 'play_arrow', 'mark-issue': 'flag', 'audio-output': 'speaker', 'open-history': 'history', 'mini-toggle': 'play_arrow' })) icon($(id), name);
+for (const node of document.querySelectorAll('.search-icon')) icon(node,'search');
+icon($('chapter-chevron'),'expand_more');
 for (const dialog of document.querySelectorAll('dialog')) {
-  dialog.addEventListener('click', event => { const r = dialog.getBoundingClientRect(); if (event.target === dialog && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom)) dialog.close(); });
-  dialog.addEventListener('close', () => { if (!routingDialog && history.state?.sheet === dialog.id) history.back(); });
-  dialog.querySelectorAll('[data-close]').forEach(button => button.onclick = () => dialog.close());
+  dialog.addEventListener('click', event => { const r = dialog.getBoundingClientRect(); if (event.target === dialog && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom)) requestClose(dialog); });
+  dialog.addEventListener('cancel', event => { event.preventDefault(); requestClose(dialog); });
+  dialog.querySelectorAll('[data-close]').forEach(button => button.onclick = () => requestClose(dialog));
 }
-function openDialog(dialog) { history.pushState({ ...history.state, listener: true, sheet: dialog.id, depth: (history.state?.depth || 0) + 1 }, '', location.href); dialog.showModal(); }
-$('history-dialog').addEventListener('close', () => { returnGeneration++; });
+function requestClose(dialog) {
+  if (dialog.id === 'issue-dialog' && issueDraft) { try { saveDraft(); } catch { $('issue-error').textContent = 'Couldn’t keep the draft. Try again before closing.'; return false; } }
+  closeDialog(dialog); return true;
+}
+function closeDialog(dialog) {
+  if (dialog.id === 'history-dialog') returnGeneration++;
+  if (!routingDialog && history.state?.sheet === dialog.id) { closingSheet = true; history.back(); }
+  dialog.close();
+}
+function openDialog(dialog) { if (closingSheet) { afterSheetClose = () => openDialog(dialog); return; } history.pushState({ ...history.state, listener: true, sheet: dialog.id, depth: (history.state?.depth || 0) + 1 }, '', location.href); dialog.showModal(); }
 let lastSaved = 0, switching = false, flushing = false, stableSeconds = 0, seekOrigin, programmedSeek = false, follow = true, activePassage = -1, loadVersion = 0;
 let includeAuthorNotes = localStorage.getItem('listener:include-author-notes') !== 'false', loadAutoplay = false, chapterEndHandled = false;
 let noteTimer, noteOutputGuard, visiblePassages = [], seekDraft, playRequest = 0, intentVersion = 0, desiredPlay = false;
@@ -27,28 +38,51 @@ function chapterView(chapter = playing?.chapter) {
   const ranges = chapter && reading?.assembly === chapter.assembly ? ChapterView.ranges(reading, chapter.duration) : chapter?.authorNoteRanges || [];
   return new ChapterView(chapter?.duration || 0, includeAuthorNotes ? [] : ranges);
 }
+let issueNotice = '';
+function renderIssueStatus() {
+  if (!local || !playing) { $('issue-sync-status').textContent = ''; $('retry-issues').hidden = true; return; }
+  const waiting = (local.issueQueue || []).filter(i => i.story === playing.book.id).length;
+  $('issue-sync-status').textContent = waiting ? `Saved in this browser · ${waiting} waiting to sync` : issueNotice;
+  $('retry-issues').hidden = !waiting || !connected;
+  $('retry-issues').disabled = flushing;
+  const draft = local.drafts?.[playing.book.id]; $('mark-issue').setAttribute('aria-label',draft ? `Continue issue draft at ${time(draft.seconds)}` : 'Mark issue');
+}
+$('retry-issues').onclick = () => flush().then(renderIssueStatus);
 function renderPlayback() {
+  renderIssueStatus();
   const view = chapterView(), position = seekDraft ?? view.position(audio.currentTime);
   for (const id of ['back','forward','mark-issue','open-history','follow']) $(id).disabled = !playing;
   $('chapter-position').max = String(view.duration || 1);
   $('chapter-position').disabled = !playing || switching || view.duration <= 0;
   $('chapter-position').value = String(position);
   $('chapter-position').setAttribute('aria-valuetext', `${time(position)} of ${time(view.duration)}`);
-  $('elapsed').textContent = time(position); $('remaining').textContent = `−${time(Math.max(0, view.duration - position))}`;
+  $('elapsed').textContent = time(position); $('remaining').textContent = time(view.duration);
   icon($('toggle'), playIntent() ? 'pause' : 'play_arrow', playIntent() ? 'Pause' : 'Play');
   if (navigator.mediaSession?.setPositionState && view.duration > 0) navigator.mediaSession.setPositionState({ duration: view.duration, position: Math.min(position, view.duration), playbackRate: audio.playbackRate });
 }
 function renderPassages() {
-  $('passages').replaceChildren(); activePassage = -1;
-  visiblePassages = []; let omitted = false;
+  const parent = $('passages'), assembly=(browsed || playing)?.chapter.assembly, changed=assembly !== renderedAssembly; renderedAssembly=assembly; parent.replaceChildren(); activePassage = -1;
+  visiblePassages = []; let paragraph;
+  if (browsed && browsed.chapter.assembly !== playing?.chapter.assembly) { const heading = el('div', null, parent); heading.className = 'browsing-heading'; el('small', 'Browsing text', heading); el('h2', browsed.chapter.title, heading); }
   for (const passage of (browsed ? browseReading : reading)?.passages || []) {
-    if (!includeAuthorNotes && passage.sectionKind === 'author-note') { omitted = true; continue; }
-    if (omitted && visiblePassages.length) $('passages').append(document.createTextNode('\n\n'));
-    omitted = false; visiblePassages.push(passage);
-    const p = el('span', passage.text, $('passages')); p.className = 'passage'; p.dataset.start = passage.start; p.setAttribute('role', 'button'); p.tabIndex = 0;
-    p.onclick = () => { if (!getSelection()?.toString()) passageSeek(passage.start).catch(error => say(error.message)); };
-    p.onkeydown = event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); passageSeek(passage.start).catch(error => say(error.message)); } };
+    if (!includeAuthorNotes && passage.sectionKind === 'author-note') { paragraph = undefined; continue; }
+    const index = visiblePassages.length; visiblePassages.push(passage);
+    for (const text of passage.text.split(/(\n\s*\n)/)) {
+      if (/^\n\s*\n$/.test(text)) { paragraph = undefined; continue; }
+      if (!text || !paragraph && !text.trim()) continue;
+      if (!paragraph) { paragraph = el('p', null, parent); paragraph.className = 'reading-paragraph'; }
+      const span = el('span', text, paragraph); span.className = 'passage'; span.dataset.passage = index; span.dataset.start = passage.start; span.setAttribute('role', 'button'); span.tabIndex = 0;
+      span.onclick = () => { if (!getSelection()?.toString()) passageSeek(passage.start).catch(error => say(error.message)); };
+      span.onkeydown = event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); passageSeek(passage.start).catch(error => say(error.message)); } };
+    }
   }
+  const display = browsed || playing;
+  if (display) {
+    const chapters = [...new Map(Object.values(display.book.editions).flatMap(e => e.chapters).map(c => [c.id,c])).values()].sort((a,b)=>a.sequence-b.sequence), index = chapters.findIndex(c => c.id === display.chapter.id);
+    const nav = el('nav', null, parent); nav.className = 'adjacent-chapters'; nav.setAttribute('aria-label','Browse adjacent chapters');
+    for (const [delta,label] of [[-1,'Previous chapter'],[1,'Next chapter']]) { const chapter = chapters[index+delta]; if (chapter) button(label, nav, () => { const edition = display.book.editions[display.edition].chapters.some(c => c.id === chapter.id) ? display.edition : Object.keys(display.book.editions).find(e => display.book.editions[e].chapters.some(c => c.id === chapter.id)); const target = display.book.editions[edition].chapters.find(c => c.id === chapter.id); return browseChapter(display.book,edition,target,edition === display.edition); }); }
+  }
+  if (changed) parent.scrollTop = 0;
   highlight(true);
 }
 function updateNoteOutput() { noteOutputGuard?.update(reading, !includeAuthorNotes, switching || readingPending); }
@@ -59,6 +93,7 @@ function prepareNoteOutput() {
   noteOutputGuard.resume().then(updateNoteOutput).catch(() => { audio.pause(); say('Tap Play to continue listening.'); });
 }
 for (const event of ['pointerdown', 'keydown']) document.addEventListener(event, () => { if (noteOutputGuard?.context.state === 'suspended') noteOutputGuard.resume().then(updateNoteOutput).catch(() => {}); });
+let renderedAssembly;
 let readingPending = false, readingRequest, releasePlayback;
 const locationOf = (seconds = audio.currentTime) => playing && ({ story: playing.book.id, edition: playing.edition, assembly: playing.chapter.assembly, seconds });
 function richLocation(seconds = audio.currentTime) {
@@ -76,8 +111,9 @@ async function api(path, data, signal) {
 }
 function el(tag, text, parent) { const e = document.createElement(tag); if (text) e.textContent = text; parent?.append(e); return e; }
 function button(text, parent, action) { const e = el('button', text, parent); e.onclick = () => Promise.resolve(action()).catch(error => say(error.message)); return e; }
-function persist() { localStorage.setItem(storageKey, JSON.stringify(local)); }
+function persist() { localStorage.setItem(storageKey, JSON.stringify(local)); renderIssueStatus(); }
 function view(name, push = true) {
+  if (push && closingSheet) { afterSheetClose = () => view(name, push); return; }
   scrollPositions.set(page + ':' + (['story','chapters','preparation'].includes(page) ? selectedStoryId : ''), document.querySelector('main').scrollTop);
   page = name;
   if (name !== 'reading') browseVersion++;
@@ -86,9 +122,16 @@ function view(name, push = true) {
   $('nav-back').hidden = name === 'library';
   $('settings').hidden = !['reading', 'preparation'].includes(name);
   $('settings').setAttribute('aria-label', name === 'preparation' ? 'Preparation settings' : 'Listening settings');
-  $('refresh').hidden = name === 'reading';
+  $('refresh').hidden = !['library','story','chapters','issues'].includes(name);
+  $('account').hidden = ['reading','account'].includes(name);
+  document.querySelector('.masthead').classList.toggle('listening-header', name === 'reading');
+  $('browse-chapters').disabled = name !== 'reading';
+  $('chapter-chevron').hidden = name !== 'reading';
   $('page-title').textContent = ({ library: 'Your library', story: 'Book', chapters: 'Chapters', preparation: 'Preparation', issues: 'Marked issues', account: 'Account', reading: playing?.chapter.title || browsed?.chapter.title || 'Listening' })[name];
   $('page-subtitle').textContent = name === 'reading' ? playing?.book.title || browsed?.book.title || '' : '';
+  const current = playing || browsed;
+  const chapterCount = current ? new Set(Object.values(current.book.editions).flatMap(e => e.chapters).map(c => c.id)).size : 0;
+  $('chapter-number').textContent = name === 'reading' && current ? `Chapter ${current.chapter.sequence} of ${chapterCount}` : '';
   const hash = ['story', 'chapters', 'preparation'].includes(name) ? `#${name}/${encodeURIComponent(selectedStoryId)}` : `#${name}`;
   if (push && location.hash !== hash) history.pushState({listener:true,depth:(history.state?.depth || 0)+1}, '', hash);
   if (name === 'story') renderStory();
@@ -102,7 +145,7 @@ function view(name, push = true) {
 function route() {
   if (!library) return;
   routingDialog = true;
-  for (const dialog of document.querySelectorAll('dialog[open]')) if (dialog.id !== history.state?.sheet) dialog.close();
+  for (const dialog of document.querySelectorAll('dialog[open]')) if (dialog.id !== history.state?.sheet && !requestClose(dialog)) { history.pushState({...history.state,sheet:dialog.id,depth:(history.state?.depth||0)+1},'',location.href); routingDialog=false; return; }
   if (history.state?.sheet) { const dialog = $(history.state.sheet); if (dialog && !dialog.open) dialog.showModal(); routingDialog = false; return; }
   routingDialog = false;
   const [name, story] = location.hash.slice(1).split('/');
@@ -111,7 +154,7 @@ function route() {
 }
 const initialNavigation = history.state?.sheet ? new Promise(resolve => { window.addEventListener('popstate', resolve, {once:true}); history.back(); }) : Promise.resolve();
 if (!history.state?.listener) { const requested = location.hash; history.replaceState({listener:true,depth:0}, '', '#library'); if (requested && requested !== '#library') history.pushState({listener:true,depth:1}, '', requested); }
-window.addEventListener('popstate', route);
+window.addEventListener('popstate', () => { closingSheet = false; route(); const pending = afterSheetClose; afterSheetClose = undefined; pending?.(); });
 $('nav-back').onclick = () => { if ((history.state?.depth || 0) > 0) { history.back(); return; } if (page === 'reading') { if (selectedStoryId || playing || browsed) { selectedStoryId ||= playing?.book.id || browsed?.book.id; view('chapters'); } else view('library'); } else if (['chapters', 'preparation', 'issues'].includes(page) && selectedStoryId) view('story'); else view('library'); };
 $('account').onclick = () => view('account');
 $('sync-account').onclick = () => refresh().catch(error => say(error.message));
@@ -122,7 +165,8 @@ function renderMiniPlayer() {
   $('mini-player').hidden = !playing || page === 'reading';
   if (!playing) return;
   $('mini-title').textContent = playing.book.title;
-  $('mini-position').textContent = `${playing.chapter.title} · ${time(chapterView().position(audio.currentTime))}`;
+  $('mini-cover').replaceChildren(); cover(playing.book.id, $('mini-cover'));
+  $('mini-position').textContent = `Chapter ${playing.chapter.sequence} · ${time(chapterView().position(audio.currentTime))}`;
   icon($('mini-toggle'), playIntent() ? 'pause' : 'play_arrow', playIntent() ? 'Pause' : 'Play');
 }
 function openStory(id) { selectedStoryId = id; view('story'); }
@@ -136,40 +180,54 @@ function summary(book) {
   const remaining = unread.reduce((total, c) => { const p = local.positions[`${book.id}:${edition}:${c.id}`], view = chapterView(c); return total + view.duration - (p?.assembly === c.assembly ? view.position(p.seconds) : 0); }, 0);
   return { latest, edition, chapters, unread, remaining };
 }
+function cover(id, parent) {
+  const source = catalog?.stories.find(book => book.id === id);
+  if (!source?.hasCover) { const fallback = el('span', null, parent); fallback.className = 'book-cover cover-placeholder'; fallback.setAttribute('aria-hidden', 'true'); return fallback; }
+  const img = el('img', null, parent); img.className = 'book-cover'; img.src = `/listen/stories/${id}/cover`; img.alt = ''; img.loading = 'lazy'; return img;
+}
+const remainingTime = seconds => { const minutes = Math.ceil(Math.max(0, seconds) / 60); return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`; };
+function placeLabel(info) { const chapter = info.latest && findLocation(info.latest)?.chapter; return chapter ? `Chapter ${chapter.sequence} · ${time(chapterView(chapter).position(info.latest.seconds))}` : 'Not started'; }
+function pageLink(label, parent, action) { const link = button(label, parent, action); link.className = 'page-link'; const arrow = el('span', '›', link); arrow.setAttribute('aria-hidden','true'); return link; }
 function renderStory() {
   $('story-detail').replaceChildren(); $('story-management').replaceChildren();
   const book = library?.books.find(b => b.id === selectedStoryId), source = catalog?.stories.find(b => b.id === selectedStoryId), parent = $('story-detail');
-  el('h2', book?.title || source?.title || 'Book unavailable', parent); el('p', book?.author || source?.author, parent);
-  if (book) {
-    const info = summary(book);
-    const start = button(info.latest ? 'Continue listening' : 'Play book', parent, () => info.latest ? openLocation(info.latest, true, 'chapter') : play(book, info.edition, info.chapters[0], 0, true, 'chapter'));
-    start.disabled = !info.chapters.length; start.className = 'primary';
-    el('p', `${unreadAudio(info.unread.length)} · ${time(info.remaining)} left`, parent);
-    button('Chapters', parent, () => view('chapters'));
-  } else { const unavailable = button('Audio isn’t ready', parent, () => {}); unavailable.disabled = true; el('p', 'Play will be available when audio is published.', parent); }
-  if (source?.description) el('p', source.description, parent);
-  button('Marked issues', parent, () => { $('issue-book').value = selectedStoryId; view('issues'); });
-  if (source) button('Preparation', parent, () => view('preparation'));
-  el('p', 'Offline downloads are available in the Android app.', parent).className = 'fine';
+  const identity = el('div', null, parent); identity.className = 'book-entry-heading'; cover(selectedStoryId, identity);
+  el('h2', book?.title || source?.title || 'Book unavailable', identity); el('p', book?.author || source?.author, identity);
+  const info = book && summary(book), ready = !!info?.chapters.length;
+  const start = button(!ready ? 'Audio is preparing' : info.latest ? 'Continue listening' : 'Play book', parent, () => info.latest ? openLocation(info.latest, true, 'chapter') : play(book, info.edition, info.chapters[0], 0, true, 'chapter'));
+  start.disabled = !ready; start.className = 'primary book-play'; if (ready) { const mark=el('span',null);icon(mark,'play_arrow');mark.setAttribute('aria-hidden','true');start.prepend(mark); }
+  if (!ready) el('p', 'No audio is published yet. Play will be available when it is ready.', parent).className = 'fine';
+  if (source?.description) el('p', source.description, parent).className = 'book-description';
+  const facts = el('dl', null, parent); facts.className = 'book-facts';
+  for (const [label,value] of [['Your place', ready ? placeLabel(info) : 'Preparing audio'], ['Audio', ready ? `${info.unread.length} unplayed chapters` : catalog?.jobs.find(j=>j.story===selectedStoryId)?.phase || 'Preparing audio'], ...(ready ? [['Remaining',remainingTime(info.remaining)]] : [])]) { const row = el('div', null, facts); el('dt',label,row); el('dd',value,row); }
+  if (ready) { pageLink('Chapters', parent, () => view('chapters')); pageLink('Marked issues', parent, () => { $('issue-book').value = selectedStoryId; view('issues'); }); }
+  if (source) pageLink('Audio preparation', parent, () => view('preparation'));
+  el('p', 'Offline downloads are available in the Android app.', parent).className = 'fine platform-note';
 }
 function renderChapters() {
   const parent = $('chapters'); parent.replaceChildren();
   const book = library.books.find(b => b.id === selectedStoryId); if (!book) { el('p', 'No published chapters yet.', parent); return; }
-  const edition = playing?.book.id === book.id ? playing.edition : summary(book).edition;
+  const info = summary(book), edition = playing?.book.id === book.id ? playing.edition : info.edition;
+  $('chapters-book').textContent = book.title; $('chapters-edition').textContent = `Chapters · ${editionNames[edition] || edition}`;
   const available = book.editions[edition]?.chapters || [];
   const all = [...new Map(Object.values(book.editions).flatMap(e => e.chapters).map(c => [c.id,c])).values()].sort((a,b)=>a.sequence-b.sequence);
+  const query = $('chapter-search').value.trim().toLowerCase(); $('clear-chapters').hidden = !query;
   for (const candidate of all) {
     const chapter = available.find(c=>c.id===candidate.id) || candidate, present = available.some(c=>c.assembly===chapter.assembly);
     const textEdition = present ? edition : Object.keys(book.editions).find(e=>book.editions[e].chapters.some(c=>c.assembly===chapter.assembly));
-    if (!chapter.title.toLowerCase().includes($('chapter-search').value.trim().toLowerCase())) continue;
-    const row = el('article', null, parent); row.className = 'chapter';
-    const browse = button(chapter.title, row, () => browseChapter(book, textEdition, chapter, present)); browse.className = 'chapter-title';
-    el('small', present ? time(chapterView(chapter).duration) : 'Audio isn’t ready in this edition', row);
-    const start = button('', row, () => { const resume = playing?.book.id === book.id && playing.edition === edition && playing.chapter.assembly === chapter.assembly; return play(book, edition, chapter, resume ? audio.currentTime : 0, true, 'chapter'); }); start.className = 'icon'; start.disabled = !present || !connected; icon(start, 'play_arrow', `${playing?.chapter.assembly === chapter.assembly ? 'Resume' : 'Play'} ${chapter.title}`);
+    if (!`${chapter.sequence} ${chapter.title}`.toLowerCase().includes(query)) continue;
+    const current = playing?.book.id === book.id && playing.chapter.assembly === chapter.assembly || info.latest?.assembly === chapter.assembly;
+    const row = el('article', null, parent); row.className = 'chapter' + (current ? ' current' : '');
+    const browse = button('', row, () => browseChapter(book, textEdition, chapter, present)); browse.className = 'chapter-title'; browse.setAttribute('aria-label',chapter.title);
+    el('span', String(chapter.sequence), browse).className = 'chapter-sequence'; const copy = el('span', null, browse); el('strong', chapter.title, copy);
+    const position = playing?.chapter.assembly === chapter.assembly ? audio.currentTime : info.latest?.seconds || 0;
+    el('small', !present ? 'Audio unavailable in this edition' : !connected ? 'Internet needed' : current ? `Your place · ${time(chapterView(chapter).position(position))}` : library.state.completed[`${book.id}:${chapter.id}`] ? 'Finished' : 'Not started', copy);
+    const start = button('', row, () => play(book, edition, chapter, current ? position : 0, true, 'chapter')); start.className = 'icon'; start.disabled = !present || !connected; icon(start, 'play_arrow', `${current ? 'Resume' : 'Play'} ${chapter.title}`);
   }
-  if (!parent.children.length) el('p', 'No matching chapters.', parent);
+  if (!parent.children.length) { el('p', 'No matching chapters.', parent); button('Clear search', parent, () => { $('chapter-search').value = ''; renderChapters(); }); }
 }
 $('chapter-search').oninput = renderChapters;
+$('clear-chapters').onclick = () => { $('chapter-search').value = ''; renderChapters(); $('chapter-search').focus(); };
 async function browseChapter(book, edition, chapter, canPlay = true) {
   const version = ++browseVersion;
   try {
@@ -190,10 +248,10 @@ async function flush() {
   flushing = true;
   try {
     while (local.pending.length) { const event = local.pending[0]; await api('/progress', event); local.pending.shift(); persist(); }
-    while (local.issueQueue?.length) { const event = local.issueQueue[0]; await api('/issues', event); local.issueQueue.shift(); persist(); }
+    while (local.issueQueue?.length) { const event = local.issueQueue[0], { _localIssue, ...payload } = event; await api('/issues', payload); local.issueQueue.shift(); persist(); }
     if (/^\d+ locations saved on this device/.test($('message').textContent)) say('Your listening positions are synced.');
   } catch { say(`${local.pending.length + (local.issueQueue?.length || 0)} changes saved in this browser. Sync will retry when connected.`); }
-  finally { flushing = false; }
+  finally { flushing = false; renderIssueStatus(); }
 }
 function save(reason = 'pause', from, completed = false) {
   if (!playing || switching || !local) return;
@@ -202,60 +260,84 @@ function save(reason = 'pause', from, completed = false) {
   const key = `${playing.book.id}:${playing.edition}:${playing.chapter.id}`;
   local.positions[key] = progress; local.selected = progress;
   if (from && ['seek', 'passage', 'chapter', 'restore'].includes(reason)) { local.undo = from; local.jumps ||= []; local.jumps.push({ eventId: progress.eventId, deviceTime: progress.deviceTime, from }); }
-  persist(); lastSaved = Date.now(); $('undo').disabled = !local.undo;
+  persist(); lastSaved = Date.now(); $('undo').hidden = !local.undo; $('undo').disabled = !local.undo;
   if (completed) library.state.completed[`${playing.book.id}:${playing.chapter.id}`] = true;
   flush();
 }
+function renderLibraryNotice() {
+  const notice=$('library-notice'); notice.replaceChildren();
+  if(libraryError || !connected) { el('p',libraryError || 'Offline. Showing your saved library.',notice); const retry=button('Retry',notice,()=>refresh().then(()=>route()).catch(libraryFailure)); retry.disabled=!navigator.onLine; }
+}
+function libraryFailure(error) {
+  connected=navigator.onLine; libraryError=library ? 'Couldn’t refresh. Your saved books are still here.' : 'Couldn’t load your library. Try again.';
+  say(error.message); renderLibraryNotice();
+  if(!library) { $('library').replaceChildren();$('library').setAttribute('aria-busy','false'); }
+}
 function renderLibrary() {
-  $('library').replaceChildren(); $('continue').replaceChildren();
+  $('library').replaceChildren(); $('library').setAttribute('aria-busy','false'); $('continue').replaceChildren(); renderLibraryNotice();
   const stories = new Map(library.books.map(book => [book.id, book]));
   for (const story of catalog?.stories || []) if (story.follow && !stories.has(story.id)) stories.set(story.id, story);
-  const latest = playing?.book.id || local.selected?.story;
-  const query = $('library-search').value.trim().toLowerCase();
+  const latest = playing?.book.id || local.selected?.story || Object.values(local.positions).sort((a,b)=>b.deviceTime-a.deviceTime)[0]?.story;
+  const query = $('library-search').value.trim().toLowerCase(); $('clear-library').hidden = !query;
+  let count = 0;
+  const heading = el('div',null,$('library')); heading.className='collection-heading'; el('h2', 'Your books',heading); const results = el('span',null,heading);
   for (const book of stories.values()) {
     const info = book.editions ? summary(book) : undefined, started = !!info?.latest || playing?.book.id === book.id;
     if (!`${book.title} ${book.author}`.toLowerCase().includes(query) || libraryFilter !== 'All' && (libraryFilter === 'In progress') !== started) continue;
+    count++;
     const featured = !query && libraryFilter === 'All' && book.id === latest;
-    if (featured) el('h2', 'Keep listening', $('continue'));
+    if (featured) { el('h2', 'Keep listening', $('continue')); heading.querySelector('h2').textContent = 'More stories'; }
     const row = el('article', null, featured ? $('continue') : $('library')); row.className = 'story-row' + (featured ? ' featured' : '');
-    const source = catalog?.stories.find(s => s.id === book.id);
-    if (source?.hasCover) { const img = el('img', null, row); img.src = `/listen/stories/${book.id}/cover`; img.alt = ''; img.loading = 'lazy'; }
-    const content = el('div', null, row); const heading = el('h2', null, content);
-    const link = el('a', book.title, heading); link.href = `#story/${encodeURIComponent(book.id)}`;
-    link.onclick = event => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); openStory(book.id); } };
-    el('p', book.author, content);
+    const source = catalog?.stories.find(s => s.id === book.id); cover(book.id, row);
+    const content = el('div', null, row); const title = el('h2', null, content);
+    const link = el('a', book.title, title); link.href = `#story/${encodeURIComponent(book.id)}`;
+    link.onclick = event => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); if (featured && info?.latest) openLocation(info.latest,true,'chapter').catch(error=>say(error.message)); else openStory(book.id); } };
+    el('p', book.author, content).className = 'book-author';
     if (info) {
-      const chapter = info.latest && findLocation(info.latest)?.chapter;
-      el('p', chapter ? `${chapter.title} · ${time(chapterView(chapter).position(info.latest.seconds))}` : 'Not started', content).className = 'fine';
-      el('p', `${unreadAudio(info.unread.length)} · ${time(info.remaining)} left`, content).className = 'fine';
-      const start = button('', row, () => info.latest ? openLocation(info.latest, true, 'chapter') : play(book, info.edition, info.chapters[0], 0, true, 'chapter')); start.className = 'icon'; start.disabled = !info.chapters.length; icon(start, 'play_arrow', `${started ? 'Continue' : 'Play'} ${book.title}`);
-    } else el('p', 'Audio isn’t ready', content).className = 'fine';
+      el('p', placeLabel(info), content).className = 'book-position';
+      el('p', featured ? `${remainingTime(info.remaining)} left` : `${info.unread.length} unplayed · ${remainingTime(info.remaining)} left`, content).className = 'fine';
+      if (featured) { const start = button('', row, () => info.latest ? openLocation(info.latest, true, 'chapter') : play(book, info.edition, info.chapters[0], 0, true, 'chapter')); start.className = 'icon play'; start.disabled = !info.chapters.length; icon(start, 'play_arrow', `Continue ${book.title}`); }
+    } else el('p', 'Audio is preparing', content).className = 'fine';
+    if (source?.repair) el('p', source.repair.title + (source.repair.total ? ` · ${source.repair.completed} of ${source.repair.total} chapters` : ''), content).className = 'availability';
+    if (!info) { const job = catalog?.jobs.find(j => j.story === book.id); if (job?.phase) el('p',job.phase,content).className='fine'; }
   }
-  if (!$('library').children.length && !$('continue').children.length) el('p', stories.size ? 'No matching books. Try another title or author.' : 'No books yet. Your prepared stories will appear here.', $('library'));
+  const ordinary = count - ($('continue').children.length ? 1 : 0); results.textContent = String(ordinary);
+  if (!count) { heading.hidden = true; const empty = el('div',null,$('library')); empty.className='library-empty'; el('h2', stories.size ? 'No matching books' : 'No books yet',empty); el('p', stories.size ? 'Try another title or author.' : 'Your prepared stories will appear here.', empty); if (stories.size) button('Show all books', empty, () => { $('library-search').value = ''; libraryFilter = 'All'; for (const item of $('library-filters').children) item.setAttribute('aria-pressed',String(item.textContent === 'All')); renderLibrary(); }); }
   renderIssues();
 }
 $('library-search').oninput = renderLibrary;
+for(const id of ['library-search','chapter-search'])$(id).onkeydown=event=>{if(event.key==='Enter')event.currentTarget.blur();};
+$('clear-library').onclick = () => { $('library-search').value = ''; renderLibrary(); $('library-search').focus(); };
 for (const filter of $('library-filters').children) filter.onclick = () => { libraryFilter = filter.textContent; for (const item of $('library-filters').children) item.setAttribute('aria-pressed', String(item === filter)); renderLibrary(); };
 function renderIssues() {
   if (!library || !local) return;
   const selected = $('issue-book').value; $('issue-book').replaceChildren(); el('option', 'All books', $('issue-book')).value = '';
   for (const book of library.books) el('option', book.title, $('issue-book')).value = book.id;
   $('issue-book').value = selected;
-  const pending = (local.issueQueue || []).map(i => ({ ...i, id: i.eventId, status: 'pending' }));
-  const issues = [...pending, ...library.state.issues.filter(i => !pending.some(p => p.eventId === i.eventId))];
-  $('issues').replaceChildren();
-  for (const issue of issues.reverse()) {
-    if (selected && issue.story !== selected || issueFilter !== 'All' && issue.status !== issueFilter.toLowerCase()) continue;
+  const pending = (local.issueQueue || []).map(i => ({ ...i, sequence:i._localIssue?.chapter, excerpt:i._localIssue?.excerpt, id: i.eventId, status: 'pending' }));
+  const issues = [...pending.reverse(), ...library.state.issues.filter(i => !pending.some(p => p.eventId === i.eventId)).toSorted((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))].filter(issue => (!selected || issue.story === selected) && (issueFilter === 'All' || issue.status === issueFilter.toLowerCase()));
+  $('issues').replaceChildren(); $('issue-count').textContent = `${issues.length} ${issues.length === 1 ? 'report' : 'reports'}`;
+  if (!connected) el('p', 'Offline · saved reports', $('issues')).className = 'fine';
+  if (!capabilities.manageLibrary) el('p','You can view reports. Updating them requires library access.',$('issues')).className='fine';
+  for (const issue of issues) {
     const row = el('article', null, $('issues')); row.className = 'issue';
-    const text = el('div', null, row); el('strong', `${library.books.find(b => b.id === issue.story)?.title || 'Book'} · ${issue.edition} · ${time(issue.seconds)}`, text); el('p', issue.note || issue.kind, text);
-    if (issue.status === 'pending') el('small', 'Saved here · waiting to sync', text);
-    const check = button('', row, async () => {
+    const text = el('div', null, row), head = el('div',null,text); head.className = 'issue-heading';
+    el('strong', ({voice:'Voice or speaker',pronunciation:'Pronunciation',missing:'Missing or repeated text',delivery:'Delivery or pacing',other:'Something else'})[issue.kind] || 'Other', head);
+    const check = button('', head, async () => {
       check.disabled = true;
       try { await api('/issues/resolve', { id: issue.id, resolved: issue.status === 'open' }); issue.status = issue.status === 'open' ? 'resolved' : 'open'; renderIssues(); await refresh(); }
+      catch(error) { el('p', `Couldn’t update this issue. ${error.message} Try again.`, row).setAttribute('role','alert'); }
       finally { check.disabled = !connected || !capabilities.manageLibrary; }
     }); check.className = 'icon'; icon(check, issue.status === 'resolved' ? 'check_circle' : 'check_circle_outline', issue.status === 'resolved' ? 'Reopen issue' : 'Resolve issue'); check.setAttribute('aria-pressed', String(issue.status === 'resolved')); check.disabled = issue.status === 'pending' || !connected || !capabilities.manageLibrary;
+    el('p', library.books.find(b => b.id === issue.story)?.title || 'Book', text).className = 'fine';
+    const chapter=library.books.find(b=>b.id===issue.story)?.editions[issue.edition]?.chapters.find(c=>c.assembly===issue.assembly || c.id===issue.chapterId || c.sequence===issue.sequence);
+    el('p', `Chapter ${issue.sequence || chapter?.sequence || ''}${chapter?.title ? ` · ${chapter.title}` : ''}`, text).className='issue-location';
+    el('p', `${editionNames[issue.edition] || issue.edition} · ${time(issue.seconds)}`, text).className='issue-location';
+    if (issue.note) el('p', issue.note, text);
+    if (issue.excerpt) el('p', issue.excerpt, text).className = 'jump-excerpt';
+    if (issue.status === 'pending') el('small', 'Saved here · waiting to sync', text);
   }
-  if (!$('issues').children.length) el('p', 'No matching issues.', $('issues'));
+  if (!issues.length) el('p', 'No marked issues here.', $('issues'));
 }
 $('issue-book').onchange = renderIssues;
 for (const filter of $('issue-filters').children) filter.onclick = () => { issueFilter = filter.textContent; for (const item of $('issue-filters').children) item.setAttribute('aria-pressed', String(item === filter)); renderIssues(); };
@@ -263,7 +345,7 @@ for (const filter of $('issue-filters').children) filter.onclick = () => { issue
 async function refresh() {
   await flush(); const next = await api('/library');
   if (library && next.accountKey !== library.accountKey) { audio.pause(); location.reload(); return; }
-  const capabilityResponse = await api('/capabilities').catch(() => ({})); capabilities = capabilityResponse.permissions || {}; accountLabel = capabilityResponse.accountLabel || ''; connected = true; library = next; storageKey = `listener:${library.accountKey}`;
+  const capabilityResponse = await api('/capabilities').catch(() => ({})); capabilities = capabilityResponse.permissions || {}; accountLabel = capabilityResponse.accountLabel || ''; connected = navigator.onLine; libraryError = ''; library = next; storageKey = `listener:${library.accountKey}`;
   if (!local) { try { local = JSON.parse(localStorage.getItem(storageKey)); } catch {} local ||= { positions: {}, pending: [] }; }
   for (const [key, value] of Object.entries(library.state.positions)) if (!local.positions[key] || value.deviceTime > local.positions[key].deviceTime) local.positions[key] = value;
   persist(); renderLibrary();
@@ -271,17 +353,17 @@ async function refresh() {
   await flush();
   await refreshCatalog();
 }
-function setFollow(value) { follow = value; $('follow').textContent = follow && !browsed ? 'Following audio' : 'Back to audio'; $('follow').setAttribute('aria-pressed', String(follow)); if (follow) highlight(true); }
+function setFollow(value) { follow = value; $('follow-status').textContent = follow && !browsed ? 'Following audio' : 'Browsing text'; $('follow').hidden = follow && !browsed; $('follow').textContent = 'Back to audio'; $('follow').setAttribute('aria-pressed', String(follow)); if (follow) highlight(true); }
 function highlight(force = false) {
-  if (!reading || browsed) return;
+  if (!reading || browsed && browsed.chapter.assembly !== playing?.chapter.assembly) return;
   let index = 0; for (let i = 0; i < visiblePassages.length; i++) { if (visiblePassages[i].start <= audio.currentTime) index = i; else break; }
   if (index === activePassage && !force) return;
-  $('passages').children[activePassage]?.removeAttribute('aria-current'); activePassage = index;
-  const current = $('passages').children[index]; current?.setAttribute('aria-current', 'true');
+  for (const node of $('passages').querySelectorAll('[aria-current]')) node.removeAttribute('aria-current'); activePassage = index;
+  const current = $('passages').querySelector(`[data-passage="${index}"]`)?.parentElement; current?.setAttribute('aria-current', 'true');
   $('passage-label').textContent = visiblePassages.length ? `Passage ${index + 1} of ${visiblePassages.length} · ${time(chapterView().position(audio.currentTime))}` : '';
   if (follow && current) {
     const page = $('passages'), rect = current.getBoundingClientRect(), viewport = page.getBoundingClientRect();
-    if (rect.top < viewport.top || rect.bottom > viewport.bottom) page.scrollTo({ top: page.scrollTop + rect.top - viewport.top - 12, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+    page.scrollTo({ top: page.scrollTop + rect.top - viewport.top - 75, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
   }
 }
 function seek(seconds, reason = 'seek') {
@@ -339,14 +421,14 @@ async function play(book, edition, chapter, seconds = 0, autoplay = false, reaso
   updateNoteOutput();
   $('player').hidden = false; $('reader-empty').hidden = true; $('book-title').textContent = book.title; $('chapter-title').textContent = chapter.title;
   $('edition-label').textContent = `${editionNames[edition] || edition} edition`; $('passages').replaceChildren(); $('reader-status').textContent = 'Loading the generated passages…'; $('source-link').hidden = true;
-  if (reveal) view('reading'); renderMiniPlayer(); setFollow(true); $('undo').disabled = !local.undo;
+  if (reveal) view('reading'); renderMiniPlayer(); setFollow(true); $('undo').hidden = !local.undo; $('undo').disabled = !local.undo;
   let metadataReady = false, textReady = false, started = false;
   const ready = () => {
     if (version !== loadVersion || !metadataReady || (!includeAuthorNotes && !textReady)) return;
     if (!started) {
       started = true;
       programmedSeek = true; audio.currentTime = notePosition(undoRestore ? chapterView().undoPosition(seconds, reading?.passages) : seconds); stableSeconds = audio.currentTime;
-      audio.playbackRate = Number($('speed').value); switching = false; save(reason, ['chapter', 'passage'].includes(reason) || reason === 'restore' && reveal ? from : undefined); highlight(true); renderPlayback();
+      audio.playbackRate = playbackSpeed; switching = false; save(reason, ['chapter', 'passage'].includes(reason) || reason === 'restore' && reveal ? from : undefined); highlight(true); renderPlayback();
     } else if (!includeAuthorNotes) { skipNotes(loadAutoplay); if (version !== loadVersion || chapterEndHandled) return; }
     const requested = loadAutoplay; loadAutoplay = false;
     if (!includeAuthorNotes && audio.currentTime >= chapter.duration) finishChapter(requested);
@@ -378,15 +460,20 @@ async function openLocation(value, autoplay = false, reason = 'restore', reveal 
   await play(found.book, value.edition, found.chapter, value.seconds, autoplay, reason, reveal, undoRestore, guard);
 }
 function renderJumps(entries) {
-  $('history').replaceChildren();
+  $('history').replaceChildren(); $('history-book').textContent = playing?.book.title || '';
   for (const entry of entries.filter(e => e.from?.story === playing?.book.id).sort((a,b) => b.deviceTime - a.deviceTime)) {
     const point = entry.from, row = el('article', null, $('history')); row.className = 'history-entry';
-    el('h3', `${point.chapterTitle || 'Saved passage'} · ${time(point.seconds)}`, row);
-    el('p', `${editionNames[point.edition] || point.edition} · ${new Date(entry.deviceTime).toLocaleString()}`, row).className = 'fine';
-    if (point.excerpt) el('p', point.excerpt, row);
-    const restore = button('Return here', row, () => returnTo(point)); restore.disabled = !connected; if (!connected) el('small', 'Connect to return to this recording.', row);
+    const restore = button('',row, () => returnTo(point)); restore.className = 'jump-return'; restore.disabled = !connected;
+    const copy = el('span',null,restore), reason = ({seek:'Before skipping ahead',passage:'Before a passage jump',chapter:'Before a chapter jump',restore:'Before returning from history'})[entry.reason] || 'Jumped from';
+    el('small', `${reason} · ${new Date(entry.deviceTime).toLocaleString()}`, copy);
+    const sequence = point.chapter || point.sequence || findLocation(point)?.chapter.sequence;
+    el('strong', `${sequence ? `Chapter ${sequence}` : 'Saved passage'} · ${time(point.seconds)}`, copy);
+    el('small', `${point.chapterTitle || ''} · ${editionNames[point.edition] || point.edition}`, copy);
+    if (point.excerpt) el('span', point.excerpt, copy).className = 'jump-excerpt';
+    const undo = el('span',null,restore); icon(undo,'undo'); undo.setAttribute('aria-hidden','true'); restore.setAttribute('aria-label',`Return here: ${point.chapterTitle || 'Saved passage'}, ${time(point.seconds)}`);
+    if (!connected) el('small', 'Connect to return to this recording.', row);
   }
-  if (!$('history').children.length) el('p', 'Places you leave when you jump will appear here.', $('history'));
+  if (!$('history').children.length) { el('h3', 'No jumps yet', $('history')); el('p', 'When you jump to another passage, the place you left appears here.', $('history')); }
 }
 async function loadHistory(earlier = false) {
   if (!playing) return;
@@ -403,7 +490,7 @@ $('more-history').onclick = () => loadHistory(true).catch(error => say(error.mes
 async function returnTo(value) {
   const generation = ++returnGeneration, autoplay = playIntent();
   $('history-status').textContent = 'Opening the saved recording…';
-  try { await openLocation(value, autoplay, 'restore', true, true, () => generation === returnGeneration); if (generation === returnGeneration) { $('history-dialog').close(); $('history-status').textContent = ''; } }
+  try { await openLocation(value, autoplay, 'restore', true, true, () => generation === returnGeneration); if (generation === returnGeneration) { closeDialog($('history-dialog')); $('history-status').textContent = ''; } }
   catch (error) { if (generation === returnGeneration) $('history-status').textContent = 'That recording is unavailable. Your audio has not moved. Try again.'; }
 }
 $('undo').onclick = () => { if (local.undo) returnTo(local.undo); };
@@ -411,27 +498,39 @@ $('open-history').onclick = () => { openDialog($('history-dialog')); loadHistory
 $('follow').onclick = () => { browsed = undefined; browseVersion++; renderPassages(); setFollow(true); };
 for (const event of ['wheel', 'touchstart', 'pointerdown']) $('passages').addEventListener(event, () => setFollow(false), { passive: true });
 $('passages').addEventListener('keydown', event => { if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) setFollow(false); });
-$('text-size').value = localStorage.getItem('listener:book-text-size') || '14';
-function textSize() { const size = Math.min(28, Math.max(12, Number($('text-size').value) || 14)); $('text-size').value = size; $('passages').style.setProperty('--reader-size', `${size}px`); $('font-example').style.fontSize = `${size}px`; localStorage.setItem('listener:book-text-size', size); }
-$('text-smaller').onclick = () => { $('text-size').value = Math.max(12, Number($('text-size').value) - 2); textSize(); };
-$('text-larger').onclick = () => { $('text-size').value = Math.min(28, Number($('text-size').value) + 2); textSize(); }; textSize();
-for (let tenth = 8; tenth <= 25; tenth++) { const option = el('option', `${tenth / 10}×`, $('speed')); option.value = tenth / 10; }
+$('text-size').value = localStorage.getItem('listener:book-text-size') || '16.64';
+function textSize() { const size = Math.min(28, Math.max(12, Number($('text-size').value) || 16.64)); $('text-size').value = size; $('passages').style.setProperty('--reader-size', `${size / 16}rem`); $('font-example').style.fontSize = `${size / 16}rem`; $('font-percent').textContent = `${Math.round(size / 16.64 * 100)}%`; localStorage.setItem('listener:book-text-size', size); }
+$('text-smaller').onclick = () => { $('text-size').value = Math.max(14.144, Number($('text-size').value) - 2.496); textSize(); };
+$('text-larger').onclick = () => { $('text-size').value = Math.min(24.128, Number($('text-size').value) + 2.496); textSize(); }; textSize();
+const speedLabel = value => `${Number(value).toFixed(2).replace(/0$/, '')}×`;
+for (let tenth = 8; tenth <= 25; tenth++) { const option = el('option', speedLabel(tenth / 10), $('speed')); option.value = tenth / 10; }
+el('option', 'Custom', $('speed')).value = 'custom';
+let playbackSpeed = 1;
 function setSpeed(value) {
   if (!Number.isFinite(value) || value < .1 || value > 4) return;
-  if (![...$('speed').options].some(o => Number(o.value) === value)) { const option = el('option', `${value}×`, $('speed')); option.value = value; }
-  $('speed').value = value; $('custom-speed').value = value; $('open-speed').textContent = `${value}×`; audio.playbackRate = value; localStorage.setItem('listener:speed', value);
+  playbackSpeed = value;
+  $('speed').value = [...$('speed').options].some(o => Number(o.value) === value) ? String(value) : 'custom';
+  $('speed').querySelector('[value=custom]').textContent = $('speed').value === 'custom' ? `Custom · ${speedLabel(value)}` : 'Custom';
+  $('custom-speed').value = value; $('open-speed').textContent = $('speed-value').textContent = speedLabel(value); audio.playbackRate = value; localStorage.setItem('listener:speed', value);
+  $('speed-down').disabled = value <= .1; $('speed-up').disabled = value >= 4;
 }
 setSpeed(Number(localStorage.getItem('listener:speed')) || 1);
-$('speed').onchange = () => { setSpeed(Number($('speed').value)); $('speed-dialog').close(); };
-$('custom-speed-form').onsubmit = event => { event.preventDefault(); if ($('custom-speed').checkValidity()) { setSpeed(Number($('custom-speed').value)); $('speed-dialog').close(); } };
-$('open-speed').onclick = () => openDialog($('speed-dialog'));
+$('speed').onchange = () => { if ($('speed').value === 'custom') { $('custom-speed').focus(); return; } setSpeed(Number($('speed').value)); closeDialog($('speed-dialog')); };
+$('speed-down').onclick = () => setSpeed(Math.max(.1, Math.round((playbackSpeed - .1) * 10000) / 10000));
+$('speed-up').onclick = () => setSpeed(Math.min(4, Math.round((playbackSpeed + .1) * 10000) / 10000));
+$('custom-speed-form').onsubmit = event => { event.preventDefault(); const text = $('custom-speed').value.trim().replace(',', '.'), value = Number(text); if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text) || !Number.isFinite(value) || value < .1 || value > 4) { $('speed-error').textContent = 'Enter a speed from 0.1 to 4.0.'; $('custom-speed').setAttribute('aria-invalid','true'); return; } setSpeed(value); closeDialog($('speed-dialog')); };
+$('open-speed').onclick = () => { setSpeed(playbackSpeed); $('speed-error').textContent = ''; $('custom-speed').removeAttribute('aria-invalid'); openDialog($('speed-dialog')); };
 $('settings').onclick = () => {
   if (page === 'preparation') { openPreparationSettings(); return; }
   $('edition').replaceChildren();
   for (const [name, data] of Object.entries(playing?.book.editions || {})) { const option = el('option', editionNames[name] || name, $('edition')); option.value = name; option.disabled = !data.chapters.some(c => c.id === playing.chapter.id); }
-  $('edition').value = playing?.edition || ''; openDialog($('listening-settings'));
+  $('edition').value = playing?.edition || ''; renderEditionChoices(); $('edition-error').textContent = ''; openDialog($('listening-settings'));
 };
-$('edition').onchange = () => switchEdition($('edition').value).catch(error => { $('edition').value = playing?.edition || ''; say(error.message); });
+function renderEditionChoices() {
+  $('edition-choices').replaceChildren();
+  for (const option of $('edition').options) { const choose = button(option.textContent, $('edition-choices'), async () => { $('edition-error').textContent = ''; try { await switchEdition(option.value); } catch (error) { $('edition').value = playing?.edition || ''; $('edition-error').textContent = error.message; } finally { renderEditionChoices(); } }); choose.disabled = option.disabled || $('edition').disabled; choose.setAttribute('aria-pressed', String(option.value === playing?.edition)); }
+}
+$('edition').onchange = () => switchEdition($('edition').value).catch(error => { $('edition').value = playing?.edition || ''; $('edition-error').textContent = error.message; }).finally(renderEditionChoices);
 $('include-author-notes').checked = includeAuthorNotes;
 $('include-author-notes').onchange = () => { includeAuthorNotes = $('include-author-notes').checked; localStorage.setItem('listener:include-author-notes', String(includeAuthorNotes)); seekDraft = undefined; renderPassages(); prepareNoteOutput(); if (!includeAuthorNotes && readingPending) { if (!switching) loadAutoplay = !audio.paused; audio.pause(); } else { releasePlayback?.(); skipNotes(); } scheduleNotes(); renderPlayback(); renderMiniPlayer(); if (library) { renderLibrary(); if (page === 'story') renderStory(); } };
 
@@ -466,61 +565,74 @@ audio.onratechange = scheduleNotes;
 audio.onended = () => finishChapter();
 audio.onerror = () => { switching = false; say('Audio could not load. Check your connection and sign in again if needed.'); };
 
-$('refresh').onclick = () => refresh().catch(error => say(error.message));
+$('refresh').onclick = () => refresh().catch(libraryFailure);
 window.addEventListener('online', flush); document.addEventListener('visibilitychange', () => { if (document.hidden) save('pause'); }); window.addEventListener('pagehide', () => save('pause'));
 function saveDraft() { if (!issueDraft) return; issueDraft.kind = $('kind').value; issueDraft.note = $('note').value; local.drafts ||= {}; local.drafts[issueDraft.story] = issueDraft; persist(); }
 $('mark-issue').onclick = () => {
   if (!playing) return;
-  playRequest++; returnGeneration++; editionRequest++; pauseAudio(); local.drafts ||= {};
+  issueNotice = ''; playRequest++; returnGeneration++; editionRequest++; pauseAudio(); local.drafts ||= {};
   issueDraft = local.drafts[playing.book.id] || { ...richLocation(), eventId: crypto.randomUUID(), kind: 'delivery', note: '' };
   $('kind').value = issueDraft.kind; $('note').value = issueDraft.note; $('issue-error').textContent = '';
   $('issue-excerpt').textContent = issueDraft.excerpt || '';
-  $('issue-location').textContent = `${issueDraft.selection?.book.title || ''} · ${issueDraft.chapterTitle} · ${time(issueDraft.seconds)} · ${editionNames[issueDraft.edition] || issueDraft.edition}`;
-  try { saveDraft(); openDialog($('issue-dialog')); } catch { say('Couldn’t save a draft in this browser. Check available storage.'); }
+  $('issue-book-title').textContent = issueDraft.selection?.book.title || playing.book.title;
+  $('issue-location').textContent = `Paused · Chapter ${issueDraft.chapter || 1} · ${editionNames[issueDraft.edition] || issueDraft.edition} · ${time(issueDraft.seconds)}`;
+  openDialog($('issue-dialog')); try { saveDraft(); } catch { $('issue-error').textContent = 'Couldn’t keep the draft in this browser. Your text stays open. Try saving again.'; }
 };
 $('kind').onchange = $('note').oninput = () => { try { saveDraft(); $('issue-error').textContent = ''; } catch { $('issue-error').textContent = 'Couldn’t keep the draft in this browser. Your text stays open. Try saving again.'; } };
-$('cancel-issue').onclick = () => { saveDraft(); $('issue-dialog').close(); };
-$('discard-issue').onclick = () => { delete local.drafts[issueDraft.story]; persist(); issueDraft = undefined; $('issue-dialog').close(); };
-$('issue-dialog').addEventListener('cancel', () => saveDraft());
+$('cancel-issue').onclick = () => { try { saveDraft(); closeDialog($('issue-dialog')); } catch { $('issue-error').textContent = 'Couldn’t keep the draft. Try again before closing.'; } };
+$('discard-issue').onclick = () => { const draft=issueDraft; delete local.drafts[draft.story]; try { persist(); issueDraft=undefined; closeDialog($('issue-dialog')); } catch { local.drafts[draft.story]=draft; $('issue-error').textContent='Couldn’t discard the draft. Try again.'; } };
 $('issue').onsubmit = event => {
   event.preventDefault(); if (!issueDraft) return;
   try {
-    saveDraft(); const queued = { ...wireLocation(issueDraft), eventId: issueDraft.eventId, kind: issueDraft.kind, note: issueDraft.note };
-    local.issueQueue ||= []; if (!local.issueQueue.some(i => i.eventId === queued.eventId)) local.issueQueue.push(queued);
+    saveDraft(); const queued = { ...wireLocation(issueDraft), _localIssue: structuredClone(issueDraft), eventId: issueDraft.eventId, kind: issueDraft.kind, note: issueDraft.note };
+    const previousQueue = local.issueQueue || []; local.issueQueue = previousQueue.some(i => i.eventId === queued.eventId) ? previousQueue : [...previousQueue, queued];
     // One durable write records the event and removes its draft; failure restores it.
     const draft = local.drafts[issueDraft.story]; delete local.drafts[issueDraft.story];
-    try { persist(); } catch (error) { local.drafts[issueDraft.story] = draft; throw error; }
-    issueDraft = undefined; $('issue-dialog').close(); renderIssues(); say('Issue saved on this browser. Sync will retry when connected.'); flush().then(() => refresh().catch(() => {}));
+    try { persist(); } catch (error) { local.issueQueue = previousQueue; local.drafts[issueDraft.story] = draft; throw error; }
+    issueDraft = undefined; closeDialog($('issue-dialog')); renderIssues(); say('Issue saved on this browser. Sync will retry when connected.'); flush().then(() => refresh().catch(() => {}));
   } catch { $('issue-error').textContent = 'Couldn’t save here. Your draft is kept. Free some storage and try again.'; }
 };
 
 const code = new URLSearchParams(location.search).get('code');
 if (location.pathname === '/listen/pair' && /^[A-F0-9]{10}$/.test(code ?? '')) { $('pair').hidden = false; $('code').textContent = code; $('approve').onclick = async () => { try { await api('/pair/approve', { code }); $('approve').disabled = true; say('Connected. Return to your Android listener.'); } catch (error) { say(error.message); } }; }
-refresh().then(() => { const latest = Object.values(local.positions).sort((a, b) => b.deviceTime - a.deviceTime)[0]; if (latest && !code) return openLocation(latest, false, 'restore', false); }).then(async () => { await initialNavigation; route(); }).catch(error => say(error.message));
+refresh().then(() => { const latest = Object.values(local.positions).sort((a, b) => b.deviceTime - a.deviceTime)[0]; if (latest && !code) return openLocation(latest, false, 'restore', false); }).then(async () => { await initialNavigation; route(); }).catch(libraryFailure);
 
 
+let catalogReportedAt;
 async function refreshCatalog() {
-  try { catalog = await api('/catalog'); renderLibrary(); if (page === 'story') renderStory(); if (page === 'preparation') renderPreparation(); }
-  catch (error) { connected = false; if (page === 'preparation') renderPreparation(); }
+  try { catalog = await api('/catalog'); catalogReportedAt=Date.now(); catalogError=''; connected=navigator.onLine; renderLibrary(); if (page === 'story') renderStory(); if (page === 'preparation') renderPreparation(); }
+  catch (error) { connected = navigator.onLine; catalogError='Couldn’t refresh. Showing the last saved status.'; if (page === 'preparation') renderPreparation(); }
 }
 function renderPreparation() {
-  const parent = $('preparation'); parent.replaceChildren();
+  const parent = $('preparation'), expanded = parent.querySelector('details')?.open; parent.replaceChildren();
   const story = catalog?.stories.find(s => s.id === selectedStoryId);
   if (!story) { el('p', 'Preparation information is unavailable. Sync to retry.', parent); return; }
-  const mayWrite = capabilities.manageLibrary && capabilities.generate && connected && story.supported !== false;
-  el('h2', story.title, parent);
-  el('p', `${story.chapters.filter(c => c.editions.includes('qwen')).length} of ${story.chapters.length} chapters published with Qwen audio`, parent);
-  if (!connected) el('p', 'Offline · showing the last reported preparation state', parent);
-  for (const job of (catalog.jobs || []).filter(j => j.story === story.id)) {
-    const row = el('article', null, parent); row.className = 'queue-job'; el('strong', job.cancel && !['cancelled', 'complete', 'failed'].includes(job.status) ? 'Cancellation requested' : job.status, row); el('p', job.phase || '', row); if (job.error) el('p', job.error, row);
-    const action = ['queued', 'running', 'waiting'].includes(job.status) && !job.cancel ? 'cancel' : ['failed', 'cancelled', 'waiting'].includes(job.status) ? 'retry' : undefined;
-    if (action) { const change = button(action === 'cancel' ? 'Cancel job' : 'Retry now', row, async () => { change.disabled = true; try { await api('/jobs', { id: job.id, action }); await refreshCatalog(); } finally { change.disabled = !mayWrite; } }); change.disabled = !mayWrite; }
+  const supported = story.supported !== false, mayWrite = capabilities.manageLibrary && capabilities.generate && connected && supported;
+  const identity = el('div',null,parent); identity.className='book-identity'; cover(story.id,identity); const copy = el('div',null,identity); el('h2',story.title,copy); el('p','Qwen local · Audio preparation',copy);
+  if (!connected) el('p','Offline. This is the last saved status; the server job may still be running.',parent).className='fine';
+  else if (!capabilities.manageLibrary) el('p','You can view status. Managing preparation requires library access.',parent).className='fine';
+  if (!supported) { el('p','Audio preparation is not available for this source.',parent); return; }
+  if(catalogError)el('p',catalogError,parent).className='fine prep-notice';
+  const published = story.chapters.filter(c => c.editions.includes('qwen')).length, summary = el('section',null,parent); summary.className='prep-summary';
+  el('h3',`${published} of ${story.chapters.length} chapters published`,summary); const progress=el('progress',null,summary); progress.max=Math.max(1,story.chapters.length); progress.value=published; progress.setAttribute('aria-label','Published Qwen chapters');
+  el('p',published === story.chapters.length && published ? 'Ready to listen in Qwen local.' : 'Published audio is available while the rest is prepared.',summary);
+  const jobs = (catalog.jobs || []).filter(j => j.story === story.id);
+  for (const job of jobs) {
+    const row = el('article', null, parent); row.className = 'queue-job';
+    const cancelling = job.cancel && !['cancelled', 'complete', 'failed'].includes(job.status);
+    el('h3', cancelling ? 'Cancellation requested' : ({queued:'Queued',running:/publishing/i.test(job.phase||'')?'Publishing audio':'Preparing audio',publishing:'Publishing audio',cancelled:'Preparation cancelled',complete:'Audio published',failed:'Preparation stopped',waiting:'Waiting to retry'})[job.status] || job.status, row);
+    el('p', cancelling ? 'Stops after the current passage.' : job.error || job.phase || '', row);
+    const action = ['queued', 'running', 'waiting'].includes(job.status) && !job.cancel ? 'cancel' : ['failed', 'cancelled', 'waiting'].includes(job.status) && !cancelling ? 'retry' : undefined;
+    if (action) { const change = button(action === 'cancel' ? 'Cancel job' : 'Retry preparation', row, async () => { change.disabled = true; try { await api('/jobs', { id: job.id, action }); await refreshCatalog(); } catch(error) { el('p',error.message,row).setAttribute('role','alert'); } finally { change.disabled = !mayWrite; } }); change.disabled = !mayWrite; }
   }
-  if (story.repair) renderRepair(story.repair, parent);
-  el('p', story.follow?.enabled ? `Automatic checks every ${story.follow.intervalHours} hours` : 'Automatic checks paused', parent);
-  if (!story.follow) el('p', 'Set up audio preparation in an agent session.', parent);
-  if (story.follow) { const check = button('Check now', parent, async () => { check.disabled = true; try { await api('/check', { story: story.id }); await refreshCatalog(); } finally { check.disabled = !mayWrite; } }); check.disabled = !mayWrite; }
-  for (const chapter of story.chapters) { const row = el('div', null, parent); row.className = 'chapter'; el('strong', chapter.title, row); el('small', chapter.editions.length ? `Published: ${chapter.editions.map(e => editionNames[e] || e).join(', ')}` : chapter.downloaded ? 'Text ready · audio not published' : chapter.availability === 'locked' ? 'Locked at source' : 'Text not ready', row); }
+  if (!jobs.length) el('p','No active preparation job',parent).className='queue-job fine';
+  const details = el('details',null,parent); details.open=!!expanded; el('summary','Chapter status',details);
+  for (const chapter of story.chapters) { const row = el('div',null,details); row.className='prep-chapter'; el('span',chapter.title,row); el('span',chapter.editions.includes('qwen') ? 'Published' : 'Not published yet',row); }
+  const policy=el('div',null,parent); policy.className='prep-policy'; el('span','Automatic checks',policy); el('strong',story.follow?.enabled ? `Every ${story.follow.intervalHours} hours` : 'Paused',policy);
+  const checked=Date.parse(story.checkedAt);
+  if (checked || catalogReportedAt) el('p',`${checked ? 'Last checked' : 'Report received'} ${new Date(checked || catalogReportedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}`,parent).className='fine prep-last';
+  const refresh = button('Refresh status',parent,refreshCatalog); refresh.disabled=!connected; refresh.className='prep-refresh';
+  if (story.repair) renderRepair(story.repair,parent);
 }
 let preparationTarget;
 function openPreparationSettings() {
@@ -536,12 +648,12 @@ function openPreparationSettings() {
 $('save-preparation').onsubmit = async event => {
   event.preventDefault(); const story = preparationTarget; if (!story?.follow || !capabilities.manageLibrary || !connected || !capabilities.generate && $('preparation-mode').value !== 'download') return;
   const submit = $('save-preparation').querySelector('button:not([type])'); submit.disabled = true;
-  try { await api('/follow', { url: story.url, enabled: $('automatic-checks').checked, mode: $('preparation-mode').value, buffer: 5, intervalHours: story.follow.intervalHours }); await refreshCatalog(); $('preparation-settings').close(); }
+  try { await api('/follow', { url: story.url, enabled: $('automatic-checks').checked, mode: $('preparation-mode').value, buffer: 5, intervalHours: story.follow.intervalHours }); await refreshCatalog(); closeDialog($('preparation-settings')); }
   catch (error) { $('preparation-error').textContent = error.message; } finally { submit.disabled = false; }
 };
 setInterval(() => { if (library && !document.hidden) refreshCatalog(); }, 30000);
-window.addEventListener('offline', () => { connected = false; renderIssues(); say('Offline · changes are saved in this browser.'); });
-window.addEventListener('online', () => refresh().catch(error => say(error.message)));
+window.addEventListener('offline', () => { connected = false; renderLibraryNotice(); renderIssues(); if(page==='preparation')renderPreparation(); say('Offline · changes are saved in this browser.'); });
+window.addEventListener('online', () => refresh().catch(libraryFailure));
 
 function renderRepair(repair, parent, expanded = false) {
   const panel = el('section', null, parent); panel.className = 'repair-status';
@@ -576,7 +688,7 @@ async function switchEdition(edition) {
   const current = playing, generation = ++editionRequest;
   const chapter = current.book.editions[edition]?.chapters.find(c => c.id === current.chapter.id);
   if (!chapter || !reading) throw new Error('This chapter is unavailable in that edition.');
-  $('edition').disabled = true;
+  $('edition').disabled = true; renderEditionChoices();
   try {
     const target = await api(`/stories/${current.book.id}/${edition}/text/${chapter.assembly}`);
     if (generation !== editionRequest || playing !== current) return;
@@ -584,7 +696,7 @@ async function switchEdition(edition) {
     // Edition changes are recorded as progress, never as a jump.
     await play(current.book, edition, chapter, seconds, autoplay, 'playing', true, false, () => generation === editionRequest && playing === current, target);
     $('edition').value = playing.edition;
-  } finally { $('edition').disabled = false; }
+  } finally { $('edition').disabled = false; renderEditionChoices(); }
 }
 $('audio-output').onclick = async () => {
   openDialog($('output-dialog')); $('outputs').hidden = true; $('choose-output').hidden = true;
@@ -598,6 +710,7 @@ $('audio-output').onclick = async () => {
     const devices = await navigator.mediaDevices.enumerateDevices(); $('outputs').replaceChildren();
     for (const device of devices.filter(d => d.kind === 'audiooutput')) { const option = el('option', device.label || (device.deviceId === 'default' ? 'System default' : 'Audio device'), $('outputs')); option.value = device.deviceId; }
     $('outputs').hidden = !$('outputs').options.length; $('outputs').value = audio.sinkId || 'default';
+    if ($('outputs').hidden && $('choose-output').hidden) $('output-status').textContent = 'Choose an audio device in your system’s sound settings. This browser didn’t provide an output list.';
     $('outputs').onchange = async () => { try { await audio.setSinkId($('outputs').value); $('output-status').textContent = 'Audio device selected'; } catch { $('output-status').textContent = 'Couldn’t change the audio device. Your current output is kept.'; } };
   } catch { $('output-status').textContent = 'Use system sound settings to change your audio device.'; }
 };

@@ -69,11 +69,11 @@ try {
     assert.equal(await page.locator('#library-view').isVisible(), true);
     assert.equal(await page.getByRole('button', { name: 'v3', exact: true }).count(), 0);
     assert.equal(await page.getByRole('button', { name: 'Listen', exact: true }).count(), 0);
-    await page.getByText('1 unread audio chapter · 1:30 left', { exact: true }).waitFor();
+    await page.getByText('1 unplayed · 2m left', { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.equal(await page.locator('#follow-story').count(), 0, 'Story setup stays in agent sessions');
     await page.getByRole('link', { name: book.title, exact: true }).click();
-    await page.getByRole('button', { name: 'Preparation', exact: true }).click();
+    await page.getByRole('button', { name: 'Audio preparation', exact: true }).click();
     await page.getByRole('heading', { name: 'Audio repair in progress' }).waitFor();
     await page.getByText('Chapter repair queue', { exact: true }).click();
     await page.getByText('Queued for reanalysis and recasting', { exact: true }).waitFor();
@@ -89,7 +89,7 @@ try {
     await page.locator('#audio').evaluate(a => a.pause());
     await page.locator('.passage').nth(4).click();
     await page.waitForFunction(() => document.getElementById('audio').currentTime >= 20);
-    assert.equal(await page.locator('.passage').nth(4).getAttribute('aria-current'), 'true');
+    assert.equal(await page.locator('.passage').nth(4).evaluate(e=>e.parentElement.getAttribute('aria-current')), 'true');
     assert.equal(await page.locator('#audio').evaluate(a => a.paused), true, 'Passage seek preserves pause');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('listener:test')).pending.length === 0);
     const jump = posts.filter(p => p.data.reason === 'passage').at(-1).data;
@@ -101,7 +101,7 @@ try {
     await page.getByRole('button', { name: 'Mark issue', exact: true }).click();
     await page.getByLabel('Optional note').fill('The voice changes here.');
     await page.getByRole('button', { name: 'Save issue', exact: true }).click();
-    await page.waitForFunction(() => document.getElementById('message').textContent.startsWith('Issue saved'));
+    await page.waitForFunction(() => document.getElementById('issue-sync-status').textContent.startsWith('Issue saved'));
     const issue = posts.find(p => p.path === '/listen/issues').data;
     assert.equal(issue.assembly, 'a'.repeat(64)); assert.equal(issue.seconds, 30);
     offline = true;
@@ -122,21 +122,21 @@ try {
     assert.equal(await page.locator('#follow').getAttribute('aria-pressed'), 'true');
     await page.locator('#settings').click();
     for (let i=0;i<5;i++) await page.getByRole('button',{name:'Increase text size'}).click();
-    assert.equal(await page.locator('.passage').first().evaluate(e => getComputedStyle(e).fontSize), '24px');
-    await page.getByLabel('Edition', {exact:true}).selectOption('qwen');
+    assert.equal(await page.locator('.passage').first().evaluate(e => getComputedStyle(e).fontSize), '24.128px');
+    await page.locator('#edition-choices').getByRole('button',{name:'Qwen local',exact:true}).click();
     await page.waitForFunction(() => document.getElementById('audio').getAttribute('src').includes('/qwen/audio/'));
     assert.equal(await page.locator('#audio').evaluate(a=>a.paused), true, 'Changing edition preserves pause');
     assert.equal(await page.locator('#edition-label').textContent(), 'Qwen local edition');
     for (let i=0;i<5;i++) await page.getByRole('button',{name:'Decrease text size'}).click();
     await page.locator('#listening-settings [data-close]').click();
     await page.locator('#open-speed').click();
-    assert.equal(await page.locator('#speed option').count(),18,'All tenths from 0.8 to 2.5');
+    assert.equal(await page.locator('#speed option:not([value=custom])').count(),18,'All tenths from 0.8 to 2.5');
     await page.getByLabel('Custom speed', {exact:true}).fill('1.35');
-    await page.getByRole('button',{name:'Apply',exact:true}).click();
+    await page.getByRole('button',{name:'Apply speed',exact:true}).click();
     assert.equal(await page.locator('#audio').evaluate(a=>a.playbackRate),1.35);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     if(process.env.SCREENSHOTS) await page.screenshot({path: `${process.env.SCREENSHOTS}/listener-reader-${width}.png`, fullPage: true});
-    if(width===320){await page.evaluate(()=>document.documentElement.style.fontSize='200%');assert.equal(await page.locator('.reader-tools').evaluate(e=>e.scrollWidth>e.clientWidth+1),false,'200% text keeps footer controls inside the phone');if(process.env.SCREENSHOTS)await page.screenshot({path:process.env.SCREENSHOTS+'/listener-reader-320-large.png'});await page.evaluate(()=>document.documentElement.style.fontSize='');}
+    if(width===320){await page.evaluate(()=>document.documentElement.style.fontSize='200%');assert.equal(await page.locator('.playback-dock').evaluate(e=>e.scrollWidth>e.clientWidth+1),false,'200% text keeps footer controls inside the phone');if(process.env.SCREENSHOTS)await page.screenshot({path:process.env.SCREENSHOTS+'/listener-reader-320-large.png'});await page.evaluate(()=>document.documentElement.style.fontSize='');}
     await page.locator('#nav-back').click(); await page.locator('#nav-back').click(); await page.locator('#nav-back').click();
     await page.reload();
     await page.waitForFunction(() => document.getElementById('audio').readyState > 0);
@@ -149,7 +149,7 @@ try {
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('listener:test')).pending.length > 0);
     const acceptedBeforeSwitch = posts.filter(p => p.path === '/listen/progress').length;
     accountKey = 'other'; state.positions = {}; offline = false;
-    await page.locator('#account').click(); await page.locator('#sync-account').click();
+    await page.goto(base+'/listen#library');await page.locator('#account').click(); await page.locator('#sync-account').click();
     await page.waitForFunction(() => localStorage.getItem('listener:other') !== null);
     assert.equal(posts.filter(p => p.path === '/listen/progress').length, acceptedBeforeSwitch, 'Old account events cannot sync into a new account');
     assert(await page.evaluate(() => JSON.parse(localStorage.getItem('listener:test')).pending.length > 0));
@@ -158,7 +158,7 @@ try {
   }
   accountKey='pending-play';offline=false;state.positions={};state.completed={};posts.length=0;audioDelay=4000;
   const pendingPlay=await browser.newPage({viewport:{width:390,height:844}});
-  await pendingPlay.goto(base+'/listen');await pendingPlay.getByRole('button',{name:'Play '+book.title,exact:true}).click();
+  await pendingPlay.goto(base+'/listen');await pendingPlay.getByRole('link',{name:book.title,exact:true}).click();await pendingPlay.getByRole('button',{name:'Play book',exact:true}).click();
   await pendingPlay.locator('.passage').first().waitFor();
   assert.equal(await pendingPlay.locator('#toggle').getAttribute('aria-label'),'Pause','Requested playback remains pausable before media metadata arrives');
   await pendingPlay.locator('#mark-issue').click();
@@ -168,15 +168,15 @@ try {
   await pendingPlay.locator('#discard-issue').click();await pendingPlay.close();audioDelay=0;
   accountKey='edition-flow';offline=false;state.positions={};state.completed={};posts.length=0;differentTimeline=true;
   const editions=await browser.newPage({viewport:{width:390,height:844}});
-  await editions.goto(base+'/listen');await editions.getByRole('button',{name:'Play '+book.title,exact:true}).click();
+  await editions.goto(base+'/listen');await editions.getByRole('link',{name:book.title,exact:true}).click();await editions.getByRole('button',{name:'Play book',exact:true}).click();
   await editions.locator('.passage').first().waitFor();await editions.waitForFunction(()=>document.getElementById('audio').currentTime>0);await editions.locator('#audio').evaluate(a=>{a.pause();a.currentTime=30;});
   await editions.waitForFunction(()=>!document.getElementById('audio').seeking);
-  await editions.locator('#settings').click();await editions.getByLabel('Edition',{exact:true}).selectOption('flash');
+  await editions.locator('#settings').click();await editions.locator('#edition-choices').getByRole('button',{name:'Flash',exact:true}).click();
   await editions.waitForFunction(()=>document.getElementById('audio').getAttribute('src').includes('/flash/') && document.getElementById('audio').currentTime===18);
-  assert.equal(await editions.locator('.passage[aria-current=true]').getAttribute('data-start'),'18','Same node is retained on a different recording timeline');
+  assert.equal(await editions.locator('.reading-paragraph[aria-current=true] .passage').getAttribute('data-start'),'18','Same node is retained on a different recording timeline');
   assert.equal(await editions.locator('#audio').evaluate(a=>a.paused),true);
   const jumpsBefore=posts.filter(p=>p.data.from).length;
-  unavailableAudio=true;await editions.getByLabel('Edition',{exact:true}).selectOption('qwen');
+  unavailableAudio=true;await editions.locator('#edition-choices').getByRole('button',{name:'Qwen local',exact:true}).click();
   await editions.waitForFunction(()=>!document.getElementById('edition').disabled);
   assert((await editions.locator('#audio').getAttribute('src')).includes('/flash/'),'Failed edition does not replace current audio');
   assert.equal(await editions.locator('#audio').evaluate(a=>a.currentTime),18);
@@ -193,18 +193,18 @@ try {
   await editions.locator('#discard-issue').click();await editions.close();
   accountKey='issue-flow';state.positions={};state.issues=[];posts.length=0;
   const reports=await browser.newPage({viewport:{width:320,height:844}});
-  await reports.goto(base+'/listen');await reports.getByRole('button',{name:'Play '+book.title,exact:true}).click();await reports.locator('.passage').first().waitFor();
+  await reports.goto(base+'/listen');await reports.getByRole('link',{name:book.title,exact:true}).click();await reports.getByRole('button',{name:'Play book',exact:true}).click();await reports.locator('.passage').first().waitFor();
   await reports.locator('#mark-issue').click();await reports.getByLabel('Optional note').fill('Queued offline');offline=true;await reports.getByRole('button',{name:'Save issue',exact:true}).click();
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===1);
   await reports.waitForFunction(()=>!history.state?.sheet);
   await reports.reload();await reports.waitForFunction(()=>document.getElementById('audio').readyState>0);
-  await reports.locator('#account').click();assert.equal(await reports.locator('#account-label').textContent(),'Reader');offline=false;await reports.locator('#sync-account').click();
+  await reports.goto(base+'/listen#library');await reports.locator('#account').click();assert.equal(await reports.locator('#account-label').textContent(),'Reader');offline=false;await reports.locator('#sync-account').click();
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===0);
-  await reports.locator('#nav-back').click();await reports.locator('#reading-view').waitFor({state:'visible'});await reports.locator('#nav-back').click();await reports.locator('#library-view').waitFor({state:'visible'});
-  await reports.getByRole('link',{name:book.title,exact:true}).click();await reports.getByRole('button',{name:'Marked issues',exact:true}).click();
+  await reports.locator('#nav-back').click();await reports.locator('#library-view').waitFor({state:'visible'});
+  await reports.getByRole('button',{name:'In progress',exact:true}).click();await reports.getByRole('link',{name:book.title,exact:true}).click();await reports.getByRole('button',{name:'Marked issues',exact:true}).click();
   await reports.getByText('Queued offline',{exact:true}).waitFor();assert.equal(await reports.locator('.issue').count(),1,'Stable queued report does not duplicate the canonical server ID');
   offline=true;await reports.getByRole('button',{name:'Resolve issue',exact:true}).click();
-  await reports.waitForFunction(()=>document.getElementById('message').textContent!=='Ready to listen.');
+  await reports.getByRole('alert').waitFor();
   assert.equal(await reports.getByRole('button',{name:'Resolve issue',exact:true}).getAttribute('aria-pressed'),'false','Failed status request retains the open state');
   offline=false;await reports.getByRole('button',{name:'Resolve issue',exact:true}).click();await reports.getByRole('button',{name:'Reopen issue',exact:true}).waitFor();
   assert.equal(state.issues[0].status,'resolved');await reports.close();
@@ -261,7 +261,7 @@ try {
   await page.locator('#chapter-position').evaluate(input=>{input.value='35';input.dispatchEvent(new Event('input'));input.dispatchEvent(new Event('change'));});
   await page.waitForFunction(()=>document.getElementById('audio').currentTime===45);
   assert.equal(await page.locator('#elapsed').textContent(),'0:35');
-  assert.equal(await page.locator('#remaining').textContent(),'−0:35');
+  assert.equal(await page.locator('#remaining').textContent(),'1:10');
   await page.locator('.passage[data-start="45"]').click();
   assert.equal(await page.locator('#audio').evaluate(a=>a.paused),true,'A retained passage seek preserves pause');
   await page.locator('#back').click();
@@ -353,7 +353,7 @@ try {
   await undoPage.goto(base+'/listen');await undoPage.waitForFunction(()=>document.getElementById('audio').currentTime===30);
   await undoPage.locator('#mini-open').click();await undoPage.locator('#undo').click();
   await undoPage.waitForFunction(()=>document.getElementById('audio').readyState>0&&document.getElementById('audio').currentTime===0);
-  assert.equal(await undoPage.locator('.passage[aria-current=true]').getAttribute('data-start'),'0','Undo returns before the note instead of skipping forward again');
+  assert.equal(await undoPage.locator('.reading-paragraph[aria-current=true] .passage').getAttribute('data-start'),'0','Undo returns before the note instead of skipping forward again');
   assert.equal(await undoPage.locator('#audio').evaluate(a=>a.paused),true);
   await undoPage.locator('#undo').click();await undoPage.waitForFunction(()=>document.getElementById('audio').currentTime===30);
   await undoPage.close();

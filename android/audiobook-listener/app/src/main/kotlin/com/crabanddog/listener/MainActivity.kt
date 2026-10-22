@@ -10,6 +10,15 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Typography
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,15 +57,29 @@ class MainActivity : ComponentActivity() {
 @androidx.compose.runtime.Composable
 fun ListenerTheme(content: @androidx.compose.runtime.Composable () -> Unit) {
     val colors = if (isSystemInDarkTheme()) darkColorScheme(
-        primary = Color(0xff83d6c8), onPrimary = Color(0xff00382f), primaryContainer = Color(0xff155449), onPrimaryContainer = Color(0xffaff2e4),
-        secondary = Color(0xffffb5a4), secondaryContainer = Color(0xff30483f), onSecondaryContainer = Color(0xffdef2df),
-        background = Color(0xff151c19), surface = Color(0xff151c19), surfaceContainer = Color(0xff233029),
-        onSurface = Color(0xffeee9de), onSurfaceVariant = Color(0xffbac9c0), outlineVariant = Color(0xff3c4b43)
+        primary = Color(0xffa4e2cd), onPrimary = Color(0xff163a34), primaryContainer = Color(0xff28483f), onPrimaryContainer = Color(0xffedf5ec),
+        secondary = Color(0xffa4e2cd), secondaryContainer = Color(0xff28483f), onSecondaryContainer = Color(0xffedf5ec),
+        background = Color(0xff182e31), surface = Color(0xff182e31), surfaceContainer = Color(0xff213b3e),
+        surfaceContainerLow = Color(0xff182e31), surfaceContainerHigh = Color(0xff213b3e), surfaceContainerHighest = Color(0xff213b3e), surfaceVariant = Color(0xff213b3e),
+        onBackground = Color(0xffedf5ec), onSurface = Color(0xffedf5ec), onSurfaceVariant = Color(0xffb7cdc5), outline = Color(0xff46615c), outlineVariant = Color(0xff46615c)
     ) else lightColorScheme(
-        primary = Color(0xff176759), onPrimary = Color.White, primaryContainer = Color(0xffbcebdd), onPrimaryContainer = Color(0xff063c31),
-        secondary = Color(0xff9b4834), secondaryContainer = Color(0xffe3efdb), onSecondaryContainer = Color(0xff233d2d),
-        background = Color(0xfffffbf2), surface = Color(0xfffffbf2), surfaceContainer = Color(0xffefeede),
-        onSurface = Color(0xff24362e), onSurfaceVariant = Color(0xff59665d), outlineVariant = Color(0xffd4dbcd)
+        primary = Color(0xff176b65), onPrimary = Color.White, primaryContainer = Color(0xffe0f2e5), onPrimaryContainer = Color(0xff213e40),
+        secondary = Color(0xff176b65), secondaryContainer = Color(0xffe0f2e5), onSecondaryContainer = Color(0xff213e40),
+        background = Color(0xfffffdf7), surface = Color(0xfffffdf7), surfaceContainer = Color.White,
+        surfaceContainerLow = Color(0xfffffdf7), surfaceContainerHigh = Color.White, surfaceContainerHighest = Color.White, surfaceVariant = Color.White,
+        onBackground = Color(0xff213e40), onSurface = Color(0xff213e40), onSurfaceVariant = Color(0xff526764), outline = Color(0xffd4ded7), outlineVariant = Color(0xffd4ded7)
     )
-    MaterialTheme(colorScheme = colors, content = content)
+    val typography = Typography(
+        headlineSmall = TextStyle(fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold),
+        titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold),
+        titleMedium = TextStyle(fontSize = 16.8.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold),
+        titleSmall = TextStyle(fontSize = 14.08.sp, lineHeight = 18.3.sp, fontWeight = FontWeight.SemiBold),
+        bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
+        bodyMedium = TextStyle(fontSize = 13.3.sp, lineHeight = 20.sp),
+        bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp),
+        labelLarge = TextStyle(fontSize = 13.12.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold),
+        labelMedium = TextStyle(fontSize = 12.16.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+        labelSmall = TextStyle(fontSize = 10.72.sp, lineHeight = 16.sp),
+    )
+    MaterialTheme(colorScheme = colors, typography = typography, shapes = Shapes(small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(10.dp), large = RoundedCornerShape(16.dp), extraLarge = RoundedCornerShape(16.dp))) { CompositionLocalProvider(LocalContentColor provides colors.onSurface, content = content) }
 }
