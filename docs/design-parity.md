@@ -24,6 +24,11 @@ pnpm -C tools/audiobooks test:browser
 ```
 
 `test:browser` runs playback/persistence checks and the design capture matrix.
+When running the Chromium container, use Docker `--network bridge`, including
+for loopback fixtures. `--network none` leaves Chromium's network interface
+offline and changes `navigator.onLine`, even though loopback HTTP is reachable.
+The offline scenarios use Playwright's explicit offline setting. The suites
+check the initial connection state before testing the app.
 The capture server binds only to loopback and uses fictional data. It never
 contacts a production API. To save images, set `SCREENSHOTS` to a disposable
 absolute directory. `DESIGN_COVERS` may point to the four approved cover PNGs

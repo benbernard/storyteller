@@ -39,5 +39,31 @@ class ChapterView {
       return { start: p.start, end: next >= p.end && next - p.end <= .100001 ? next : p.end };
     });
   }
+  static paragraphs(passages, includeAuthorNotes = true) {
+    const visible = [], ranges = [], paragraphs = [];
+    let text = '';
+    for (const passage of passages) {
+      if (!includeAuthorNotes && passage.sectionKind === 'author-note') { text += '\n\n'; continue; }
+      const index = visible.length, start = text.length;
+      visible.push(passage); text += passage.text;
+      ranges.push({ index, start, end: text.length });
+    }
+    // Recording segments can divide either words or the blank line between paragraphs.
+    // Find paragraph boundaries in the joined source, retaining each fragment's seek target.
+    let start = 0, firstRange = 0;
+    const append = end => {
+      if (!text.slice(start, end).trim()) return;
+      while (firstRange < ranges.length && ranges[firstRange].end <= start) firstRange++;
+      const fragments = [];
+      for (let i = firstRange; i < ranges.length && ranges[i].start < end; i++) {
+        const range = ranges[i], fragment = text.slice(Math.max(start, range.start), Math.min(end, range.end));
+        if (fragment) fragments.push({ index: range.index, text: fragment });
+      }
+      if (fragments.length) paragraphs.push(fragments);
+    };
+    for (const boundary of text.matchAll(/\n\s*\n/g)) { append(boundary.index); start = boundary.index + boundary[0].length; }
+    append(text.length);
+    return { passages: visible, paragraphs };
+  }
 }
 globalThis.ChapterView = ChapterView;

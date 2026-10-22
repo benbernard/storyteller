@@ -62,15 +62,13 @@ function renderPlayback() {
 }
 function renderPassages() {
   const parent = $('passages'), assembly=(browsed || playing)?.chapter.assembly, changed=assembly !== renderedAssembly; renderedAssembly=assembly; parent.replaceChildren(); activePassage = -1;
-  visiblePassages = []; let paragraph;
+  const grouped = ChapterView.paragraphs((browsed ? browseReading : reading)?.passages || [], includeAuthorNotes);
+  visiblePassages = grouped.passages;
   if (browsed && browsed.chapter.assembly !== playing?.chapter.assembly) { const heading = el('div', null, parent); heading.className = 'browsing-heading'; el('small', 'Browsing text', heading); el('h2', browsed.chapter.title, heading); }
-  for (const passage of (browsed ? browseReading : reading)?.passages || []) {
-    if (!includeAuthorNotes && passage.sectionKind === 'author-note') { paragraph = undefined; continue; }
-    const index = visiblePassages.length; visiblePassages.push(passage);
-    for (const text of passage.text.split(/(\n\s*\n)/)) {
-      if (/^\n\s*\n$/.test(text)) { paragraph = undefined; continue; }
-      if (!text || !paragraph && !text.trim()) continue;
-      if (!paragraph) { paragraph = el('p', null, parent); paragraph.className = 'reading-paragraph'; }
+  for (const fragments of grouped.paragraphs) {
+    const paragraph = el('p', null, parent); paragraph.className = 'reading-paragraph';
+    for (const { index, text } of fragments) {
+      const passage = visiblePassages[index];
       const span = el('span', text, paragraph); span.className = 'passage'; span.dataset.passage = index; span.dataset.start = passage.start; span.setAttribute('role', 'button'); span.tabIndex = 0;
       span.onclick = () => { if (!getSelection()?.toString()) passageSeek(passage.start).catch(error => say(error.message)); };
       span.onkeydown = event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); passageSeek(passage.start).catch(error => say(error.message)); } };

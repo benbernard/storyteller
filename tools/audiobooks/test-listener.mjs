@@ -17,7 +17,7 @@ const state = { positions: {}, completed: {}, seen: {}, issues: [] };
 const book = { id: 'fixture', title: 'A quiet journey', author: 'Test author', defaultEdition: 'v3',
   editions: { v3: { chapters: [chapter('a'.repeat(64))] }, flash: { chapters: [chapter('b'.repeat(64))] }, qwen: { chapters: [chapter('c'.repeat(64))] } } };
 const posts = [];
-let offline = false, accountKey = 'test';
+let offline = false, accountKey = 'test', capabilityDelay = 0;
 let noteMetadata = false, textDelay = 0, differentTimeline = false, unavailableAudio = false, audioDelay = 0;
 const catalog = { jobs: [], stories: [{ id: 'rr-1', title: 'A Royal Road story', author: 'An author', url: 'https://www.royalroad.com/fiction/1', description: 'A saved story.', status: 'ONGOING', hasCover: false, follow: {enabled:true,mode:'buffer',intervalHours:6}, chapters: [{ chapterId: 2, title: 'Opening chapter', downloaded: true, editions: [] }] }] };
 catalog.stories.push({ id: 'fixture', title: book.title, author: book.author, url: 'https://www.royalroad.com/fiction/2', description: '', status: 'ONGOING', chapters: [], repair: { title: 'Audio repair in progress', detail: 'Chapter one · Generating audio', completed: 0, total: 2, updatedAt: '2026-10-11T20:00:00Z', chapters: [{ id: 'one', title: 'Chapter one', label: 'Generating audio' }, { id: 'two', title: 'Chapter two', label: 'Queued for reanalysis and recasting' }] } });
@@ -38,7 +38,7 @@ const server = createServer(async (req, res) => {
     }
     res.setHeader('Content-Type', 'application/json'); res.end('{}'); return;
   }
-  if (path === '/listen/capabilities') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({permissions:{listen:true,manageLibrary:true,generate:true},accountLabel:'Reader'})); return; }
+  if (path === '/listen/capabilities') { if (capabilityDelay) await new Promise(done=>setTimeout(done,capabilityDelay)); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({permissions:{listen:true,manageLibrary:true,generate:true},accountLabel:'Reader'})); return; }
   if (path === '/listen/catalog') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(catalog)); return; }
   if (path === '/listen/library') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ books: [{ ...book, editions: Object.fromEntries(Object.entries(book.editions).map(([name, value]) => [name, { ...value, chapters: value.chapters.map(c => noteMetadata ? { ...c, authorNoteRanges: [{start:5,end:10},{start:40,end:45},{start:80,end:90}] } : c) }])) }], state, accountKey })); return; }
   if (path === '/listen/history') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ entries: posts.filter(p => p.path === '/listen/progress').map(p => ({ ...p.data, location: { ...p.data, chapterTitle: 'Chapter one', passageIndex: Math.floor(p.data.seconds / 5), storySeconds: p.data.seconds, storyDuration: 90, excerpt: 'Saved exact text.' }, from: p.data.from && { ...p.data.from, chapterTitle: 'Chapter one' } })).reverse(), before: null })); return; }
@@ -63,6 +63,7 @@ try {
   for (const width of [320, 768, 840, 1024, 1440]) {
     accountKey = 'test'; offline = false; state.issues = []; state.positions = {}; state.completed = {}; posts.length = 0;
     const page = await browser.newPage({ viewport: { width, height: 900 }, colorScheme: width === 840 ? 'dark' : 'light', reducedMotion: 'reduce' });
+    assert.equal(await page.evaluate(() => navigator.onLine), true, 'Chromium tests need a connected interface; run Docker with --network bridge. Offline cases control connectivity explicitly.');
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     await page.goto(base + '/listen');
     await page.getByRole('heading', { name: book.title }).waitFor();
@@ -198,11 +199,13 @@ try {
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===1);
   await reports.waitForFunction(()=>!history.state?.sheet);
   await reports.reload();await reports.waitForFunction(()=>document.getElementById('audio').readyState>0);
-  await reports.goto(base+'/listen#library');await reports.locator('#account').click();assert.equal(await reports.locator('#account-label').textContent(),'Reader');offline=false;await reports.locator('#sync-account').click();
+  await reports.goto(base+'/listen#library');await reports.locator('#account').click();assert.equal(await reports.locator('#account-label').textContent(),'Reader');offline=false;capabilityDelay=500;await reports.locator('#sync-account').click();
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===0);
   await reports.locator('#nav-back').click();await reports.locator('#library-view').waitFor({state:'visible'});
   await reports.getByRole('button',{name:'In progress',exact:true}).click();await reports.getByRole('link',{name:book.title,exact:true}).click();await reports.getByRole('button',{name:'Marked issues',exact:true}).click();
   await reports.getByText('Queued offline',{exact:true}).waitFor();assert.equal(await reports.locator('.issue').count(),1,'Stable queued report does not duplicate the canonical server ID');
+  await reports.waitForFunction(()=>document.querySelector('[aria-label="Resolve issue"]')?.disabled===false);
+  capabilityDelay=0;
   offline=true;await reports.getByRole('button',{name:'Resolve issue',exact:true}).click();
   await reports.getByRole('alert').waitFor();
   assert.equal(await reports.getByRole('button',{name:'Resolve issue',exact:true}).getAttribute('aria-pressed'),'false','Failed status request retains the open state');

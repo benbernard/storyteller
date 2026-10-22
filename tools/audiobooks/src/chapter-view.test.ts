@@ -5,7 +5,28 @@ import { runInNewContext } from 'node:vm';
 import { authorNoteRanges } from './reading.js';
 
 type View = { duration: number; position(source: number): number; source(position: number): number; undoPosition(source: number, passages?: { start: number; end: number; sectionKind?: string }[]): number };
-const ChapterView = runInNewContext(await readFile(new URL('../listener-web/chapter-view.js', import.meta.url), 'utf8') + '; ChapterView;') as new (duration: number, ranges?: { start: number; end: number }[]) => View;
+type Passage = { text: string; sectionKind?: string };
+const ChapterView = runInNewContext(await readFile(new URL('../listener-web/chapter-view.js', import.meta.url), 'utf8') + '; ChapterView;') as {
+  new (duration: number, ranges?: { start: number; end: number }[]): View;
+  paragraphs(passages: Passage[], includeAuthorNotes?: boolean): { passages: Passage[]; paragraphs: { index: number; text: string }[][] };
+};
+
+test('reader paragraphs span recording boundaries without losing text or seek targets', () => {
+  const input = ['First para', 'graph.\n', '\nSecond paragraph.\n \nThird', ' paragraph.'].map(text => ({ text }));
+  const grouped = ChapterView.paragraphs(input);
+  assert.equal(grouped.passages.length, 4);
+  assert.deepEqual(Array.from(grouped.paragraphs, fragments => Array.from(fragments, f => [f.index, f.text])), [
+    [[0, 'First para'], [1, 'graph.']], [[2, 'Second paragraph.']], [[2, 'Third'], [3, ' paragraph.']],
+  ]);
+});
+test('omitted author notes separate story paragraphs and retain visible passage indices', () => {
+  const input = [{ text: 'Before.' }, { text: 'Private note.', sectionKind: 'author-note' }, { text: 'After.' }];
+  const hidden = ChapterView.paragraphs(input, false);
+  assert.deepEqual(Array.from(hidden.paragraphs, fragments => Array.from(fragments, f => [f.index, f.text])), [[[0, 'Before.']], [[1, 'After.']]]);
+  assert.equal(hidden.passages[1], input[2]);
+  assert.equal(ChapterView.paragraphs(input).paragraphs.flat().map(f => f.text).join(''), 'Before.Private note.After.');
+  assert.equal(ChapterView.paragraphs([{ text: '\n\n  ' }]).paragraphs.length, 0);
+});
 
 test('a note-free clock seeks to the same source words and has no note slots', () => {
   const view = new ChapterView(120, [{ start: 10, end: 30 }, { start: 90, end: 120 }]);
