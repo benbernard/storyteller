@@ -238,6 +238,14 @@ found and corrected clipped Recent jumps rows, a browser sheet-close/Back race,
 and a reader follow offset that could hide the active text in a short landscape
 window. Tests now scroll virtualized content into view before inspecting it.
 
+A subsequent read-only check of published chapter structure found a blank line
+split across two recording segments. The browser now identifies paragraphs in
+the joined text, retaining each fragment's original passage and seek time.
+Android already used joined text. Two unit regressions and a browser regression
+cover split words, split blank lines, hidden author notes and exact seek targets.
+These checks supplement the linked captures from `bf3d4bd`; they do not relabel
+those images as captures of a later commit.
+
 ## Platform differences and limits
 
 Android uses native font metrics, nonlinear text scaling, native form/range

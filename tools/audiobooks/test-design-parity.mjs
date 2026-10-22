@@ -30,7 +30,7 @@ const server=createServer(async(req,res)=>{
     if(path.endsWith('/capabilities'))return json({accountLabel:'reader@example.test',permissions:{listen:true,manageLibrary:scenario!=='view-only',generate:scenario!=='view-only'}});
     if(path.endsWith('/catalog')){if(scenario==='library-empty')return json({stories:[],jobs:[]});const value=structuredClone(catalog);if(scenario==='preparation-unsupported')value.stories.find(b=>b.id==='orchard').supported=false;return json(value);}
     if(path.endsWith('/history'))return json({entries:scenario==='history-empty'?[]:fixture.api.history,before:null});
-    if(path.includes('/text/')){if(scenario==='edition-failure'&&path.includes('/qwen/')){res.statusCode=503;return json({error:'This passage is unavailable in that edition. Your place is kept.'});}return json(texts.get(path.split('/').at(-1)));}
+    if(path.includes('/text/')){if(scenario==='edition-failure'&&path.includes('/qwen/')){res.statusCode=503;return json({error:'This passage is unavailable in that edition. Your place is kept.'});}const reading=texts.get(path.split('/').at(-1));if(scenario==='split-boundary')return json({...reading,passages:['First para','graph.\n','\nSecond paragraph.'].map((text,index)=>({id:`segment-${index}`,start:index*100,end:(index+1)*100,text}))});return json(reading);}
     if(path.endsWith('/cover') && process.env.DESIGN_COVERS) { res.setHeader('Content-Type','image/png');res.end(await readFile(join(process.env.DESIGN_COVERS,path.split('/').at(-2)+'.png')));return; }
     if(path.includes('/audio/')) {const range=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range||''),start=range?Number(range[1]):0,end=range?.[2]?Math.min(Number(range[2]),wave.length-1):wave.length-1;res.setHeader('Content-Type','audio/wav');res.setHeader('Accept-Ranges','bytes');res.setHeader('Content-Length',end-start+1);if(range){res.statusCode=206;res.setHeader('Content-Range',`bytes ${start}-${end}/${wave.length}`);}res.end(wave.subarray(start,end+1));return;}
     const name=path.split('/').at(-1),file=['app.js','icons.js','chapter-view.js','note-output.js','style.css','storyteller-mark.png'].includes(name)?name:'index.html';
@@ -45,6 +45,16 @@ else {
   const evidence=[];
   try {
     if(output)await mkdir(output,{recursive:true});
+    scenario='split-boundary';
+    const boundaryPage=await browser.newPage({viewport:{width:390,height:844}});
+    await boundaryPage.goto(base+'/listen#reading');
+    await boundaryPage.locator('.reading-paragraph').nth(1).waitFor();
+    assert.deepEqual(await boundaryPage.locator('.reading-paragraph').allTextContents(),['First paragraph.','Second paragraph.']);
+    assert.deepEqual(await boundaryPage.locator('.passage').evaluateAll(nodes=>nodes.map(node=>[node.textContent,node.dataset.start])),[['First para','0'],['graph.','100'],['Second paragraph.','200']]);
+    await boundaryPage.locator('.passage').last().click();
+    await boundaryPage.waitForFunction(()=>document.getElementById('audio').currentTime===200);
+    await boundaryPage.close();scenario='';
+    console.log('PASS: paragraph boundaries across recording segments retain exact text and seek targets');
     for(const profile of [{name:'phone',width:390,height:844},{name:'narrow-large',width:320,height:900,scale:2},{name:'landscape-large',width:844,height:390,scale:2},{name:'expanded-dark',width:840,height:900,dark:true},{name:'wide',width:1440,height:900}]) {
       const page=await browser.newPage({viewport:{width:profile.width,height:profile.height},colorScheme:profile.dark?'dark':'light',reducedMotion:'reduce'}),errors=[];
       page.on('pageerror',error=>errors.push(error.message));
