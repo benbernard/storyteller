@@ -111,7 +111,9 @@ Use a dedicated, owned emulator: the script temporarily changes its display and
 font size. It runs native UI and audio checks, then checks a 320 dp phone at 200%
 text, landscape at 200%, and an 840 dp expanded layout. It restores emulator display
 settings on exit. Results and screenshots stay in the specified output directory.
-The live-server test is opt-in and is not part of this synthetic matrix.
+Set `LISTENER_APK_DIR` when an integration builds the app and test APK under a
+different output directory. The live-server test is opt-in and is not part of
+this synthetic matrix.
 
 A build or emulator run does not prove physical Bluetooth routing or actual
 fold/unfold transitions. Check those on the target hardware.

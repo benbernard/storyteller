@@ -9,11 +9,12 @@ sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 : "${sdk:?Set ANDROID_HOME to the local Android SDK}"
 adb="$sdk/platform-tools/adb"
 root=$(cd "$(dirname "$0")" && pwd)
+apk_root=${LISTENER_APK_DIR:-"$root/app/build/outputs/apk"}
 mkdir -p "$output"
 output=$(cd "$output" && pwd)
 "$adb" -s "$serial" get-state
-"$adb" -s "$serial" install -r "$root/app/build/outputs/apk/debug/app-debug.apk"
-"$adb" -s "$serial" install -r "$root/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+"$adb" -s "$serial" install -r "$apk_root/debug/app-debug.apk"
+"$adb" -s "$serial" install -r "$apk_root/androidTest/debug/app-debug-androidTest.apk"
 restore() {
   "$adb" -s "$serial" shell wm size reset >/dev/null || true
   "$adb" -s "$serial" shell wm density reset >/dev/null || true
