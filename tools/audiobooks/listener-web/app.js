@@ -6,7 +6,7 @@ const unreadAudio = count => `${count} unread audio ${count === 1 ? 'chapter' : 
 const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 let library, playing, reading, issueDraft, storageKey, local, historyBefore, catalog, selectedStoryId;
 let routingDialog = false;
-let page = 'library', libraryFilter = 'All', issueFilter = 'All', browsed, browseReading, browseVersion = 0, returnGeneration = 0, capabilities = {}, connected = navigator.onLine;
+let page = 'library', libraryFilter = 'All', issueFilter = 'All', browsed, browseReading, browseVersion = 0, returnGeneration = 0, capabilities = {}, accountLabel = '', connected = navigator.onLine;
 const scrollPositions = new Map();
 for (const [id, name] of Object.entries({ 'nav-back': 'arrow_back', settings: 'settings', refresh: 'refresh', account: 'more_vert', undo: 'undo', back: 'replay', forward: 'forward_30', toggle: 'play_arrow', 'mark-issue': 'flag', 'audio-output': 'speaker', 'open-history': 'history', 'browse-chapters': 'headset', 'mini-toggle': 'play_arrow' })) icon($(id), name);
 for (const dialog of document.querySelectorAll('dialog')) {
@@ -91,7 +91,7 @@ function view(name, push = true) {
   if (name === 'chapters') renderChapters();
   if (name === 'preparation') renderPreparation();
   if (name === 'issues') renderIssues();
-  if (name === 'account') { $('account-label').textContent = capabilities.accountLabel || 'Signed in'; $('pending-status').textContent = `${local.pending.length + (local.issueQueue?.length || 0)} changes waiting to sync · ${Object.keys(local.drafts || {}).length} issue drafts kept on this browser`; }
+  if (name === 'account') { $('account-label').textContent = accountLabel || 'Signed in'; $('pending-status').textContent = `${local.pending.length + (local.issueQueue?.length || 0)} changes waiting to sync · ${Object.keys(local.drafts || {}).length} issue drafts kept on this browser`; }
   document.querySelector('main').scrollTop = scrollPositions.get(page + ':' + (['story','chapters','preparation'].includes(page) ? selectedStoryId : '')) || 0;
   renderMiniPlayer();
 }
@@ -259,7 +259,7 @@ for (const filter of $('issue-filters').children) filter.onclick = () => { issue
 async function refresh() {
   await flush(); const next = await api('/library');
   if (library && next.accountKey !== library.accountKey) { audio.pause(); location.reload(); return; }
-  capabilities = (await api('/capabilities').catch(() => ({}))).permissions || {}; connected = true; library = next; storageKey = `listener:${library.accountKey}`;
+  const capabilityResponse = await api('/capabilities').catch(() => ({})); capabilities = capabilityResponse.permissions || {}; accountLabel = capabilityResponse.accountLabel || ''; connected = true; library = next; storageKey = `listener:${library.accountKey}`;
   if (!local) { try { local = JSON.parse(localStorage.getItem(storageKey)); } catch {} local ||= { positions: {}, pending: [] }; }
   for (const [key, value] of Object.entries(library.state.positions)) if (!local.positions[key] || value.deviceTime > local.positions[key].deviceTime) local.positions[key] = value;
   persist(); renderLibrary();

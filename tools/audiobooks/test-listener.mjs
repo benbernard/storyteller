@@ -184,7 +184,7 @@ try {
   await reports.locator('#mark-issue').click();await reports.getByLabel('Optional note').fill('Queued offline');offline=true;await reports.getByRole('button',{name:'Save issue',exact:true}).click();
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===1);
   await reports.reload();await reports.waitForFunction(()=>document.getElementById('audio').readyState>0);
-  await reports.locator('#account').click();offline=false;await reports.locator('#sync-account').click();
+  await reports.locator('#account').click();assert.equal(await reports.locator('#account-label').textContent(),'Reader');offline=false;await reports.locator('#sync-account').click();
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===0);
   await reports.locator('#nav-back').click();await reports.locator('#reading-view').waitFor({state:'visible'});await reports.locator('#nav-back').click();await reports.locator('#library-view').waitFor({state:'visible'});
   await reports.getByRole('link',{name:book.title,exact:true}).click();await reports.getByRole('button',{name:'Marked issues',exact:true}).click();
