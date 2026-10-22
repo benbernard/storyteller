@@ -129,7 +129,9 @@ internal fun PreparationPage(book: Book?, source: JSONObject?, state: ListenerUi
         if (source?.optBoolean("supported", true) == false) Text(source.optString("description", "This source does not support preparation."))
         if (work != null) {
             HorizontalDivider()
-            Text(if (work.optBoolean("cancel") && work.optString("status") == "running") "Stopping after the current passage…" else work.optString("phase", work.optString("status")), style = MaterialTheme.typography.titleSmall)
+            val status = work.optString("status")
+            Text(when { work.optBoolean("cancel") && status == "running" -> "Cancellation requested"; status == "cancelled" -> "Cancelled"; status == "complete" -> "Current job complete"; status == "failed" -> "Needs attention"; status == "queued" -> "Queued"; else -> work.optString("phase", status) }, style = MaterialTheme.typography.titleSmall)
+            if (work.optString("phase").isNotBlank() && status in listOf("queued", "failed")) Text(work.optString("phase"), style = MaterialTheme.typography.bodySmall)
             if (work.optString("error").isNotBlank()) Text(work.optString("error"), style = MaterialTheme.typography.bodySmall)
             if (work.optString("status") in listOf("failed", "waiting", "cancelled")) TextButton(onClick = { job(work.getString("id"), "retry") }, enabled = mayWrite) { Text("Retry") }
             if (work.optString("status") in listOf("queued", "running", "waiting") && !work.optBoolean("cancel")) TextButton(onClick = { job(work.getString("id"), "cancel") }, enabled = mayWrite) { Text("Cancel job") }

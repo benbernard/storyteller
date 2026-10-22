@@ -18,7 +18,11 @@ function openDialog(dialog) { history.pushState({ ...history.state, listener: tr
 $('history-dialog').addEventListener('close', () => { returnGeneration++; });
 let lastSaved = 0, switching = false, flushing = false, stableSeconds = 0, seekOrigin, programmedSeek = false, follow = true, activePassage = -1, loadVersion = 0;
 let includeAuthorNotes = localStorage.getItem('listener:include-author-notes') !== 'false', loadAutoplay = false, chapterEndHandled = false;
-let noteTimer, noteOutputGuard, visiblePassages = [], seekDraft, playRequest = 0;
+let noteTimer, noteOutputGuard, visiblePassages = [], seekDraft, playRequest = 0, intentVersion = 0, desiredPlay = false;
+function playIntent() { return loadAutoplay || !audio.paused; }
+function pauseAudio() { desiredPlay = false; intentVersion++; loadAutoplay = false; audio.pause(); renderPlayback(); renderMiniPlayer(); }
+function requestAudioPlay() { desiredPlay = true; intentVersion++; prepareNoteOutput(); if (switching || !includeAuthorNotes && readingPending) { loadAutoplay = true; releasePlayback?.(); renderPlayback(); renderMiniPlayer(); } else audio.play().catch(error => say(error.message)); }
+function toggleAudio() { return playIntent() ? pauseAudio() : requestAudioPlay(); }
 function chapterView(chapter = playing?.chapter) {
   const ranges = chapter && reading?.assembly === chapter.assembly ? ChapterView.ranges(reading, chapter.duration) : chapter?.authorNoteRanges || [];
   return new ChapterView(chapter?.duration || 0, includeAuthorNotes ? [] : ranges);
@@ -31,7 +35,7 @@ function renderPlayback() {
   $('chapter-position').value = String(position);
   $('chapter-position').setAttribute('aria-valuetext', `${time(position)} of ${time(view.duration)}`);
   $('elapsed').textContent = time(position); $('remaining').textContent = `−${time(Math.max(0, view.duration - position))}`;
-  icon($('toggle'), audio.paused ? 'play_arrow' : 'pause', audio.paused ? 'Play' : 'Pause');
+  icon($('toggle'), playIntent() ? 'pause' : 'play_arrow', playIntent() ? 'Pause' : 'Play');
   if (navigator.mediaSession?.setPositionState && view.duration > 0) navigator.mediaSession.setPositionState({ duration: view.duration, position: Math.min(position, view.duration), playbackRate: audio.playbackRate });
 }
 function renderPassages() {
@@ -113,13 +117,13 @@ $('account').onclick = () => view('account');
 $('sync-account').onclick = () => refresh().catch(error => say(error.message));
 $('browse-chapters').onclick = () => { selectedStoryId = playing?.book.id || browsed?.book.id; view('chapters'); };
 $('mini-open').onclick = () => { browsed = undefined; renderPassages(); view('reading'); };
-$('mini-toggle').onclick = () => audio.paused ? audio.play().catch(error => say(error.message)) : audio.pause();
+$('mini-toggle').onclick = toggleAudio;
 function renderMiniPlayer() {
   $('mini-player').hidden = !playing || page === 'reading';
   if (!playing) return;
   $('mini-title').textContent = playing.book.title;
   $('mini-position').textContent = `${playing.chapter.title} · ${time(chapterView().position(audio.currentTime))}`;
-  icon($('mini-toggle'), audio.paused ? 'play_arrow' : 'pause', audio.paused ? 'Play' : 'Pause');
+  icon($('mini-toggle'), playIntent() ? 'pause' : 'play_arrow', playIntent() ? 'Pause' : 'Play');
 }
 function openStory(id) { selectedStoryId = id; view('story'); }
 
@@ -177,7 +181,7 @@ async function browseChapter(book, edition, chapter, canPlay = true) {
 }
 async function passageSeek(seconds) {
   if (browsed?.canPlay === false) { say('Audio isn’t ready in this edition. Your current audio has not moved.'); return; }
-  if (browsed) { const target = browsed; await play(target.book, target.edition, target.chapter, seconds, !audio.paused, 'passage'); }
+  if (browsed) { const target = browsed; await play(target.book, target.edition, target.chapter, seconds, playIntent(), 'passage'); }
   else seek(seconds, 'passage');
 }
 
@@ -282,7 +286,7 @@ function highlight(force = false) {
 }
 function seek(seconds, reason = 'seek') {
   if (!playing || switching) return;
-  const from = undoLocation(), autoplay = !audio.paused, target = notePosition(seconds); if (target < playing.chapter.duration - .100001) chapterEndHandled = false; programmedSeek = true; audio.currentTime = target; stableSeconds = audio.currentTime;
+  const from = undoLocation(), autoplay = playIntent(), target = notePosition(seconds); if (target < playing.chapter.duration - .100001) chapterEndHandled = false; programmedSeek = true; audio.currentTime = target; stableSeconds = audio.currentTime;
   save(reason, from); setFollow(true); highlight(true); renderPlayback();
   if (!includeAuthorNotes && audio.currentTime >= playing.chapter.duration) finishChapter(autoplay);
 }
@@ -290,7 +294,7 @@ function notePosition(seconds) {
   const view = chapterView();
   return view.source(view.position(seconds));
 }
-function skipNotes(autoplay = !audio.paused) {
+function skipNotes(autoplay = playIntent()) {
   if (!playing || switching || audio.seeking) return false;
   const target = notePosition(audio.currentTime);
   if (target === audio.currentTime) return false;
@@ -319,11 +323,12 @@ async function checkedRecording(book, edition, chapter, signal) {
   if (!response.ok) throw new Error('This recording is unavailable. Your current audio has not moved.');
 }
 async function play(book, edition, chapter, seconds = 0, autoplay = false, reason = 'restore', reveal = true, undoRestore = false, guard = () => true, prepared) {
-  const requestId = ++playRequest;
+  const requestId = ++playRequest, requestedIntent = intentVersion;
   // Resolve text and verify the recording before replacing the current player.
   const preparedText = prepared;
   await checkedRecording(book, edition, chapter);
   if (requestId !== playRequest || !guard()) return;
+  if (requestedIntent !== intentVersion) autoplay = desiredPlay;
   browsed = undefined; $('toggle').disabled = false; browseVersion++;
   prepareNoteOutput();
   const from = undoLocation(); save('pause'); switching = true; audio.pause(); const version = ++loadVersion;
@@ -396,7 +401,7 @@ async function loadHistory(earlier = false) {
 }
 $('more-history').onclick = () => loadHistory(true).catch(error => say(error.message));
 async function returnTo(value) {
-  const generation = ++returnGeneration, autoplay = !audio.paused;
+  const generation = ++returnGeneration, autoplay = playIntent();
   $('history-status').textContent = 'Opening the saved recording…';
   try { await openLocation(value, autoplay, 'restore', true, true, () => generation === returnGeneration); if (generation === returnGeneration) { $('history-dialog').close(); $('history-status').textContent = ''; } }
   catch (error) { if (generation === returnGeneration) $('history-status').textContent = 'That recording is unavailable. Your audio has not moved. Try again.'; }
@@ -438,17 +443,17 @@ async function movePlayback(delta) {
   while (position > view.duration && index < chapters.length - 1) { position -= view.duration; index++; view = chapterView(chapters[index]); }
   const target = view.source(position);
   if (chapters[index].assembly === chapter.assembly) seek(target);
-  else { try { await play(book, edition, chapters[index], target, !audio.paused, 'chapter'); } catch (error) { say(error.message); } }
+  else { try { await play(book, edition, chapters[index], target, playIntent(), 'chapter'); } catch (error) { say(error.message); } }
 }
 $('back').onclick = () => movePlayback(-15); $('forward').onclick = () => movePlayback(30);
-$('toggle').onclick = () => { if (!playing && browsed) return play(browsed.book, browsed.edition, browsed.chapter, 0, true, 'chapter'); prepareNoteOutput(); return audio.paused ? audio.play().catch(error => say(error.message)) : audio.pause(); };
+$('toggle').onclick = () => { if (!playing && browsed) return play(browsed.book, browsed.edition, browsed.chapter, 0, true, 'chapter'); return toggleAudio(); };
 $('chapter-position').oninput = () => { seekDraft = Number($('chapter-position').value); renderPlayback(); };
 $('chapter-position').onchange = () => { const target = Number($('chapter-position').value); seekDraft = undefined; seek(chapterView().source(target)); renderPlayback(); };
 $('chapter-position').onpointercancel = () => { seekDraft = undefined; renderPlayback(); };
 
-function adjacent(delta) { if (!playing) return; const chapters = playing.book.editions[playing.edition].chapters; const chapter = chapters[chapters.findIndex(c => c.assembly === playing.chapter.assembly) + delta]; if (chapter) return play(playing.book, playing.edition, chapter, 0, !audio.paused, 'chapter'); }
+function adjacent(delta) { if (!playing) return; const chapters = playing.book.editions[playing.edition].chapters; const chapter = chapters[chapters.findIndex(c => c.assembly === playing.chapter.assembly) + delta]; if (chapter) return play(playing.book, playing.edition, chapter, 0, playIntent(), 'chapter'); }
 if (navigator.mediaSession) {
-  const actions = { play: () => $('toggle').click(), pause: () => audio.pause(), seekbackward: event => movePlayback(-(event.seekOffset || 15)), seekforward: event => movePlayback(event.seekOffset || 30), seekto: event => seek(chapterView().source(event.seekTime)), previoustrack: () => adjacent(-1), nexttrack: () => adjacent(1) };
+  const actions = { play: requestAudioPlay, pause: pauseAudio, seekbackward: event => movePlayback(-(event.seekOffset || 15)), seekforward: event => movePlayback(event.seekOffset || 30), seekto: event => seek(chapterView().source(event.seekTime)), previoustrack: () => adjacent(-1), nexttrack: () => adjacent(1) };
   for (const [name, action] of Object.entries(actions)) { try { navigator.mediaSession.setActionHandler(name, action); } catch {} }
 }
 
@@ -466,7 +471,7 @@ window.addEventListener('online', flush); document.addEventListener('visibilityc
 function saveDraft() { if (!issueDraft) return; issueDraft.kind = $('kind').value; issueDraft.note = $('note').value; local.drafts ||= {}; local.drafts[issueDraft.story] = issueDraft; persist(); }
 $('mark-issue').onclick = () => {
   if (!playing) return;
-  audio.pause(); local.drafts ||= {};
+  playRequest++; returnGeneration++; editionRequest++; pauseAudio(); local.drafts ||= {};
   issueDraft = local.drafts[playing.book.id] || { ...richLocation(), eventId: crypto.randomUUID(), kind: 'delivery', note: '' };
   $('kind').value = issueDraft.kind; $('note').value = issueDraft.note; $('issue-error').textContent = '';
   $('issue-excerpt').textContent = issueDraft.excerpt || '';
@@ -575,7 +580,7 @@ async function switchEdition(edition) {
   try {
     const target = await api(`/stories/${current.book.id}/${edition}/text/${chapter.assembly}`);
     if (generation !== editionRequest || playing !== current) return;
-    const seconds = samePassagePosition(reading, target, audio.currentTime), autoplay = !audio.paused;
+    const seconds = samePassagePosition(reading, target, audio.currentTime), autoplay = playIntent();
     // Edition changes are recorded as progress, never as a jump.
     await play(current.book, edition, chapter, seconds, autoplay, 'playing', true, false, () => generation === editionRequest && playing === current, target);
     $('edition').value = playing.edition;
