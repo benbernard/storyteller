@@ -356,8 +356,14 @@ function highlight(force = false) {
   if (!reading || browsed && browsed.chapter.assembly !== playing?.chapter.assembly) return;
   let index = 0; for (let i = 0; i < visiblePassages.length; i++) { if (visiblePassages[i].start <= audio.currentTime) index = i; else break; }
   if (index === activePassage && !force) return;
-  for (const node of $('passages').querySelectorAll('[aria-current]')) node.removeAttribute('aria-current'); activePassage = index;
-  const current = $('passages').querySelector(`[data-passage="${index}"]`)?.parentElement; current?.setAttribute('aria-current', 'true');
+  for (const node of $('passages').querySelectorAll('[aria-current]')) { node.removeAttribute('aria-current'); node.classList.remove('joins-previous', 'joins-next'); } activePassage = index;
+  const paragraphs = [...new Set([...$('passages').querySelectorAll(`[data-passage="${index}"]`)].map(node => node.parentElement))];
+  for (const paragraph of paragraphs) {
+    paragraph.setAttribute('aria-current', 'true');
+    paragraph.classList.toggle('joins-previous', paragraphs.includes(paragraph.previousElementSibling));
+    paragraph.classList.toggle('joins-next', paragraphs.includes(paragraph.nextElementSibling));
+  }
+  const current = paragraphs[0];
   $('passage-label').textContent = visiblePassages.length ? `Passage ${index + 1} of ${visiblePassages.length} · ${time(chapterView().position(audio.currentTime))}` : '';
   if (follow && current) {
     const page = $('passages'), rect = current.getBoundingClientRect(), viewport = page.getBoundingClientRect();

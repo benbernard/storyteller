@@ -1,8 +1,5 @@
 package com.crabanddog.listener
 
-import android.content.Intent
-import android.os.Build
-import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -82,7 +79,7 @@ internal fun ListeningPage(state: ListenerUiState, browsing: Selection?, browsin
     val audioSelection = state.selection
     val view = audioSelection?.let { chapterView(it.chapter, state.reading, state.includeAuthorNotes) }
     var draggedPosition by remember { mutableStateOf<Float?>(null) }
-    var outputError by remember { mutableStateOf(false) }
+    var outputOpen by rememberSaveable { mutableStateOf(false) }
     val book = state.books.find { it.id == display?.story }
     val chapterList = book?.editions?.values?.flatten()?.distinctBy { it.id }?.sortedBy { it.sequence }.orEmpty()
     val chapterIndex = chapterList.indexOfFirst { it.id == display?.chapter?.id }
@@ -123,10 +120,7 @@ internal fun ListeningPage(state: ListenerUiState, browsing: Selection?, browsin
             IconButton(onClick = { skip?.invoke(-15) ?: seek((state.position - 15).coerceAtLeast(0.0)) }, enabled = audioSelection != null) { Icon(Icons.Default.Replay, "Back 15 seconds", modifier = Modifier.size(22.dp)) }
             IconButton(onClick = toggle, enabled = audioSelection != null || browsing != null && browsingCanPlay) { Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) { Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow, if (state.playing) "Pause" else "Play", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(26.dp)) } }
             IconButton(onClick = { skip?.invoke(30) ?: seek(state.position + 30) }, enabled = audioSelection != null) { Icon(Icons.Default.Forward30, "Ahead 30 seconds", modifier = Modifier.size(22.dp)) }
-            IconButton(onClick = {
-                val shown = if (Build.VERSION.SDK_INT >= 34) runCatching { android.media.MediaRouter2.getInstance(context).showSystemOutputSwitcher() }.getOrDefault(false) else false
-                if (!shown) runCatching { context.startActivity(Intent(Settings.Panel.ACTION_VOLUME)) }.onFailure { outputError = true }
-            }) { Icon(Icons.Default.Speaker, "Audio output", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
+            IconButton(onClick = { outputOpen = true }) { Icon(Icons.Default.Speaker, "Audio output", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) }
           }
           if (waiting > 0 || state.message.startsWith("Issue saved at")) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
               Text(if (waiting > 0) "Saved on this phone · $waiting waiting to sync" else state.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
@@ -134,11 +128,11 @@ internal fun ListeningPage(state: ListenerUiState, browsing: Selection?, browsin
           }
         }
     }
-    if (outputError) ListenerSheet("Audio output", { outputError = false }) { Text("The system output selector is unavailable. Choose an audio device from your phone’s media controls.", style = MaterialTheme.typography.bodyMedium) }
+    if (outputOpen) AudioOutputSheet { outputOpen = false }
 }
 
 @Composable
-private fun PassageText(reading: Reading, position: Double, follow: Boolean, highlightAudio: Boolean, includeNotes: Boolean, size: Float, jump: Int, stopFollowing: () -> Unit, modifier: Modifier, browsing: Selection?, previous: (() -> Unit)?, next: (() -> Unit)?, tap: (Double) -> Unit) {
+internal fun PassageText(reading: Reading, position: Double, follow: Boolean, highlightAudio: Boolean, includeNotes: Boolean, size: Float, jump: Int, stopFollowing: () -> Unit, modifier: Modifier, browsing: Selection?, previous: (() -> Unit)?, next: (() -> Unit)?, tap: (Double) -> Unit) {
     val paragraphs = remember(reading, includeNotes) { bookParagraphs(reading, includeNotes) }
     val scroll = key(reading.assembly) { rememberLazyListState() }
     val dragged by scroll.interactionSource.collectIsDraggedAsState()
@@ -162,11 +156,14 @@ private fun PassageText(reading: Reading, position: Double, follow: Boolean, hig
     val maxMeasure = (size * LocalDensity.current.fontScale * 31).dp
     val mint = MaterialTheme.colorScheme.primaryContainer
     val teal = MaterialTheme.colorScheme.primary
-    LazyColumn(modifier.fillMaxWidth().onSizeChanged { viewportHeight = it.height }.testTag("passages"), state = scroll, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(modifier.fillMaxWidth().onSizeChanged { viewportHeight = it.height }.testTag("passages"), state = scroll, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (browsing != null) item { Column(Modifier.widthIn(max = maxMeasure).fillMaxWidth().padding(horizontal = 12.dp)) { Text("Browsing · Chapter ${browsing.chapter.sequence}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(browsing.chapter.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)) } }
         itemsIndexed(paragraphs) { index, paragraph ->
             val current = paragraph.fragments.any { it.passage.id == active?.id }
-            Text(paragraph.text, fontFamily = FontFamily.Serif, fontSize = size.sp, letterSpacing = 0.sp, lineHeight = (size * 1.7).sp, onTextLayout = { if (layouts[index]?.layoutInput != it.layoutInput) layouts[index] = it }, modifier = Modifier.widthIn(max = maxMeasure).fillMaxWidth().background(if (current) mint else androidx.compose.ui.graphics.Color.Transparent, androidx.compose.foundation.shape.RoundedCornerShape(7.dp)).drawBehind { if (current) drawLine(teal, Offset(0f, 0f), Offset(0f, this.size.height), strokeWidth = 2.dp.toPx()) }.padding(horizontal = 12.dp, vertical = 8.dp).pointerInput(paragraph) {
+            val joinsPrevious = current && paragraphs.getOrNull(index - 1)?.fragments?.any { it.passage.id == active?.id } == true
+            val joinsNext = current && paragraphs.getOrNull(index + 1)?.fragments?.any { it.passage.id == active?.id } == true
+            val shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = if (joinsPrevious) 0.dp else 7.dp, topEnd = if (joinsPrevious) 0.dp else 7.dp, bottomStart = if (joinsNext) 0.dp else 7.dp, bottomEnd = if (joinsNext) 0.dp else 7.dp)
+            Text(paragraph.text, fontFamily = FontFamily.Serif, fontSize = size.sp, letterSpacing = 0.sp, lineHeight = (size * 1.7).sp, onTextLayout = { if (layouts[index]?.layoutInput != it.layoutInput) layouts[index] = it }, modifier = Modifier.testTag("reader-paragraph-$index").widthIn(max = maxMeasure).fillMaxWidth().padding(bottom = if (joinsNext) 0.dp else 8.dp).background(if (current) mint else androidx.compose.ui.graphics.Color.Transparent, shape).drawBehind { if (current) drawLine(teal, Offset(0f, 0f), Offset(0f, this.size.height), strokeWidth = 2.dp.toPx()) }.padding(horizontal = 12.dp).padding(top = 8.dp, bottom = if (joinsNext) 16.dp else 8.dp).pointerInput(paragraph) {
                 detectTapGestures { point -> layouts[index]?.getOffsetForPosition(point)?.let { offset -> paragraph.fragments.firstOrNull { offset >= it.start && offset < it.end }?.let { tap(it.passage.start) } } }
             }.semantics {
                 selected = paragraph.fragments.any { it.passage.id == active?.id }

@@ -10,8 +10,15 @@ A passing interaction test does not establish visual parity. Review captures
 beside the approved reference and record each difference before accepting a
 release. Inspect normal and large text, both appearances, narrow and expanded
 windows, keyboard behavior, loading, empty, offline, failed-save, permission, and
-cancellation states. System audio routing and browser-managed sign-in use their
-platform interfaces.
+cancellation states. Browser-managed sign-in uses the platform interface.
+
+`OutputAndHighlightTest` covers the compact Android output chooser, smooth volume,
+confirmed and pending switches, reopening the chooser, and failure feedback. Its
+real-player test observes the `AudioTrack` route while selecting the emulator’s
+speaker, and verifies that selection preserves position and paused playback.
+A pixel check verifies the mint background and left rule through paragraph gaps.
+The browser suite covers the same continuous highlight and its removal on seek.
+Physical Bluetooth handoff still requires a phone and connected headset.
 
 ## Browser checks and captures
 
@@ -97,4 +104,8 @@ The reference capture tool checks both approved HTML hashes. The gallery compare
 reference, Android and web captures at phone, large text and expanded dark sizes.
 It includes playing, paused and Undo states. Android images are normalized to
 logical dp. Platform fonts, Android's nonlinear text scaling, accessible touch
-targets, system bars and system device routing are recorded adaptations.
+targets and system bars are recorded adaptations. The October 22 output fix uses
+a Listener sheet for connected media outputs, with Android’s public per-player
+device preference API and actual `AudioTrack` routing callbacks. It needs no
+privileged routing permission. Device settings handles pairing new devices.
+It does not add a network casting protocol.
