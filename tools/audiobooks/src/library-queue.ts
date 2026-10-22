@@ -50,7 +50,7 @@ export class LibraryQueue {
         if (active && active.mode !== follow.mode) this.cancelStory(owner, follow.story);
         const job = this.enqueue(follow);
         if (job.cancel || job.mode !== follow.mode) { follow.nextCheck = Date.now(); this.saveFollow(follow); }
-      } else this.cancelStory(owner, follow.story);
+      } // Disabling periodic checks does not cancel an explicitly running job.
       return follow;
     });
   }

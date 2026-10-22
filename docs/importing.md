@@ -41,8 +41,9 @@ export FICTION_ID=rr-12345
 docker compose run --rm cli ingest --file /archive/rr-12345/chapters.json
 ```
 
-For automatic local generation, use Storyteller's **Tools → Source library** to
-follow the story after completing the local worker setup. Download-only follows
+For automatic local generation, configure the story in an agent or operator
+session after completing the local worker setup. Listener manages preparation
+for existing configured books; it has no story-import form. Download-only follows
 need the worker too, but do not load a speech model or call analysis.
 
 ## EPUB, PDF, or TXT

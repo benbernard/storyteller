@@ -38,8 +38,8 @@ fun editionName(edition: String): String = when (edition) {
 }
 
 
-data class Passage(val id: String, val start: Double, val end: Double, val text: String, val sectionKind: String? = null)
-data class Reading(val assembly: String, val passages: List<Passage>, val sectionMetadataVersion: Int = 0)
+data class Passage(val id: String, val start: Double, val end: Double, val text: String, val sectionKind: String? = null, val startOffset: Int = -1, val endOffset: Int = -1)
+data class Reading(val assembly: String, val passages: List<Passage>, val sectionMetadataVersion: Int = 0, val source: String = "")
 data class ReaderFragment(val start: Int, val end: Int, val passage: Passage)
 data class ReaderParagraph(val text: String, val fragments: List<ReaderFragment>)
 fun bookParagraphs(reading: Reading, includeNotes: Boolean = true): List<ReaderParagraph> {
@@ -66,7 +66,7 @@ fun bookParagraphs(reading: Reading, includeNotes: Boolean = true): List<ReaderP
 }
 fun readingFromJson(j: JSONObject): Reading {
     val a = j.getJSONArray("passages")
-    return Reading(j.getString("assembly"), (0 until a.length()).map { i -> val p = a.getJSONObject(i); Passage(p.getString("id"), p.getDouble("start"), p.getDouble("end"), p.getString("text"), p.optString("sectionKind").takeIf { it == "author-note" }) }, j.optInt("sectionMetadataVersion", 0))
+    return Reading(j.getString("assembly"), (0 until a.length()).map { i -> val p = a.getJSONObject(i); Passage(p.getString("id"), p.getDouble("start"), p.getDouble("end"), p.getString("text"), p.optString("sectionKind").takeIf { it == "author-note" }, p.optInt("startOffset", -1), p.optInt("endOffset", -1)) }, j.optInt("sectionMetadataVersion", 0), j.optString("source"))
 }
 
 /** Keep edition-specific text and audio together; explicit device choices override server tags. */
@@ -74,3 +74,20 @@ fun downloadSelections(books: List<Book>, selected: (Book, String) -> Boolean): 
     books.flatMap { book -> book.editions.flatMap { (edition, chapters) ->
         if (selected(book, edition)) chapters.map { Selection(book.id, book.title, edition, it) } else emptyList()
     } }
+
+/** Match a stable passage, never the other recording's unrelated timestamp. */
+fun editionPosition(current: Reading, target: Reading, seconds: Double): Double? {
+    val passage = current.passages.lastOrNull { it.start <= seconds } ?: current.passages.firstOrNull() ?: return null
+    val fraction = if (passage.end > passage.start) ((seconds - passage.start) / (passage.end - passage.start)).coerceIn(0.0, 1.0) else 0.0
+    val exact = target.passages.find { it.id == passage.id && it.text == passage.text }
+    if (exact != null) return exact.start + fraction * (exact.end - exact.start)
+    if (current.source.isEmpty() || current.source != target.source || passage.startOffset < 0 || passage.endOffset <= passage.startOffset) return null
+    val offset = passage.startOffset + fraction * (passage.endOffset - passage.startOffset)
+    val match = target.passages.find { it.startOffset >= 0 && it.endOffset > it.startOffset && offset >= it.startOffset && offset < it.endOffset } ?: return null
+    return match.start + (offset - match.startOffset) / (match.endOffset - match.startOffset) * (match.end - match.start)
+}
+fun describeLocalLocation(selection: Selection, reading: Reading?, seconds: Double): JSONObject {
+    val passage = reading?.passages?.lastOrNull { it.start <= seconds }
+    return selection.location(seconds).put("bookTitle", selection.bookTitle).put("chapterId", selection.chapter.id).put("chapterTitle", selection.chapter.title)
+        .put("chapter", selection.chapter.sequence).put("excerpt", passage?.text?.take(200).orEmpty()).put("selection", selection.json())
+}

@@ -21,20 +21,25 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
+    private val signInReturn = androidx.compose.runtime.mutableStateOf<Uri?>(null)
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); signInReturn.value = intent.data }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        signInReturn.value = intent.data
         enableEdgeToEdge()
         setContent {
             ListenerTheme {
                 val model: ListenerViewModel = viewModel()
                 val state by model.state.collectAsStateWithLifecycle()
+                LaunchedEffect(signInReturn.value) { signInReturn.value?.let { model.finishSignIn(it); signInReturn.value = null } }
                 val lifecycle = LocalLifecycleOwner.current.lifecycle
                 LaunchedEffect(model, lifecycle) {
                     lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { while (true) { delay(5000); model.poll() } }
                 }
                 ListenerScreen(state, onConnect = { model.connect { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } },
                     onRefresh = model::refresh, onDisconnect = model::disconnect, onPlay = model::play, onToggle = model::toggle, onSeek = model::seek,
-                    onSpeed = model::speed, onIssue = model::markIssue, onFinished = model::finished, onResolve = model::resolve, onCharacters = model::characters, onPassage = model::passage, onHistory = model::history, onReturn = model::returnTo, onFollow = model::follow, onCheck = model::check, onJob = model::job, onAudio = model::audio, onIncludeAuthorNotes = model::includeAuthorNotes, onSkip = model::skip)
+                    onSpeed = model::speed, onIssue = model::markIssue, onFinished = model::finished, onResolve = model::resolve, onCharacters = model::characters, onPassage = model::passage, onHistory = model::history, onReturn = model::returnTo, onFollow = model::follow, onCheck = model::check, onJob = model::job, onAudio = model::audio, onIncludeAuthorNotes = model::includeAuthorNotes, onSkip = model::skip, onEdition = model::switchEdition, onCancelSignIn = model::cancelSignIn, onCancelReturn = model::cancelReturn, onPassageSelection = model::passageAt, onSaveIssue = model::saveIssue, onChapterPlay = model::playChapter)
             }
         }
     }

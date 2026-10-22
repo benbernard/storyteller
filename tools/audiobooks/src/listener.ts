@@ -16,6 +16,7 @@ import { storyLibrary, archiveManifest, cover, publicJob } from './story-library
 import { repairStatus } from './repair-status.js';
 import { reading, passageAt, authorNoteRanges } from './reading.js';
 import { ListeningHistory, type ListeningLocation } from './listening-history.js';
+import { NativeSignIn, signInStart, signInExchange, signInCancel } from './native-signin.js';
 import {listenerIdentity, basicIdentity, type BrowserOwner} from './listener-identity.js';
 
 const hex = z.string().regex(/^[a-f0-9]{64}$/);
@@ -43,6 +44,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
   // All record mutations are serialized in the sole server process and atomically persisted.
   let queue: Promise<unknown> = Promise.resolve();
   const mutate = <T>(fn: () => Promise<T>): Promise<T> => { const next = queue.then(fn); queue = next.catch(() => undefined); return next; };
+  const signIn = new NativeSignIn(state, origin);
   const pairRate = new Map<string, { since: number; count: number }>();
   const getBook = async (story: string) => {
     id.parse(story); const store = new Store(join(fictions, story)); const book = await store.read<Book>('book.json');
@@ -95,6 +97,21 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '')?.[1];
         if (token) { const device = await state.read<Device>(`devices/${sha(token)}.json`); if (device && !device.revoked) owner = device.owner; }
       }
+      if (!web && route.startsWith('/signin/') && method === 'POST') {
+        if (route === '/signin/start') {
+          const ip = request.socket.remoteAddress ?? 'unknown', now = Date.now();
+          const rate = pairRate.get('signin:' + ip);
+          if (rate && now - rate.since < 600000 && rate.count >= 20) { json(response, 429, { error: 'Too many sign-in attempts. Try again later.' }); return; }
+          pairRate.set('signin:' + ip, { since: rate && now - rate.since < 600000 ? rate.since : now, count: rate && now - rate.since < 600000 ? rate.count + 1 : 1 });
+          const input = signInStart.parse(await body(request));
+          json(response, 200, await mutate(() => signIn.start(input))); return;
+        }
+        if (route === '/signin/exchange') {
+          const input = signInExchange.parse(await body(request));
+          json(response, 200, await mutate(() => signIn.exchange(input, account => (integrations.permissions?.(account) ?? ownerPermissions).listen))); return;
+        }
+        if (route === '/signin/cancel') { const input = signInCancel.parse(await body(request)); await mutate(() => signIn.cancel(input)); json(response, 200, { cancelled: true }); return; }
+      }
       if (!web && route === '/pair/start' && method === 'POST') {
         const input = z.object({ secret: z.string().regex(/^[A-Za-z0-9_-]{43}$/) }).strict().parse(await body(request));
         const ip = request.socket.remoteAddress ?? 'unknown', now = Date.now();
@@ -122,7 +139,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       if (!owner) { json(response, 401, { error: 'Connect your account.' }); return; }
       const permissions = integrations.permissions ? integrations.permissions(owner) : ownerPermissions;
       if (route === '/capabilities' && method === 'GET') {
-        json(response, 200, { schemaVersion: 1, accountKey: sha(owner), permissions,
+        json(response, 200, { schemaVersion: 1, accountKey: sha(owner), accountLabel: owner, permissions,
           sources: integrations.capabilities?.sources ?? ['royal-road', 'file'],
           generation: integrations.capabilities?.generation ?? [],
           updates: integrations.capabilities?.updates ?? 'manual', revision: integrations.revision ?? null }); return;
@@ -133,6 +150,10 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       // Generation routes can enqueue resumable work. Check before any queue mutation.
       if (['/audio', '/check', '/jobs'].includes(route) && method === 'POST' && !permissions.generate) {
         json(response, 403, { error: 'Audio generation is disabled for this account.' }); return;
+      }
+      if (web && route === '/signin' && method === 'GET') {
+        const redirect = await mutate(() => signIn.authorize(url.searchParams.get('request') ?? '', owner!));
+        response.writeHead(302, { Location: redirect }); response.end(); return;
       }
       const userPath = `users/${sha(owner)}.json`;
       if (web && route === '/pair/approve' && method === 'POST') {
@@ -229,7 +250,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const story = url.searchParams.get('story') ?? undefined;
         if (story) id.parse(story);
         const before = z.coerce.number().int().positive().safe().parse(url.searchParams.get('before') ?? Number.MAX_SAFE_INTEGER);
-        json(response, 200, history.list(sha(owner), story, before)); return;
+        json(response, 200, history.list(sha(owner), story, before, 50, url.searchParams.get('jumps') === '1')); return;
       }
       const text = /^\/stories\/([A-Za-z0-9_-]+)\/([A-Za-z0-9][A-Za-z0-9_-]{0,95})\/text\/([a-f0-9]{64})$/.exec(route);
       if (text && method === 'GET') {
@@ -299,7 +320,7 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const stream = createReadStream(path, { start, end }); stream.on('error', () => response.destroy()); response.on('close', () => stream.destroy()); stream.pipe(response); return;
       }
       if (web && method === 'GET') {
-        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/chapter-view.js' ? 'chapter-view.js' : route === '/note-output.js' ? 'note-output.js' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : route === '/storyteller-mark.png' ? 'storyteller-mark.png' : null;
+        const filename = ['', '/', '/pair'].includes(route) ? 'index.html' : route === '/chapter-view.js' ? 'chapter-view.js' : route === '/note-output.js' ? 'note-output.js' : route === '/icons.js' ? 'icons.js' : route === '/app.js' ? 'app.js' : route === '/style.css' ? 'style.css' : route === '/storyteller-mark.png' ? 'storyteller-mark.png' : null;
         if (filename) { const bytes = await readFile(join(dirname(fileURLToPath(import.meta.url)), '../listener-web', filename)); response.writeHead(200, { 'Content-Type': filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : filename.endsWith('.png') ? 'image/png' : 'text/html' }); response.end(bytes); return; }
       }
       throw new Error('not_found');

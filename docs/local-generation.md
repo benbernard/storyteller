@@ -117,15 +117,16 @@ In a separate terminal, from the repository root:
 node scripts/worker.mjs
 ```
 
-Now open Storyteller → **Tools → Source library**, paste a public Royal Road URL,
-and choose:
+Configure the story through the authenticated `/listen/follow` API in an agent
+or operator session, using a public Royal Road URL. Select its preparation mode:
 
-- **Download text only** to save chapters without analysis or speech.
-- **Next 5 unread chapters** to maintain a listening buffer.
-- **Every available chapter** to generate the downloaded story in order.
+- **Download text only** (`download`) to save chapters without analysis or speech.
+- **Next 5 unread chapters** (`buffer`) to maintain a listening buffer.
+- **Every available chapter** (`all`) to generate the downloaded story in order.
 
-Start with download-only, confirm the correct story and chapter order, then
-change its mode. The worker analyzes, assigns saved voices, renders passages,
+Start with download-only and confirm the story and chapter order. Existing
+books expose preparation mode in **Book → Preparation → Settings**. New book
+selection and cast setup stay in the agent or operator session. The worker analyzes, assigns saved voices, renders passages,
 assembles audio, and publishes the `qwen` edition. Review a new cast and listen to
 the first chapter before generating a long book. A story's voice history persists
 across restarts. Cancel stops at a passage boundary; retry reuses checked WAVs.

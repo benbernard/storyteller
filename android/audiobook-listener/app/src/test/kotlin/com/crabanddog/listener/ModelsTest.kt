@@ -49,4 +49,16 @@ class ModelsTest {
         assertEquals(1, book.editions.getValue("v3").size)
     }
     @Test fun clockFormattingHandlesLongChapters() { assertEquals("0:00", formatTime(-1.0)); assertEquals("1:01:01", formatTime(3661.0)) }
+    @Test fun editionChangeMapsThePassageAcrossDifferentTimelines() {
+        val old = Reading("old", listOf(Passage("node", 10.0, 30.0, "Words")))
+        val target = Reading("new", listOf(Passage("node", 40.0, 50.0, "Words")))
+        assertEquals(45.0, editionPosition(old, target, 20.0)!!, .001)
+        assertNull(editionPosition(old, target.copy(passages = listOf(Passage("node", 40.0, 50.0, "Different words"))), 20.0))
+    }
+    @Test fun editionChangeMapsSourceOffsetWhenAnEditionSplitsTheNode() {
+        val old = Reading("old", listOf(Passage("long", 0.0, 20.0, "0123456789", startOffset = 0, endOffset = 10)), source = "source")
+        val target = Reading("new", listOf(Passage("first", 0.0, 10.0, "01234", startOffset = 0, endOffset = 5), Passage("second", 30.0, 40.0, "56789", startOffset = 5, endOffset = 10)), source = "source")
+        assertEquals(35.0, editionPosition(old, target, 15.0)!!, .001)
+        assertNull(editionPosition(old, target.copy(source = "changed"), 15.0))
+    }
 }

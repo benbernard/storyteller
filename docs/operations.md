@@ -142,9 +142,9 @@ space without accepting that those historical references will become unavailable
 
 ## Optional author notes
 
-In the web player, open **More** and clear **Include author notes** to remove tagged
+In the web player, open **Listening settings** and clear **Include author notes** to remove tagged
 notes from playback, scrolling text, chapter duration and the seeking timeline.
-Android has the same choice in **Tools → Playback**, including lock-screen controls.
+Android has the same choice in **Listening settings**, including lock-screen controls.
 Both include notes by default and remember the choice on that device. Turning notes
 back on restores them at the same story location. Chapter announcements and story
 content remain visible and audible in either mode. Existing downloads are reused.
