@@ -101,7 +101,7 @@ try {
     await page.getByRole('button', { name: 'Mark issue', exact: true }).click();
     await page.getByLabel('Optional note').fill('The voice changes here.');
     await page.getByRole('button', { name: 'Save issue', exact: true }).click();
-    await page.waitForFunction(() => document.getElementById('message').textContent.startsWith('Issue saved'));
+    await page.waitForFunction(() => document.getElementById('issue-sync-status').textContent.startsWith('Issue saved'));
     const issue = posts.find(p => p.path === '/listen/issues').data;
     assert.equal(issue.assembly, 'a'.repeat(64)); assert.equal(issue.seconds, 30);
     offline = true;

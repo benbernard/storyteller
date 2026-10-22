@@ -42,12 +42,14 @@ class ListenerUiTest {
         compose.onNodeWithTag("library").performScrollToNode(hasText(book.title))
         compose.onNodeWithText(book.title).performClick()
         compose.onNodeWithContentDescription("Back").assertIsDisplayed()
+        compose.onNodeWithTag("book-content").performScrollToNode(hasText("Chapters"))
         compose.onNodeWithText("Chapters").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNode(hasSetTextAction()).assertTextContains("Violet")
         compose.runOnIdle { assertEquals(0, plays) }
         compose.onNodeWithText(book.title).performClick()
+        compose.onNodeWithTag("book-content").performScrollToNode(hasText("Chapters"))
         compose.onNodeWithText("Chapters").performClick()
         compose.onNodeWithContentDescription("Play ${chapter.title} from start").performClick()
         compose.runOnIdle { assertEquals(1, plays) }
@@ -104,10 +106,13 @@ class ListenerUiTest {
         openReader(); compose.onNodeWithContentDescription("Mark issue").performClick()
         compose.onNodeWithContentDescription("Optional note").performTextInput("Voice changes here")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
+        if (compose.onAllNodesWithTag("listener-sheet").fetchSemanticsNodes().isNotEmpty()) InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
         val store = ListenerStore.get(compose.activity)
         assertEquals("Voice changes here", store.draft(book.id)?.getString("note"))
         compose.onNodeWithContentDescription("Continue issue draft at 1:01").performClick()
-        compose.onNodeWithText("Save issue").performClick()
+        compose.onNodeWithText("Save issue").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(Triple(61.0, "delivery", "Voice changes here"), saved) }
         screenshot("issue-saved")
     }

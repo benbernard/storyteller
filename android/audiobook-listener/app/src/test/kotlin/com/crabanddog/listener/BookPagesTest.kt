@@ -100,9 +100,9 @@ class BookPagesTest {
         val dir = File(compose.activity.filesDir, "offline-audio/${"c".repeat(64)}").apply { mkdirs() }
         val partial = File(dir, "$oldChecksum.part").apply { writeText("partial") }
         audio.prefs.edit().putString("files:${"c".repeat(64)}:${book.id}", JSONObject().put("old-assembly", oldChecksum).toString()).commit()
-        assertTrue(audio.hasBookDownloads(book))
+        assertTrue(audio.hasBookDownloads(book)); assertEquals(partial.length(), audio.bookBytes(book))
         audio.clearBook(book, listOf(book))
-        assertFalse(partial.exists()); assertFalse(audio.hasBookDownloads(book)); assertFalse(audio.kept(book, "qwen"))
+        assertFalse(partial.exists()); assertEquals(0L, audio.bookBytes(book)); assertFalse(audio.hasBookDownloads(book)); assertFalse(audio.kept(book, "qwen"))
     }
     @Test fun savedByteCountVerifiesDataAndDeduplicatesSharedRecordings() {
         val audio = OfflineAudio(compose.activity)

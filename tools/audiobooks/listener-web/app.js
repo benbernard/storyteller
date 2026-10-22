@@ -5,7 +5,7 @@ const say = text => { $('message').textContent = text; $('message').dataset.rout
 const unreadAudio = count => `${count} unread audio ${count === 1 ? 'chapter' : 'chapters'}`;
 const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 let library, playing, reading, issueDraft, storageKey, local, historyBefore, catalog, selectedStoryId;
-let routingDialog = false;
+let routingDialog = false, closingSheet = false, afterSheetClose;
 let page = 'library', libraryFilter = 'All', issueFilter = 'All', browsed, browseReading, browseVersion = 0, returnGeneration = 0, capabilities = {}, accountLabel = '', connected = navigator.onLine;
 let libraryError = '', catalogError = '';
 const scrollPositions = new Map();
@@ -14,15 +14,19 @@ for (const node of document.querySelectorAll('.search-icon')) icon(node,'search'
 icon($('chapter-chevron'),'expand_more');
 for (const dialog of document.querySelectorAll('dialog')) {
   dialog.addEventListener('click', event => { const r = dialog.getBoundingClientRect(); if (event.target === dialog && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom)) requestClose(dialog); });
-  dialog.addEventListener('close', () => { if (!routingDialog && history.state?.sheet === dialog.id) history.back(); });
-  dialog.querySelectorAll('[data-close]').forEach(button => button.onclick = () => dialog.close());
+  dialog.addEventListener('cancel', event => { event.preventDefault(); requestClose(dialog); });
+  dialog.querySelectorAll('[data-close]').forEach(button => button.onclick = () => requestClose(dialog));
 }
 function requestClose(dialog) {
   if (dialog.id === 'issue-dialog' && issueDraft) { try { saveDraft(); } catch { $('issue-error').textContent = 'Couldn’t keep the draft. Try again before closing.'; return false; } }
-  dialog.close(); return true;
+  closeDialog(dialog); return true;
 }
-function openDialog(dialog) { history.pushState({ ...history.state, listener: true, sheet: dialog.id, depth: (history.state?.depth || 0) + 1 }, '', location.href); dialog.showModal(); }
-$('history-dialog').addEventListener('close', () => { returnGeneration++; });
+function closeDialog(dialog) {
+  if (dialog.id === 'history-dialog') returnGeneration++;
+  if (!routingDialog && history.state?.sheet === dialog.id) { closingSheet = true; history.back(); }
+  dialog.close();
+}
+function openDialog(dialog) { if (closingSheet) { afterSheetClose = () => openDialog(dialog); return; } history.pushState({ ...history.state, listener: true, sheet: dialog.id, depth: (history.state?.depth || 0) + 1 }, '', location.href); dialog.showModal(); }
 let lastSaved = 0, switching = false, flushing = false, stableSeconds = 0, seekOrigin, programmedSeek = false, follow = true, activePassage = -1, loadVersion = 0;
 let includeAuthorNotes = localStorage.getItem('listener:include-author-notes') !== 'false', loadAutoplay = false, chapterEndHandled = false;
 let noteTimer, noteOutputGuard, visiblePassages = [], seekDraft, playRequest = 0, intentVersion = 0, desiredPlay = false;
@@ -109,6 +113,7 @@ function el(tag, text, parent) { const e = document.createElement(tag); if (text
 function button(text, parent, action) { const e = el('button', text, parent); e.onclick = () => Promise.resolve(action()).catch(error => say(error.message)); return e; }
 function persist() { localStorage.setItem(storageKey, JSON.stringify(local)); renderIssueStatus(); }
 function view(name, push = true) {
+  if (push && closingSheet) { afterSheetClose = () => view(name, push); return; }
   scrollPositions.set(page + ':' + (['story','chapters','preparation'].includes(page) ? selectedStoryId : ''), document.querySelector('main').scrollTop);
   page = name;
   if (name !== 'reading') browseVersion++;
@@ -149,7 +154,7 @@ function route() {
 }
 const initialNavigation = history.state?.sheet ? new Promise(resolve => { window.addEventListener('popstate', resolve, {once:true}); history.back(); }) : Promise.resolve();
 if (!history.state?.listener) { const requested = location.hash; history.replaceState({listener:true,depth:0}, '', '#library'); if (requested && requested !== '#library') history.pushState({listener:true,depth:1}, '', requested); }
-window.addEventListener('popstate', route);
+window.addEventListener('popstate', () => { closingSheet = false; route(); const pending = afterSheetClose; afterSheetClose = undefined; pending?.(); });
 $('nav-back').onclick = () => { if ((history.state?.depth || 0) > 0) { history.back(); return; } if (page === 'reading') { if (selectedStoryId || playing || browsed) { selectedStoryId ||= playing?.book.id || browsed?.book.id; view('chapters'); } else view('library'); } else if (['chapters', 'preparation', 'issues'].includes(page) && selectedStoryId) view('story'); else view('library'); };
 $('account').onclick = () => view('account');
 $('sync-account').onclick = () => refresh().catch(error => say(error.message));
@@ -485,7 +490,7 @@ $('more-history').onclick = () => loadHistory(true).catch(error => say(error.mes
 async function returnTo(value) {
   const generation = ++returnGeneration, autoplay = playIntent();
   $('history-status').textContent = 'Opening the saved recording…';
-  try { await openLocation(value, autoplay, 'restore', true, true, () => generation === returnGeneration); if (generation === returnGeneration) { $('history-dialog').close(); $('history-status').textContent = ''; } }
+  try { await openLocation(value, autoplay, 'restore', true, true, () => generation === returnGeneration); if (generation === returnGeneration) { closeDialog($('history-dialog')); $('history-status').textContent = ''; } }
   catch (error) { if (generation === returnGeneration) $('history-status').textContent = 'That recording is unavailable. Your audio has not moved. Try again.'; }
 }
 $('undo').onclick = () => { if (local.undo) returnTo(local.undo); };
@@ -510,10 +515,10 @@ function setSpeed(value) {
   $('speed-down').disabled = value <= .1; $('speed-up').disabled = value >= 4;
 }
 setSpeed(Number(localStorage.getItem('listener:speed')) || 1);
-$('speed').onchange = () => { if ($('speed').value === 'custom') { $('custom-speed').focus(); return; } setSpeed(Number($('speed').value)); $('speed-dialog').close(); };
+$('speed').onchange = () => { if ($('speed').value === 'custom') { $('custom-speed').focus(); return; } setSpeed(Number($('speed').value)); closeDialog($('speed-dialog')); };
 $('speed-down').onclick = () => setSpeed(Math.max(.1, Math.round((playbackSpeed - .1) * 10000) / 10000));
 $('speed-up').onclick = () => setSpeed(Math.min(4, Math.round((playbackSpeed + .1) * 10000) / 10000));
-$('custom-speed-form').onsubmit = event => { event.preventDefault(); const text = $('custom-speed').value.trim().replace(',', '.'), value = Number(text); if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text) || !Number.isFinite(value) || value < .1 || value > 4) { $('speed-error').textContent = 'Enter a speed from 0.1 to 4.0.'; $('custom-speed').setAttribute('aria-invalid','true'); return; } setSpeed(value); $('speed-dialog').close(); };
+$('custom-speed-form').onsubmit = event => { event.preventDefault(); const text = $('custom-speed').value.trim().replace(',', '.'), value = Number(text); if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text) || !Number.isFinite(value) || value < .1 || value > 4) { $('speed-error').textContent = 'Enter a speed from 0.1 to 4.0.'; $('custom-speed').setAttribute('aria-invalid','true'); return; } setSpeed(value); closeDialog($('speed-dialog')); };
 $('open-speed').onclick = () => { setSpeed(playbackSpeed); $('speed-error').textContent = ''; $('custom-speed').removeAttribute('aria-invalid'); openDialog($('speed-dialog')); };
 $('settings').onclick = () => {
   if (page === 'preparation') { openPreparationSettings(); return; }
@@ -574,9 +579,8 @@ $('mark-issue').onclick = () => {
   openDialog($('issue-dialog')); try { saveDraft(); } catch { $('issue-error').textContent = 'Couldn’t keep the draft in this browser. Your text stays open. Try saving again.'; }
 };
 $('kind').onchange = $('note').oninput = () => { try { saveDraft(); $('issue-error').textContent = ''; } catch { $('issue-error').textContent = 'Couldn’t keep the draft in this browser. Your text stays open. Try saving again.'; } };
-$('cancel-issue').onclick = () => { try { saveDraft(); $('issue-dialog').close(); } catch { $('issue-error').textContent = 'Couldn’t keep the draft. Try again before closing.'; } };
-$('discard-issue').onclick = () => { const draft=issueDraft; delete local.drafts[draft.story]; try { persist(); issueDraft=undefined; $('issue-dialog').close(); } catch { local.drafts[draft.story]=draft; $('issue-error').textContent='Couldn’t discard the draft. Try again.'; } };
-$('issue-dialog').addEventListener('cancel', event => { try { saveDraft(); } catch { event.preventDefault(); $('issue-error').textContent = 'Couldn’t keep the draft. Try again before closing.'; } });
+$('cancel-issue').onclick = () => { try { saveDraft(); closeDialog($('issue-dialog')); } catch { $('issue-error').textContent = 'Couldn’t keep the draft. Try again before closing.'; } };
+$('discard-issue').onclick = () => { const draft=issueDraft; delete local.drafts[draft.story]; try { persist(); issueDraft=undefined; closeDialog($('issue-dialog')); } catch { local.drafts[draft.story]=draft; $('issue-error').textContent='Couldn’t discard the draft. Try again.'; } };
 $('issue').onsubmit = event => {
   event.preventDefault(); if (!issueDraft) return;
   try {
@@ -585,7 +589,7 @@ $('issue').onsubmit = event => {
     // One durable write records the event and removes its draft; failure restores it.
     const draft = local.drafts[issueDraft.story]; delete local.drafts[issueDraft.story];
     try { persist(); } catch (error) { local.issueQueue = previousQueue; local.drafts[issueDraft.story] = draft; throw error; }
-    issueDraft = undefined; $('issue-dialog').close(); renderIssues(); say('Issue saved on this browser. Sync will retry when connected.'); flush().then(() => refresh().catch(() => {}));
+    issueDraft = undefined; closeDialog($('issue-dialog')); renderIssues(); say('Issue saved on this browser. Sync will retry when connected.'); flush().then(() => refresh().catch(() => {}));
   } catch { $('issue-error').textContent = 'Couldn’t save here. Your draft is kept. Free some storage and try again.'; }
 };
 
@@ -644,7 +648,7 @@ function openPreparationSettings() {
 $('save-preparation').onsubmit = async event => {
   event.preventDefault(); const story = preparationTarget; if (!story?.follow || !capabilities.manageLibrary || !connected || !capabilities.generate && $('preparation-mode').value !== 'download') return;
   const submit = $('save-preparation').querySelector('button:not([type])'); submit.disabled = true;
-  try { await api('/follow', { url: story.url, enabled: $('automatic-checks').checked, mode: $('preparation-mode').value, buffer: 5, intervalHours: story.follow.intervalHours }); await refreshCatalog(); $('preparation-settings').close(); }
+  try { await api('/follow', { url: story.url, enabled: $('automatic-checks').checked, mode: $('preparation-mode').value, buffer: 5, intervalHours: story.follow.intervalHours }); await refreshCatalog(); closeDialog($('preparation-settings')); }
   catch (error) { $('preparation-error').textContent = error.message; } finally { submit.disabled = false; }
 };
 setInterval(() => { if (library && !document.hidden) refreshCatalog(); }, 30000);

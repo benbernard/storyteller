@@ -64,6 +64,10 @@ else {
       assert.equal(await page.locator('#audio').getAttribute('src'),originalAudio);assert.equal(await page.locator('#audio').evaluate(e=>e.currentTime),496);
       assert.equal(await page.locator('#passages').evaluate(e=>e.scrollTop),0,'Adjacent text opens at its beginning');
       await page.locator('#follow').click();await capture('05-listening');
+      await page.locator('#toggle').click();await page.getByRole('button',{name:'Pause',exact:true}).waitFor();await capture('state-listening-playing');
+      await page.locator('#back').click();await page.getByRole('button',{name:'Undo jump',exact:true}).waitFor();await capture('state-listening-playing-with-undo');
+      await page.locator('#toggle').click();await page.getByRole('button',{name:'Play',exact:true}).waitFor();await page.locator('#undo').click();
+      await page.waitForFunction(()=>document.querySelector('#audio').currentTime>=496);
       await page.locator('#audio-output').click();await capture('05-audio-output');await page.locator('#output-dialog [data-close]').click();
       await page.locator('#settings').click();await capture('06-settings');await page.locator('#listening-settings [data-close]').click();
       await page.locator('#open-speed').click();await capture('07-speed');await page.getByLabel('Custom speed',{exact:true}).fill('9');await page.getByRole('button',{name:'Apply speed',exact:true}).click();assert.equal(await page.locator('#speed-error').isVisible(),true);await capture('08-speed-invalid');
@@ -72,8 +76,12 @@ else {
       await page.locator('#mark-issue').click();await capture('10-mark-issue');await page.locator('#discard-issue').click();
       await page.goto(base+'/listen#story/lighthouse');await page.getByRole('button',{name:'Marked issues',exact:true}).waitFor();await page.getByRole('button',{name:'Marked issues',exact:true}).click();await capture('11-issues');
       await page.goto(base+'/listen#preparation/orchard');await page.getByRole('heading',{name:'Preparing audio',exact:true}).waitFor();await capture('12-preparation');
-      await page.locator('#settings').click();await capture('13-preparation-settings');await page.locator('#preparation-settings [data-close]').click();
-      await page.goto(base+'/listen#account');await page.getByRole('heading',{name:'Your account',exact:true}).waitFor();await capture('14-account');
+      await page.locator('#settings').click();await capture('13-preparation-settings');
+      // Closing a sheet and choosing the next page in the same frame must preserve Back.
+      await page.evaluate(()=>{document.querySelector('#preparation-settings [data-close]').click();document.querySelector('#account').click();});
+      await page.getByRole('heading',{name:'Your account',exact:true}).waitFor();
+      await page.locator('#nav-back').click();await page.getByRole('heading',{name:'Preparing audio',exact:true}).waitFor();assert.equal(await page.locator('dialog[open]').count(),0, 'Back after rapid sheet close must not reopen settings');
+      await page.locator('#account').click();await page.getByRole('heading',{name:'Your account',exact:true}).waitFor();await capture('14-account');
       assert.deepEqual(errors,[],`${profile.name} script errors`);await page.close();console.log(`PASS: all approved web screens at ${profile.name}`);
     }
     for(const profile of [{name:'phone',width:390,height:844},{name:'narrow-large',width:320,height:900,scale:2},{name:'expanded-dark',width:840,height:900,dark:true}]) {

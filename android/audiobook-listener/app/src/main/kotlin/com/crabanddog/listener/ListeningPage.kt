@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
@@ -146,9 +147,12 @@ private fun PassageText(reading: Reading, position: Double, follow: Boolean, hig
     val target = paragraphs.indexOfFirst { paragraph -> paragraph.fragments.any { it.passage.id == active?.id } }
     val layouts = remember(reading.assembly) { mutableStateMapOf<Int, TextLayoutResult>() }
     val activeLayout = layouts[target]
-    val contextInset = with(LocalDensity.current) { (75.dp - 20.dp).roundToPx() }
+    var viewportHeight by remember { mutableIntStateOf(0) }
+    val preferredInset = with(LocalDensity.current) { 75.dp.roundToPx() }
+    val contentInset = with(LocalDensity.current) { 20.dp.roundToPx() }
+    val contextInset = (if (viewportHeight > 0) minOf(preferredInset, viewportHeight / 4) else preferredInset) - contentInset
     LaunchedEffect(dragged) { if (dragged) stopFollowing() }
-    LaunchedEffect(active?.id, follow, reading.assembly, includeNotes, jump, activeLayout?.size) {
+    LaunchedEffect(active?.id, follow, reading.assembly, includeNotes, jump, activeLayout?.size, contextInset) {
         if (follow && target >= 0) {
             val fragment = paragraphs[target].fragments.firstOrNull { it.passage.id == active?.id }
             val offset = if (fragment != null && activeLayout != null) activeLayout.getLineTop(activeLayout.getLineForOffset(fragment.start)).toInt().coerceAtLeast(0) else 0
@@ -158,7 +162,7 @@ private fun PassageText(reading: Reading, position: Double, follow: Boolean, hig
     val maxMeasure = (size * LocalDensity.current.fontScale * 31).dp
     val mint = MaterialTheme.colorScheme.primaryContainer
     val teal = MaterialTheme.colorScheme.primary
-    LazyColumn(modifier.fillMaxWidth().testTag("passages"), state = scroll, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(modifier.fillMaxWidth().onSizeChanged { viewportHeight = it.height }.testTag("passages"), state = scroll, contentPadding = PaddingValues(horizontal = 18.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (browsing != null) item { Column(Modifier.widthIn(max = maxMeasure).fillMaxWidth().padding(horizontal = 12.dp)) { Text("Browsing · Chapter ${browsing.chapter.sequence}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(browsing.chapter.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)) } }
         itemsIndexed(paragraphs) { index, paragraph ->
             val current = paragraph.fragments.any { it.passage.id == active?.id }

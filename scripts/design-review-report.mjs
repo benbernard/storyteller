@@ -1,0 +1,38 @@
+import {readFile,writeFile,readdir,stat} from 'node:fs/promises';
+import {resolve,join} from 'node:path';
+const root=resolve(process.argv[2]||'.agent-scratch/parity'),source=process.argv[3]||'working tree';
+const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const exists=async path=>{try{return(await stat(join(root,path))).isFile();}catch{return false;}};
+const profiles=['phone','narrow-large','expanded-dark'];
+const flows=[
+ ['01-library','Library','01-library'],['02-book','Book','02-book'],['03-chapters','Chapters','03-chapters'],['04-listening','Listening','05-listening'],
+ ['05-listening-settings','Listening settings','06-settings'],['06-speed','Playback speed','07-speed'],['07-jumps','Recent jumps','09-jumps'],['08-mark-issue','Mark an issue','10-mark-issue'],
+ ['09-downloads','Book downloads',null],['10-download-settings','Download settings',null],['11-marked-issues','Marked issues','11-issues'],['12-preparation','Audio preparation','12-preparation'],['13-preparation-settings','Preparation settings','13-preparation-settings'],
+ ['14-account','Account','14-account'],['15-sign-out','Sign out',null],['16-sign-in','Sign in',null],['17-sign-in-browser','Browser sign-in return',null],
+ ['state-book-menu','Book menu',null],['state-clear-downloads-confirmation','Clear downloads',null],
+];
+const pictures={};
+for(const profile of profiles){
+ for(const [name,title,web] of flows){
+  const images=[];
+  for(const [client,base] of [['Approved mock',`reference/${profile}/${name}`],['Android',`native/${profile}/${name}`],['Website',web?`web/web-${profile}-${web}`:null]]){
+   const file=base&&await exists(base+'-sheet.png')?base+'-sheet.png':base&&await exists(base+'.png')?base+'.png':null;
+   images.push({client,file,title});
+  }
+  pictures[profile+':'+name]=images;
+ }
+}
+const states=new Set();
+for(const name of await readdir(join(root,'native/phone')))if(name.startsWith('state-')&&name.endsWith('.png')&&!name.endsWith('-sheet.png'))states.add(name.slice(0,-4));
+for(const name of await readdir(join(root,'web')))if(name.startsWith('web-phone-state-')&&name.endsWith('.png')&&!name.endsWith('-sheet.png'))states.add(name.slice('web-phone-'.length,-4));
+for(const name of states){if(flows.some(flow=>flow[0]===name))continue;flows.push([name,name.replace(/^state-/,'').replaceAll('-',' '),name]);for(const profile of profiles){const images=[];for(const [client,base]of [['Approved mock',`reference/${profile}/${name}`],['Android',`native/${profile}/${name}`],['Website',`web/web-${profile}-${name}`]]){const file=await exists(base+'-sheet.png')?base+'-sheet.png':await exists(base+'.png')?base+'.png':null;images.push({client,file,title:name});}pictures[profile+':'+name]=images;}}
+const reference=JSON.parse(await readFile(join(root,'reference/evidence.json')));
+const payload=JSON.stringify({profiles,pictures,flows,source,sourceHashes:reference.sourceHashes}).replaceAll('<','\\u003c');
+const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Listener · Design parity review</title><style>
+:root{font:15px/1.5 system-ui;color:#213e40;background:#edf1ef}*{box-sizing:border-box}body{margin:0}header{padding:24px;max-width:1280px;margin:auto}h1{font-size:24px;margin:0 0 12px}p{max-width:80ch}label{display:block;font-weight:600}select{font:inherit;padding:10px;border:1px solid #b4c6be;border-radius:8px;background:#fffdf7;color:inherit;min-height:48px}nav{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}a{color:#176b65}section{max-width:1280px;margin:0 auto 32px;padding:16px;scroll-margin-top:12px}h2{font-size:18px;margin:0 0 12px}.columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}figure{margin:0;background:#fffdf7;border:1px solid #d4ded7;border-radius:10px;overflow:hidden}figcaption{padding:10px;font-weight:600;border-bottom:1px solid #d4ded7}.picture{display:flex;justify-content:center;padding:8px;min-height:80px}img{max-width:100%;height:auto;display:block}.absent{padding:12px;color:#526764;font-size:13px}.notes{font-size:13px;color:#526764}code{overflow-wrap:anywhere;font-size:12px}footer{max-width:1280px;margin:auto;padding:24px}@media(max-width:760px){.columns{grid-template-columns:1fr}section{padding:12px}header{padding:20px}nav{max-height:180px;overflow:auto}}
+</style></head><body><header><h1>Listener · Design parity review</h1><p>Approved reference beside captures of the actual Android and website components. Every book, account, and report shown here is fictional. Select a size, then open an image for its original resolution.</p><p class="notes">Source: <code>${escape(source)}</code>. This gallery is evidence for the accompanying audit; a screenshot alone does not establish that behavior or publication passed.</p><label for="profile">Comparison size</label><select id="profile"><option value="phone">Phone</option><option value="narrow-large">320 dp / 200% text</option><option value="expanded-dark">Expanded / dark</option></select><nav>${flows.map(([name,title])=>`<a href="#${name}">${escape(title)}</a>`).join('')}</nav><p class="notes">Android images are normalized to logical dp for comparison. Android uses platform typography, touch targets, system bars, and audio routing. Download management and app sign-out are Android-only. The website retains browser-managed sign-in. A missing image means that this capture is unavailable or belongs to a platform adaptation; it is not a passing result.</p></header><main id="comparisons"></main><footer><p>Approved library/account HTML: <code>${escape(reference.sourceHashes['storyteller-design-review-v3.html'])}</code><br>Approved reader HTML: <code>${escape(reference.sourceHashes['storyteller-listening-r17.html'])}</code></p><p><a href="reference/evidence.json">Reference manifest</a> · <a href="native/evidence.json">Android manifest</a> · <a href="web/web-evidence.json">Website manifest</a></p></footer><script type="application/json" id="data">${payload}</script><script>
+const data=JSON.parse(document.getElementById('data').textContent),host=document.getElementById('comparisons');
+function render(){host.replaceChildren();const profile=document.getElementById('profile').value;for(const [name,title]of data.flows){const section=document.createElement('section');section.id=name;const h=document.createElement('h2');h.textContent=title;section.append(h);const row=document.createElement('div');row.className='columns';section.append(row);for(const item of data.pictures[profile+':'+name]){const figure=document.createElement('figure'),label=document.createElement('figcaption');label.textContent=item.client;figure.append(label);if(item.file){const a=document.createElement('a');a.href=item.file;a.className='picture';const img=document.createElement('img');img.src=item.file;if(item.file.endsWith('-sheet.png'))img.style.width=(profile==='narrow-large'?'296':'360')+'px';img.alt=item.client+' — '+title;img.loading='lazy';a.append(img);figure.append(a);}else{const p=document.createElement('p');p.className='absent';p.textContent='No corresponding capture. See the audit for scope and verification.';figure.append(p);}row.append(figure);}host.append(section);}}
+document.getElementById('profile').onchange=render;render();
+</script></body></html>`;
+await writeFile(join(root,'index.html'),html);await writeFile(join(root,'comparison-index.json'),JSON.stringify({source,profiles,flows,pictures},null,2)+'\n');console.log('Wrote '+flows.length+' comparison sections to '+join(root,'index.html'));

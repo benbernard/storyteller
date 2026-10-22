@@ -68,6 +68,12 @@ class OfflineAudio(private val context: Context, private val http: OkHttpClient 
         val checksums = book.editions.values.flatten().map { it.checksum } + owned.keys().asSequence().map { owned.getString(it) }.toList()
         return checksums.filter { Regex("[a-f0-9]{64}").matches(it) }.any { File(dir, "$it.mp3").isFile || File(dir, "$it.part").isFile }
     }
+    fun bookBytes(book: Book): Long = synchronized(fileLock) {
+        val dir = directory() ?: return@synchronized 0L
+        val owned = ownedFiles(book.id)
+        val checksums = book.editions.values.flatten().map { it.checksum } + owned.keys().asSequence().map { owned.getString(it) }.toList()
+        checksums.distinct().filter { Regex("[a-f0-9]{64}").matches(it) }.flatMap { checksum -> listOf(File(dir, "$checksum.mp3"), File(dir, "$checksum.part")) }.filter { it.isFile }.sumOf { it.length() }
+    }
     fun savedBytes(chapters: List<Chapter>): Long = synchronized(fileLock) { chapters.mapNotNull(::file).distinctBy { it.name }.sumOf { it.length() } }
     private fun rememberFile(selection: Selection) { val files = ownedFiles(selection.story).put(selection.chapter.assembly, selection.chapter.checksum); check(prefs.edit().putString(filesKey(selection.story), files.toString()).commit()) }
     fun clearBook(book: Book, books: List<Book>) {

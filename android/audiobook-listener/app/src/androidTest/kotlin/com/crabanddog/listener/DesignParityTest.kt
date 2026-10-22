@@ -86,6 +86,11 @@ class DesignParityTest {
         compose.setContent { CompositionLocalProvider(LocalStoryCovers provides images) { ListenerTheme { ListenerScreen(state.value, {}, {}, {}, { _, _, _ -> }, {}, {}, { speed -> state.value = state.value.copy(speed = speed) }, { _, _, _, _ -> }, {}, {}, {}, onEdition = { edition -> state.value = state.value.copy(selection = selection.copy(edition = edition, chapter = book.editions.getValue(edition)[11])) }, onIncludeAuthorNotes = { value -> state.value = state.value.copy(includeAuthorNotes = value) }) } } }
         capture("01-library")
         compose.onNodeWithTag("open-player").performClick(); capture("04-listening")
+        compose.runOnIdle { state.value = state.value.copy(playing = true) }; capture("state-listening-playing")
+        compose.onNodeWithContentDescription("Pause").assertIsDisplayed()
+        compose.runOnIdle { state.value = state.value.copy(position = 481.0, undo = state.value.localJumps.first().getJSONObject("from")) }; capture("state-listening-playing-with-undo")
+        compose.onNodeWithContentDescription("Undo jump").assertIsDisplayed()
+        compose.runOnIdle { state.value = state.value.copy(position = 496.0, playing = false, undo = null) }
         compose.onNodeWithContentDescription("Listening settings").performClick(); capture("05-listening-settings")
         compose.onNodeWithText("The light swept across the harbour as June opened the letter.").performScrollTo().assertIsDisplayed()
         closeSheet()

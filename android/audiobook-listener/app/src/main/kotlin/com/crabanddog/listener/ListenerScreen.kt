@@ -213,18 +213,22 @@ fun ListenerScreen(state: ListenerUiState, onConnect: () -> Unit, onRefresh: () 
     }
     menuStory?.let { id ->
         val book = state.books.find { it.id == id }
+        val downloadedBytes by produceState<Long?>(null, id) { value = withContext(Dispatchers.IO) { book?.let(offline::bookBytes) ?: 0L } }
         ListenerSheet(book?.title ?: "Book", { menuStory = null }) {
-            TextButton(onClick = { menuStory = null; navigate("downloads", id) }, enabled = book != null, contentPadding = PaddingValues(0.dp)) { Text("Downloads") }
-            TextButton(onClick = { menuStory = null; clearStory = id }, enabled = book != null && offline.hasBookDownloads(book), contentPadding = PaddingValues(0.dp)) { Text("Clear downloads") }
+            Text(downloadedBytes?.let { "${formatBytes(it)} downloaded on this phone" } ?: "Calculating downloaded size…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
+            TextButton(onClick = { menuStory = null; navigate("downloads", id) }, enabled = book != null, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Downloads", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium) }
+            TextButton(onClick = { menuStory = null; clearStory = id }, enabled = book != null && offline.hasBookDownloads(book), modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Clear downloads", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium) }
         }
     }
     clearStory?.let { id -> state.books.find { it.id == id }?.let { book ->
+        val downloadedBytes by produceState<Long?>(null, id) { value = withContext(Dispatchers.IO) { offline.bookBytes(book) } }
         ListenerSheet("Clear downloads?", { if (!clearing) clearStory = null }, showClose = false) {
-            Text("Remove downloaded audio for ${book.title} from this phone? Downloads for this book will pause. Your listening place is kept.", style = MaterialTheme.typography.bodyMedium)
+            Text("Remove ${downloadedBytes?.let(::formatBytes) ?: "downloaded audio"} for “${book.title}” from this phone? This clears all downloaded editions of this book. Other books are kept.", style = MaterialTheme.typography.bodyMedium)
+            Text("Downloads for this book will pause. Your listening place is kept.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
             if (clearError.isNotEmpty()) Text(clearError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             FlowRow(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                TextButton(onClick = { clearStory = null }, enabled = !clearing, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Text("Keep downloads", fontWeight = FontWeight.Normal) }
-                Button(onClick = { val books = state.books; clearing = true; clearError = ""; scope.launch { try { withContext(Dispatchers.IO) { offline.clearBook(book, books) }; clearStory = null } catch (e: Exception) { clearError = "Couldn’t clear all downloads. Try again." } finally { clearing = false } } }, enabled = !clearing, shape = RoundedCornerShape(8.dp), modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 12.dp)) { Text(if (clearing) "Clearing…" else "Clear downloads", fontWeight = FontWeight.Normal) }
+                TextButton(onClick = { clearStory = null }, enabled = !clearing) { Text("Keep downloads", fontWeight = FontWeight.Normal) }
+                TextButton(onClick = { val books = state.books; clearing = true; clearError = ""; scope.launch { try { withContext(Dispatchers.IO) { offline.clearBook(book, books) }; clearStory = null } catch (e: Exception) { clearError = "Couldn’t clear all downloads. Try again." } finally { clearing = false } } }, enabled = !clearing, shape = RoundedCornerShape(8.dp), modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 12.dp)) { Text(if (clearing) "Clearing…" else "Clear downloads", fontWeight = FontWeight.Normal) }
             }
         }
     } }

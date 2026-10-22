@@ -75,3 +75,21 @@ projection after an intentional fixture change. It calculates real checksums for
 the synthetic download files, keeps preparation separate from publication, and
 retains per-book positions and issue locations. Do not replace the approved
 reference or change production behavior merely to make a fixture pass.
+
+## Compare with the approved reference
+
+The portable review tools live in this repository. Serve the original approved
+HTML files on loopback without changing their contents, then capture references
+and generate the comparison gallery:
+
+```sh
+node scripts/capture-design-reference.mjs --source /absolute/storyteller \
+  --output /absolute/scratch/parity/reference --base http://127.0.0.1:8771
+node scripts/design-review-report.mjs /absolute/scratch/parity CHECKED_SOURCE_SHA
+```
+
+The reference capture tool checks both approved HTML hashes. The gallery compares
+reference, Android and web captures at phone, large text and expanded dark sizes.
+It includes playing, paused and Undo states. Android images are normalized to
+logical dp. Platform fonts, Android's nonlinear text scaling, accessible touch
+targets, system bars and system device routing are recorded adaptations.
