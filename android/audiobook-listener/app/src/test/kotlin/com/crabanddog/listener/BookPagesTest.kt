@@ -2,6 +2,7 @@ package com.crabanddog.listener
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -107,5 +108,20 @@ class BookPagesTest {
         audio.prefs.edit().putString("files:${"c".repeat(64)}:${book.id}", "{\"old\":\"checksum\"}").commit()
         audio.clear()
         assertTrue(audio.prefs.all.keys.none { it.startsWith("files:") })
+    }
+    @Test fun cancellingWaitsForTheReportedTerminalState() {
+        val work = mutableStateOf(JSONObject().put("id", "job").put("status", "running").put("phase", "Generating chapter 2"))
+        var requested = false
+        compose.setContent { ListenerTheme { PreparationPage(book, source().put("job", work.value), ListenerUiState(canManage = true, canGenerate = true), {}, { _, action -> requested = action == "cancel" }, {}) } }
+        compose.onNodeWithText("Cancel job").performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(requested) }
+        compose.onNodeWithText("Cancelled").assertDoesNotExist()
+        compose.runOnIdle { work.value = JSONObject(work.value.toString()).put("cancel", true) }
+        compose.onNodeWithText("Cancellation requested").assertIsDisplayed()
+        compose.onNodeWithText("Cancelled").assertDoesNotExist()
+        compose.runOnIdle { work.value = JSONObject(work.value.toString()).put("status", "cancelled") }
+        compose.onNodeWithText("Cancelled").assertIsDisplayed()
+        compose.onNodeWithText("Generating chapter 2").assertDoesNotExist()
+        compose.onNodeWithText("Retry").assertIsDisplayed()
     }
 }

@@ -18,7 +18,7 @@ const book = { id: 'fixture', title: 'A quiet journey', author: 'Test author', d
   editions: { v3: { chapters: [chapter('a'.repeat(64))] }, flash: { chapters: [chapter('b'.repeat(64))] }, qwen: { chapters: [chapter('c'.repeat(64))] } } };
 const posts = [];
 let offline = false, accountKey = 'test';
-let noteMetadata = false, textDelay = 0, differentTimeline = false, unavailableAudio = false;
+let noteMetadata = false, textDelay = 0, differentTimeline = false, unavailableAudio = false, audioDelay = 0;
 const catalog = { jobs: [], stories: [{ id: 'rr-1', title: 'A Royal Road story', author: 'An author', url: 'https://www.royalroad.com/fiction/1', description: 'A saved story.', status: 'ONGOING', hasCover: false, follow: {enabled:true,mode:'buffer',intervalHours:6}, chapters: [{ chapterId: 2, title: 'Opening chapter', downloaded: true, editions: [] }] }] };
 catalog.stories.push({ id: 'fixture', title: book.title, author: book.author, url: 'https://www.royalroad.com/fiction/2', description: '', status: 'ONGOING', chapters: [], repair: { title: 'Audio repair in progress', detail: 'Chapter one · Generating audio', completed: 0, total: 2, updatedAt: '2026-10-11T20:00:00Z', chapters: [{ id: 'one', title: 'Chapter one', label: 'Generating audio' }, { id: 'two', title: 'Chapter two', label: 'Queued for reanalysis and recasting' }] } });
 const server = createServer(async (req, res) => {
@@ -44,6 +44,7 @@ const server = createServer(async (req, res) => {
   if (path === '/listen/history') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ entries: posts.filter(p => p.path === '/listen/progress').map(p => ({ ...p.data, location: { ...p.data, chapterTitle: 'Chapter one', passageIndex: Math.floor(p.data.seconds / 5), storySeconds: p.data.seconds, storyDuration: 90, excerpt: 'Saved exact text.' }, from: p.data.from && { ...p.data.from, chapterTitle: 'Chapter one' } })).reverse(), before: null })); return; }
   if (path.includes('/text/')) { if (textDelay) await new Promise(done => setTimeout(done, textDelay)); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ assembly: path.split('/').at(-1), duration:90, url: 'https://www.royalroad.com/fiction/1/test', passages: Array.from({length: 18}, (_, i) => ({ id: `p${i}`, start: i * (differentTimeline && path.includes('/flash/') ? 3 : 5), end: differentTimeline && path.includes('/flash/') ? (i + 1) * 3 : noteMetadata && i === 17 ? 89.899999999991 : (i + 1) * 5, ...(noteMetadata && [1, 8, 16, 17].includes(i) ? {sectionKind: 'author-note'} : {}), text: `Passage ${i + 1}. ` + 'The traveler walked down the quiet road. '.repeat(8) + '\n\n' })) })); return; }
   if (path.includes('/audio/')) {
+    if (audioDelay && req.method !== 'HEAD') await new Promise(done=>setTimeout(done,audioDelay));
     if (unavailableAudio && path.includes('/qwen/')) { res.statusCode=503;res.end();return; }
     res.setHeader('Content-Type', 'audio/wav'); res.setHeader('Accept-Ranges', 'bytes');
     const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '');
@@ -155,10 +156,20 @@ try {
     assert.deepEqual(errors, []);
     await page.close(); console.log(`PASS: reader, passage seeks, undo, restored positions and editions at ${width}px`);
   }
+  accountKey='pending-play';offline=false;state.positions={};state.completed={};posts.length=0;audioDelay=4000;
+  const pendingPlay=await browser.newPage({viewport:{width:390,height:844}});
+  await pendingPlay.goto(base+'/listen');await pendingPlay.getByRole('button',{name:'Play '+book.title,exact:true}).click();
+  await pendingPlay.locator('.passage').first().waitFor();
+  assert.equal(await pendingPlay.locator('#toggle').getAttribute('aria-label'),'Pause','Requested playback remains pausable before media metadata arrives');
+  await pendingPlay.locator('#mark-issue').click();
+  await pendingPlay.waitForFunction(()=>document.getElementById('audio').readyState>0);
+  assert.equal(await pendingPlay.locator('#audio').evaluate(a=>a.paused),true,'Mark issue cancels pending autoplay');
+  assert.equal(await pendingPlay.locator('#issue-dialog').isVisible(),true);
+  await pendingPlay.locator('#discard-issue').click();await pendingPlay.close();audioDelay=0;
   accountKey='edition-flow';offline=false;state.positions={};state.completed={};posts.length=0;differentTimeline=true;
   const editions=await browser.newPage({viewport:{width:390,height:844}});
   await editions.goto(base+'/listen');await editions.getByRole('button',{name:'Play '+book.title,exact:true}).click();
-  await editions.locator('.passage').first().waitFor();await editions.locator('#audio').evaluate(a=>{a.pause();a.currentTime=30;});
+  await editions.locator('.passage').first().waitFor();await editions.waitForFunction(()=>document.getElementById('audio').currentTime>0);await editions.locator('#audio').evaluate(a=>{a.pause();a.currentTime=30;});
   await editions.waitForFunction(()=>!document.getElementById('audio').seeking);
   await editions.locator('#settings').click();await editions.getByLabel('Edition',{exact:true}).selectOption('flash');
   await editions.waitForFunction(()=>document.getElementById('audio').getAttribute('src').includes('/flash/') && document.getElementById('audio').currentTime===18);
@@ -171,10 +182,12 @@ try {
   assert.equal(await editions.locator('#audio').evaluate(a=>a.currentTime),18);
   assert.equal(posts.filter(p=>p.data.from).length,jumpsBefore,'Edition changes never create jumps');
   await editions.locator('#listening-settings [data-close]').click();
+  await editions.waitForFunction(()=>!history.state?.sheet);
   unavailableAudio=false;differentTimeline=false;
   // Browser Back dismisses settings, then returns through visited pages.
   await editions.locator('#settings').click();await editions.goBack();assert.equal(await editions.locator('#listening-settings').isVisible(),false);
   await editions.locator('#mark-issue').click();await editions.getByLabel('Optional note').fill('A durable draft');await editions.locator('#cancel-issue').click();
+  await editions.waitForFunction(()=>!history.state?.sheet);
   await editions.reload();await editions.waitForFunction(()=>document.getElementById('audio').readyState>0);
   await editions.locator('#mark-issue').click();assert.equal(await editions.getByLabel('Optional note').inputValue(),'A durable draft');
   await editions.locator('#discard-issue').click();await editions.close();
@@ -183,6 +196,7 @@ try {
   await reports.goto(base+'/listen');await reports.getByRole('button',{name:'Play '+book.title,exact:true}).click();await reports.locator('.passage').first().waitFor();
   await reports.locator('#mark-issue').click();await reports.getByLabel('Optional note').fill('Queued offline');offline=true;await reports.getByRole('button',{name:'Save issue',exact:true}).click();
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===1);
+  await reports.waitForFunction(()=>!history.state?.sheet);
   await reports.reload();await reports.waitForFunction(()=>document.getElementById('audio').readyState>0);
   await reports.locator('#account').click();assert.equal(await reports.locator('#account-label').textContent(),'Reader');offline=false;await reports.locator('#sync-account').click();
   await reports.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:issue-flow')).issueQueue.length===0);
