@@ -246,6 +246,11 @@ cover split words, split blank lines, hidden author notes and exact seek targets
 These checks supplement the linked captures from `bf3d4bd`; they do not relabel
 those images as captures of a later commit.
 
+The private candidate check also exposed a report refresh race after an offline
+issue synced. Refresh now waits for an existing queue flush and updates the open
+reports page when the server state arrives. A delayed-response regression checks
+that the saved report becomes actionable without reopening the page.
+
 ## Platform differences and limits
 
 Android uses native font metrics, nonlinear text scaling, native form/range
