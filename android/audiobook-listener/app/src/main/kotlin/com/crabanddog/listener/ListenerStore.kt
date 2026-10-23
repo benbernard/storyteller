@@ -48,7 +48,7 @@ class ListenerStore private constructor(private val context: Context) {
         return if (p.optString("assembly") == value.chapter.assembly) p.optDouble("seconds", 0.0) else 0.0
     }
     @Synchronized fun saveProgress(value: Selection, seconds: Double, completed: Boolean = false, reason: String = "pause", from: JSONObject? = null) {
-        val entry = value.location(seconds).put("eventId", UUID.randomUUID().toString()).put("deviceTime", System.currentTimeMillis()).put("completed", completed).put("reason", if (completed) "complete" else reason)
+        val entry = value.location(seconds).put("continuationRevision", value.continuationRevision).put("eventId", UUID.randomUUID().toString()).put("deviceTime", System.currentTimeMillis()).put("completed", completed).put("reason", if (completed) "complete" else reason)
         if (from != null) {
             entry.put("from", JSONObject().put("story", from.getString("story")).put("edition", from.getString("edition")).put("assembly", from.getString("assembly")).put("seconds", from.getDouble("seconds")))
             val old = from.optJSONObject("selection")?.let { runCatching { selectionFromJson(it) }.getOrNull() }
@@ -59,6 +59,7 @@ class ListenerStore private constructor(private val context: Context) {
         }
         // Append first: acknowledged checkpoints remain in this permanent local log.
         enqueue("/progress", entry)
+        if (value.continuationRevision != continuationRevision(value.story)) return
         val positions = JSONObject(prefs.getString("positions", "{}")!!).put(value.key, entry)
         val edit = prefs.edit().putString("positions", positions.toString())
         if (from != null && reason in listOf("seek", "passage", "chapter", "restore")) edit.putString("undo", from.toString())
@@ -90,20 +91,21 @@ class ListenerStore private constructor(private val context: Context) {
     }
     @Synchronized fun latestLocation(): JSONObject? {
         val positions = JSONObject(prefs.getString("positions", "{}")!!)
-        return positions.keys().asSequence().map { positions.getJSONObject(it) }.maxByOrNull { it.optLong("deviceTime") }
+        return currentContinuationPositions(positions.keys().asSequence().map { positions.getJSONObject(it) }.toList()).firstOrNull()
     }
     @Synchronized fun latest(books: List<Book>): Selection? {
         val positions = JSONObject(prefs.getString("positions", "{}")!!)
-        return positions.keys().asSequence().map { positions.getJSONObject(it) }.sortedByDescending { it.optLong("deviceTime") }.mapNotNull { p ->
+        return currentContinuationPositions(positions.keys().asSequence().map { positions.getJSONObject(it) }.toList()).mapNotNull { p ->
             val book = books.find { it.id == p.optString("story") } ?: return@mapNotNull null
             val chapter = book.editions[p.optString("edition")]?.find { it.assembly == p.optString("assembly") } ?: return@mapNotNull null
-            Selection(book.id, book.title, p.getString("edition"), chapter)
+            Selection(book.id, book.title, p.getString("edition"), chapter, p.optLong("continuationRevision"))
         }.firstOrNull()
     }
-    @Synchronized fun importProgress(remote: JSONObject) {
+    fun continuationRevision(story: String): Long = JSONObject(prefs.getString("continuations", "{}")!!).optJSONObject(story)?.optLong("revision") ?: 0
+    @Synchronized fun importProgress(remote: JSONObject, continuations: JSONObject = JSONObject()) {
         val positions = JSONObject(prefs.getString("positions", "{}")!!)
-        remote.keys().forEach { key -> val incoming = remote.getJSONObject(key); if (incoming.optLong("deviceTime") > (positions.optJSONObject(key)?.optLong("deviceTime") ?: 0)) positions.put(key, incoming) }
-        check(prefs.edit().putString("positions", positions.toString()).commit())
+        remote.keys().forEach { key -> val incoming = remote.getJSONObject(key); if (incoming.optLong("continuationRevision") > (positions.optJSONObject(key)?.optLong("continuationRevision") ?: 0) || incoming.optLong("continuationRevision") == (positions.optJSONObject(key)?.optLong("continuationRevision") ?: 0) && incoming.optLong("deviceTime") > (positions.optJSONObject(key)?.optLong("deviceTime") ?: 0)) positions.put(key, incoming) }
+        check(prefs.edit().putString("positions", positions.toString()).putString("continuations", continuations.toString()).commit())
     }
     fun catalog(): JSONObject? = prefs.getString("catalog", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
     fun catalog(value: JSONObject) { prefs.edit().putString("catalog", value.toString()).putLong("catalog-reported-at", System.currentTimeMillis()).apply() }

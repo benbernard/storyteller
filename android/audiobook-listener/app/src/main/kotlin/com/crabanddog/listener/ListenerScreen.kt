@@ -56,7 +56,7 @@ internal fun jsonObjects(array: org.json.JSONArray?): List<JSONObject> = (0 unti
 internal data class ListeningSummary(val edition: String, val latest: JSONObject?, val unread: Int, val remaining: Double)
 internal fun listeningSummary(book: Book, state: ListenerUiState): ListeningSummary {
     val saved = state.positions.filter { it.optString("story") == book.id }
-    val latest = saved.sortedByDescending { it.optLong("deviceTime") }.firstOrNull { p -> book.editions[p.optString("edition")]?.any { it.assembly == p.optString("assembly") } == true }
+    val latest = currentContinuationPositions(saved).firstOrNull { p -> book.editions[p.optString("edition")]?.any { it.assembly == p.optString("assembly") } == true }
     val current = state.selection?.takeIf { it.story == book.id }
     val edition = current?.edition ?: latest?.optString("edition") ?: book.defaultEdition.takeIf { book.editions[it]?.isNotEmpty() == true } ?: book.editions.keys.firstOrNull().orEmpty()
     val unread = book.editions[edition].orEmpty().filter { "${book.id}:${it.id}" !in state.completed }
@@ -251,7 +251,7 @@ private fun LibraryPage(state: ListenerUiState, open: (String) -> Unit, play: (B
     val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 700
     val keyboard = LocalSoftwareKeyboardController.current
     val active = state.books.find { it.id == state.selection?.story }
-        ?: state.positions.sortedByDescending { it.optLong("deviceTime") }.firstNotNullOfOrNull { point -> state.books.find { it.id == point.optString("story") } }
+        ?: currentContinuationPositions(state.positions).firstNotNullOfOrNull { point -> state.books.find { it.id == point.optString("story") } }
     val all = state.books + state.catalog.filter { source -> state.books.none { it.id == source.optString("id") } }.map { source -> Book(source.optString("id"), source.optString("title"), source.optString("author"), emptyMap()) }
     val featured = active != null && query.isBlank() && filter == "All"
     val shown = all.filter { book ->

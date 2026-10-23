@@ -17,16 +17,18 @@ import { repairStatus } from './repair-status.js';
 import { reading, passageAt, authorNoteRanges } from './reading.js';
 import { ListeningHistory, type ListeningLocation } from './listening-history.js';
 import { NativeSignIn, signInStart, signInExchange, signInCancel } from './native-signin.js';
+import {ContinuationSync, SyncConflict, syncInput, syncRevision, type SyncState, type SyncProgress} from './continuation.js';
+import {chmod, lstat, unlink} from 'node:fs/promises';
 import {listenerIdentity, basicIdentity, type BrowserOwner} from './listener-identity.js';
 
 const hex = z.string().regex(/^[a-f0-9]{64}$/);
 const location = z.object({ story: id, edition: editionSchema, assembly: hex, seconds: z.number().finite().nonnegative() });
 const progressSchema = location.extend({ eventId: z.uuid(), deviceTime: z.number().int().positive(), completed: z.boolean().default(false),
-  reason: z.enum(['playing', 'pause', 'seek', 'passage', 'chapter', 'restore', 'complete']).default('playing'), from: location.strict().optional() }).strict();
+  continuationRevision: z.number().int().nonnegative().optional(), reason: z.enum(['playing', 'pause', 'seek', 'passage', 'chapter', 'restore', 'complete']).default('playing'), from: location.strict().optional() }).strict();
 const issueSchema = location.extend({ eventId: z.uuid(), kind: z.enum(['voice', 'pronunciation', 'missing', 'delivery', 'other']), note: z.string().max(2000) }).strict();
-type Progress = z.infer<typeof progressSchema> & { sequence: number; chapterId: string; receivedAt: string };
+type Progress = SyncProgress;
 type Issue = z.infer<typeof issueSchema> & { id: string; sequence: number; chapterId: string; source: string; segmentId: string; spans: string[]; status: 'open' | 'resolved'; createdAt: string };
-type ListenerState = { positions: Record<string, Progress>; completed: Record<string, boolean>; seen: Record<string, { chapter: number; offset: number }>; issues: Issue[] };
+type ListenerState = SyncState & { positions: Record<string, Progress>; completed: Record<string, boolean>; seen: Record<string, { chapter: number; offset: number }>; issues: Issue[] };
 type Pair = { code: string; secretHash: string; expires: number; owner?: string; tokenHash?: string };
 type Device = { owner: string; name: string; createdAt: string; revoked?: boolean };
 const empty = (): ListenerState => ({ positions: {}, completed: {}, seen: {}, issues: [] });
@@ -76,7 +78,11 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       storySeconds: chapters.filter(c => c.sequence < chapter.sequence).reduce((n, c) => n + c.duration, 0) + Math.min(value.seconds, assembly.duration),
       storyDuration: chapters.reduce((n, c) => n + c.duration, 0), chapterCount: chapters.length };
   };
-  const server = createServer(async (request, response) => {
+  const sync = new ContinuationSync<ListenerState>(state, async owner => await state.read<ListenerState>(`users/${sha(owner)}.json`) ?? empty(),
+    (owner, saved) => state.write(`users/${sha(owner)}.json`, saved), async story => (await getBook(story)).book,
+    async (owner, input) => { const target=await describeLocation(input), from=input.from?await describeLocation(input.from):undefined;
+      history.record(sha(owner),{eventId:input.eventId,deviceTime:input.deviceTime,receivedAt:input.receivedAt,reason:input.reason,location:target,...(from?{from}:{})},input); });
+  const handle = async (request: IncomingMessage, response: ServerResponse, controlOwner?: string) => {
     response.setHeader('Cache-Control', 'private, no-store'); response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'no-referrer'); response.setHeader('X-Frame-Options', 'DENY');
     response.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; media-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
@@ -88,7 +94,10 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       const route = web ? url.pathname.slice('/listen'.length) : url.pathname.slice('/api/listener'.length);
       if (!web && !url.pathname.startsWith('/api/listener/')) throw new Error('not_found');
       let owner: string | undefined;
-      if (web) {
+      if (controlOwner) {
+        if (!route.startsWith('/sync/')) throw new Error('not_found');
+        owner = controlOwner;
+      } else if (web) {
         owner = browserOwner(request) ?? undefined;
         if (!owner) { if (basicChallenge) response.setHeader('WWW-Authenticate', 'Basic realm="Storyteller", charset="UTF-8"'); json(response, 401, { error: 'Sign in to continue.' }); return; }
         if (request.headers['x-listener-account'] && request.headers['x-listener-account'] !== sha(owner)) { json(response, 409, { error: 'The signed-in account changed. Reload to continue.' }); return; }
@@ -168,6 +177,18 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const token = request.headers.authorization!.slice(7), path = `devices/${sha(token)}.json`;
         await mutate(async () => { const device = (await state.read<Device>(path))!; device.revoked = true; await state.write(path, device); });
         json(response, 200, { disconnected: true }); return;
+      }
+      if (route.startsWith('/sync/')) {
+        if (!permissions.manageLibrary) {json(response,403,{error:'Library management permission required.'});return;}
+        if(route==='/sync/status'&&method==='GET'){json(response,200,await mutate(()=>sync.status(owner!,url.searchParams.get('story')??'')));return;}
+        if(method==='POST') {
+          const value=await body(request);
+          if(route==='/sync/preview'){const input=syncInput.parse(value);json(response,200,await mutate(()=>sync.preview(owner!,input)));return;}
+          const input=z.object({id:z.uuid()}).strict().parse(value);
+          if(route==='/sync/apply'){json(response,200,await mutate(()=>sync.apply(owner!,input.id)));return;}
+          if(route==='/sync/undo'){json(response,200,await mutate(()=>sync.undo(owner!,input.id)));return;}
+        }
+        throw new Error('not_found');
       }
       if (route === '/library' && method === 'GET') {
         const follows = libraryQueue.follows(sha(owner));
@@ -265,7 +286,10 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
         const seconds = Math.min(input.seconds, assembly.duration);
         await mutate(async () => {
           history.record(sha(owner!), { eventId: input.eventId, deviceTime: input.deviceTime, receivedAt: new Date().toISOString(), reason: input.completed ? 'complete' : input.reason, location: eventLocation, ...(from ? { from } : {}) }, input);
-          const saved = await state.read<ListenerState>(userPath) ?? empty(); const key = `${input.story}:${input.edition}:${chapter.id}`;
+          const saved = await state.read<ListenerState>(userPath) ?? empty();
+          // Retain stale offline history, but fence its current-position writes after a handoff.
+          if ((input.continuationRevision ?? 0) !== syncRevision(saved,input.story)) return;
+          const key = `${input.story}:${input.edition}:${chapter.id}`;
           const previous = saved.positions[key];
           if (!previous || previous.deviceTime <= input.deviceTime) saved.positions[key] = { ...input, seconds, chapterId: chapter.id, sequence: chapter.sequence, receivedAt: new Date().toISOString() };
           if (input.completed) saved.completed[`${input.story}:${chapter.id}`] = true;
@@ -326,11 +350,21 @@ export function createListener(fictions: string, state: Store, browserOwner: Bro
       throw new Error('not_found');
     } catch (error) {
       if (response.headersSent) { response.destroy(); return; }
-      const status = error instanceof z.ZodError || (error as Error).message === 'bad_request' ? 400 : (error as Error).message === 'not_found' || (error as NodeJS.ErrnoException).code === 'ENOENT' ? 404 : 500;
-      json(response, status, { error: status === 400 ? 'Invalid request.' : status === 404 ? 'Item not found.' : 'Unable to save or read this item. Please retry.' });
+      const status = error instanceof SyncConflict ? 409 : error instanceof z.ZodError || (error as Error).message === 'bad_request' ? 400 : (error as Error).message === 'not_found' || (error as NodeJS.ErrnoException).code === 'ENOENT' ? 404 : 500;
+      json(response, status, { error: status === 409 ? (error as Error).message : status === 400 ? 'Invalid request.' : status === 404 ? 'Item not found.' : 'Unable to save or read this item. Please retry.' });
     }
-  });
-  server.on('close', () => { history.close(); libraryQueue.close(); });
+  };
+  const server=createServer((request,response)=>{void handle(request,response);});
+  let control: ReturnType<typeof createServer> | undefined;
+  server.on('listening',()=>{if(integrations.continuationControl) void (async()=>{
+    const {socket,owner}=integrations.continuationControl!;
+    const previous=await lstat(socket).catch((e:NodeJS.ErrnoException)=>{if(e.code!=='ENOENT')throw e;return null;});
+    if(previous&&!previous.isSocket())throw new Error('Continuation control path is not a socket.');
+    if(previous)await unlink(socket);
+    control=createServer((request,response)=>{void handle(request,response,owner);});
+    await new Promise<void>((resolve,reject)=>{control!.once('error',reject);control!.listen(socket,resolve);});await chmod(socket,0o600);
+  })().catch(error=>{console.error(error);server.close();});});
+  server.on('close', () => { control?.close(); history.close(); libraryQueue.close(); });
   return server;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -4,16 +4,16 @@ import org.json.JSONObject
 
 data class Chapter(val id: String, val sequence: Int, val title: String, val assembly: String, val duration: Double, val checksum: String = "", val authorNoteRanges: List<AudioRange>? = null)
 data class Book(val id: String, val title: String, val author: String, val editions: Map<String, List<Chapter>>, val autoDownload: Boolean = false, val defaultEdition: String = editions.keys.firstOrNull().orEmpty())
-data class Selection(val story: String, val bookTitle: String, val edition: String, val chapter: Chapter) {
+data class Selection(val story: String, val bookTitle: String, val edition: String, val chapter: Chapter, val continuationRevision: Long = 0) {
     val key get() = "$story:$edition:${chapter.id}"
-    fun json() = JSONObject().put("story", story).put("bookTitle", bookTitle).put("edition", edition)
+    fun json() = JSONObject().put("continuationRevision", continuationRevision).put("story", story).put("bookTitle", bookTitle).put("edition", edition)
         .put("chapter", JSONObject().put("id", chapter.id).put("sequence", chapter.sequence).put("title", chapter.title).put("assembly", chapter.assembly).put("duration", chapter.duration).put("checksum", chapter.checksum).apply {
             chapter.authorNoteRanges?.let { ranges -> put("authorNoteRanges", org.json.JSONArray().apply { ranges.forEach { put(JSONObject().put("start", it.start).put("end", it.end)) } }) }
         })
     fun location(seconds: Double) = JSONObject().put("story", story).put("edition", edition).put("assembly", chapter.assembly).put("seconds", seconds.coerceIn(0.0, chapter.duration))
 }
 fun chapterFromJson(j: JSONObject) = Chapter(j.getString("id"), j.getInt("sequence"), j.getString("title"), j.getString("assembly"), j.getDouble("duration"), j.optString("checksum"), j.optJSONArray("authorNoteRanges")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).let { r -> AudioRange(r.optDouble("start"), r.optDouble("end")) } } })
-fun selectionFromJson(j: JSONObject) = Selection(j.getString("story"), j.getString("bookTitle"), j.getString("edition"), chapterFromJson(j.getJSONObject("chapter")))
+fun selectionFromJson(j: JSONObject) = Selection(j.getString("story"), j.getString("bookTitle"), j.getString("edition"), chapterFromJson(j.getJSONObject("chapter")), j.optLong("continuationRevision"))
 fun booksFromJson(j: JSONObject): List<Book> {
     val a = j.getJSONArray("books")
     return (0 until a.length()).map { i ->
@@ -102,3 +102,6 @@ fun describeLocalLocation(selection: Selection, reading: Reading?, seconds: Doub
     return selection.location(seconds).put("bookTitle", selection.bookTitle).put("chapterId", selection.chapter.id).put("chapterTitle", selection.chapter.title)
         .put("chapter", selection.chapter.sequence).put("excerpt", passage?.text?.take(200).orEmpty()).put("selection", selection.json())
 }
+
+/** Compare revisions within a book, then compare current bookmarks across books by time. */
+fun currentContinuationPositions(points: List<JSONObject>): List<JSONObject> = points.groupBy { it.optString("story") }.values.mapNotNull { group -> group.maxWithOrNull(compareBy<JSONObject> { it.optLong("continuationRevision") }.thenBy { it.optLong("deviceTime") }) }.sortedByDescending { it.optLong("deviceTime") }
