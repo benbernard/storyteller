@@ -57,7 +57,7 @@ internal data class ListeningSummary(val edition: String, val latest: JSONObject
 internal fun listeningSummary(book: Book, state: ListenerUiState): ListeningSummary {
     val saved = state.positions.filter { it.optString("story") == book.id }
     val latest = currentContinuationPositions(saved).firstOrNull { p -> book.editions[p.optString("edition")]?.any { it.assembly == p.optString("assembly") } == true }
-    val current = state.selection?.takeIf { it.story == book.id }
+    val current = state.selection?.takeIf { it.story == book.id && it.continuationRevision >= (latest?.optLong("continuationRevision") ?: 0) }
     val edition = current?.edition ?: latest?.optString("edition") ?: book.defaultEdition.takeIf { book.editions[it]?.isNotEmpty() == true } ?: book.editions.keys.firstOrNull().orEmpty()
     val unread = book.editions[edition].orEmpty().filter { "${book.id}:${it.id}" !in state.completed }
     val remaining = unread.sumOf { chapter ->
