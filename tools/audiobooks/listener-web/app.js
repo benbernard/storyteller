@@ -170,7 +170,7 @@ function renderMiniPlayer() {
 function openStory(id) { selectedStoryId = id; view('story'); }
 
 function summary(book) {
-  const positions = Object.values(local.positions).filter(p => p.story === book.id).sort((a, b) => b.deviceTime - a.deviceTime);
+  const positions = Object.values(local.positions).filter(p => p.story === book.id).sort((a, b) => (b.continuationRevision || 0) - (a.continuationRevision || 0) || b.deviceTime - a.deviceTime);
   const latest = positions.find(p => book.editions[p.edition]?.chapters.some(c => c.assembly === p.assembly));
   const edition = latest?.edition || book.defaultEdition || Object.keys(book.editions)[0];
   const chapters = book.editions[edition]?.chapters || [];
@@ -253,10 +253,10 @@ async function flush() {
 }
 function save(reason = 'pause', from, completed = false) {
   if (!playing || switching || !local) return;
-  const progress = { ...locationOf(), eventId: crypto.randomUUID(), deviceTime: Date.now(), reason, completed, ...(from ? { from: wireLocation(from) } : {}) };
+  const progress = { ...locationOf(), continuationRevision: playing.continuationRevision, eventId: crypto.randomUUID(), deviceTime: Date.now(), reason, completed, ...(from ? { from: wireLocation(from) } : {}) };
   local.pending.push(progress);
   const key = `${playing.book.id}:${playing.edition}:${playing.chapter.id}`;
-  local.positions[key] = progress; local.selected = progress;
+  if (playing.continuationRevision === (library.state.continuations?.[playing.book.id]?.revision || 0)) { local.positions[key] = progress; local.selected = progress; }
   if (from && ['seek', 'passage', 'chapter', 'restore'].includes(reason)) { local.undo = from; local.jumps ||= []; local.jumps.push({ eventId: progress.eventId, deviceTime: progress.deviceTime, from }); }
   persist(); lastSaved = Date.now(); $('undo').hidden = !local.undo; $('undo').disabled = !local.undo;
   if (completed) library.state.completed[`${playing.book.id}:${playing.chapter.id}`] = true;
@@ -275,7 +275,7 @@ function renderLibrary() {
   $('library').replaceChildren(); $('library').setAttribute('aria-busy','false'); $('continue').replaceChildren(); renderLibraryNotice();
   const stories = new Map(library.books.map(book => [book.id, book]));
   for (const story of catalog?.stories || []) if (story.follow && !stories.has(story.id)) stories.set(story.id, story);
-  const latest = playing?.book.id || local.selected?.story || Object.values(local.positions).sort((a,b)=>b.deviceTime-a.deviceTime)[0]?.story;
+  const latest = playing?.book.id || local.selected?.story || currentContinuationPositions()[0]?.story;
   const query = $('library-search').value.trim().toLowerCase(); $('clear-library').hidden = !query;
   let count = 0;
   const heading = el('div',null,$('library')); heading.className='collection-heading'; el('h2', 'Your books',heading); const results = el('span',null,heading);
@@ -340,12 +340,20 @@ function renderIssues() {
 $('issue-book').onchange = renderIssues;
 for (const filter of $('issue-filters').children) filter.onclick = () => { issueFilter = filter.textContent; for (const item of $('issue-filters').children) item.setAttribute('aria-pressed', String(item === filter)); renderIssues(); };
 
+function currentContinuationPositions() {
+  const books = new Map();
+  for (const point of Object.values(local.positions)) {
+    const old = books.get(point.story);
+    if (!old || (point.continuationRevision || 0) > (old.continuationRevision || 0) || (point.continuationRevision || 0) === (old.continuationRevision || 0) && point.deviceTime > old.deviceTime) books.set(point.story, point);
+  }
+  return [...books.values()].sort((a,b) => b.deviceTime-a.deviceTime);
+}
 async function refresh() {
   await flush(); const next = await api('/library');
   if (library && next.accountKey !== library.accountKey) { audio.pause(); location.reload(); return; }
   const capabilityResponse = await api('/capabilities').catch(() => ({})); capabilities = capabilityResponse.permissions || {}; accountLabel = capabilityResponse.accountLabel || ''; connected = navigator.onLine; libraryError = ''; library = next; storageKey = `listener:${library.accountKey}`;
   if (!local) { try { local = JSON.parse(localStorage.getItem(storageKey)); } catch {} local ||= { positions: {}, pending: [] }; }
-  for (const [key, value] of Object.entries(library.state.positions)) if (!local.positions[key] || value.deviceTime > local.positions[key].deviceTime) local.positions[key] = value;
+  for (const [key, value] of Object.entries(library.state.positions)) if (!local.positions[key] || (value.continuationRevision || 0) > (local.positions[key].continuationRevision || 0) || (value.continuationRevision || 0) === (local.positions[key].continuationRevision || 0) && value.deviceTime > local.positions[key].deviceTime) local.positions[key] = value;
   persist(); renderLibrary();
   say(library.books.length ? 'Ready to listen.' : 'Your chapters will appear here when generation finishes.');
   await flush();
@@ -421,7 +429,7 @@ async function play(book, edition, chapter, seconds = 0, autoplay = false, reaso
   clearTimeout(noteTimer);
   readingRequest?.abort(); const request = new AbortController(); readingRequest = request; readingPending = true;
   const textTimeout = setTimeout(() => request.abort(), 10000);
-  playing = { book, edition, chapter }; reading = undefined; visiblePassages = []; seekDraft = undefined; activePassage = -1; chapterEndHandled = false; loadAutoplay = autoplay;
+  playing = { book, edition, chapter, continuationRevision: library.state.continuations?.[book.id]?.revision || 0 }; reading = undefined; visiblePassages = []; seekDraft = undefined; activePassage = -1; chapterEndHandled = false; loadAutoplay = autoplay;
   updateNoteOutput();
   $('player').hidden = false; $('reader-empty').hidden = true; $('book-title').textContent = book.title; $('chapter-title').textContent = chapter.title;
   $('edition-label').textContent = `${editionNames[edition] || edition} edition`; $('passages').replaceChildren(); $('reader-status').textContent = 'Loading the generated passages…'; $('source-link').hidden = true;
@@ -599,7 +607,7 @@ $('issue').onsubmit = event => {
 
 const code = new URLSearchParams(location.search).get('code');
 if (location.pathname === '/listen/pair' && /^[A-F0-9]{10}$/.test(code ?? '')) { $('pair').hidden = false; $('code').textContent = code; $('approve').onclick = async () => { try { await api('/pair/approve', { code }); $('approve').disabled = true; say('Connected. Return to your Android listener.'); } catch (error) { say(error.message); } }; }
-refresh().then(() => { const latest = Object.values(local.positions).sort((a, b) => b.deviceTime - a.deviceTime)[0]; if (latest && !code) return openLocation(latest, false, 'restore', false); }).then(async () => { await initialNavigation; route(); }).catch(libraryFailure);
+refresh().then(() => { const latest = currentContinuationPositions()[0]; if (latest && !code) return openLocation(latest, false, 'restore', false); }).then(async () => { await initialNavigation; route(); }).catch(libraryFailure);
 
 
 let catalogReportedAt;

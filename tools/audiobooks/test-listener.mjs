@@ -31,7 +31,7 @@ const server = createServer(async (req, res) => {
     if (path === '/listen/follow') catalog.stories[0].follow = data;
     if (path === '/listen/issues' && !state.issues.some(i=>i.eventId===data.eventId)) state.issues.push({ ...data, id: randomUUID(), sequence: 1, status: 'open' });
     if (path === '/listen/issues/resolve') state.issues.find(i => i.id === data.id).status = data.resolved ? 'resolved' : 'open';
-    if (path === '/listen/progress') {
+    if (path === '/listen/progress' && (data.continuationRevision || 0) === (state.continuations?.fixture?.revision || 0)) {
       const id = book.editions[data.edition]?.chapters.find(c => c.assembly === data.assembly)?.id || 'one';
       state.positions[`fixture:${data.edition}:${id}`] = data;
       if (data.completed) state.completed[`fixture:${id}`] = true;
@@ -375,6 +375,21 @@ try {
   await stalled.waitForFunction(()=>document.getElementById('audio').currentTime>0,undefined,{timeout:13000});
   await stalled.getByText('Author-note timings are unavailable. Playing the full chapter.',{exact:true}).waitFor();
   await stalled.close();textDelay=0;
+  accountKey='continuation';state.positions={};state.continuations={};
+  const handoff=await browser.newPage({viewport:{width:375,height:812}});
+  await handoff.goto(base+'/listen');await handoff.getByRole('link',{name:book.title,exact:true}).click();
+  await handoff.getByRole('button',{name:'Play book',exact:true}).click();
+  await handoff.waitForFunction(()=>document.getElementById('audio').currentTime>0);
+  const next={...chapter('d'.repeat(64)),id:'two',sequence:2,title:'Chapter two'};book.editions.v3.chapters.push(next);
+  state.continuations.fixture={revision:1};
+  state.positions['fixture:v3:two']={story:'fixture',edition:'v3',assembly:next.assembly,chapterId:'two',seconds:0,deviceTime:Date.now(),continuationRevision:1};
+  await handoff.evaluate(()=>{location.hash='library';});await handoff.locator('#library-view').waitFor({state:'visible'});
+  await handoff.locator('#account').click();await handoff.locator('#sync-account').click();
+  await handoff.waitForFunction(()=>JSON.parse(localStorage.getItem('listener:continuation')).positions['fixture:v3:two']?.continuationRevision===1);
+  assert.equal(await handoff.locator('#audio').evaluate(a=>a.paused),false,'A reading handoff must not interrupt active playback');
+  await handoff.reload();await handoff.waitForFunction(()=>document.getElementById('audio').src.includes('d'.repeat(64)));
+  assert.equal(await handoff.locator('#audio').evaluate(a=>a.paused),true,'Reading handoff restores without autoplay');
+  await handoff.close();
   console.log('PASS: optional author notes, keyboard/persistence, source-safe seeks, delayed metadata and chapter completion');
 } finally {
   await browser.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));

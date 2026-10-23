@@ -11,6 +11,8 @@ export interface ListenerIntegrations {
   /** Informational only: permissions are enforced separately on every request. */
   capabilities?: { sources?: string[]; generation?: string[]; updates?: 'manual' | 'managed' };
   revision?: string;
+  /** Private filesystem socket, limited to continuation operations for one configured account. */
+  continuationControl?: {socket:string;owner:string};
 }
 
 /** BookOrbit is optional. Its deployment origin never belongs in stored product code. */

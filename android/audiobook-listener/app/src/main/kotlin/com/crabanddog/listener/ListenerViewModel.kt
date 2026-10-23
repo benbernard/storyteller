@@ -116,7 +116,7 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
     }
     private fun load(data: JSONObject) {
         val remote = data.optJSONObject("state") ?: JSONObject()
-        store.importProgress(remote.optJSONObject("positions") ?: JSONObject())
+        store.importProgress(remote.optJSONObject("positions") ?: JSONObject(), remote.optJSONObject("continuations") ?: JSONObject())
         val issues = remote.optJSONArray("issues")
         val books = booksFromJson(data)
         mutable.value = mutable.value.copy(books = books, positions = store.positions(), issues = (0 until (issues?.length() ?: 0)).map { issues!!.getJSONObject(it) },
@@ -227,12 +227,13 @@ class ListenerViewModel(app: Application) : AndroidViewModel(app) {
             catch (e: Exception) { message(e.message ?: "This recording is unavailable. Your current audio is kept.") }
         }
     }
-    private fun prepare(selected: Selection, seconds: Double?, autoplay: Boolean, recordJump: Boolean = false) {
+    private fun prepare(requested: Selection, seconds: Double?, autoplay: Boolean, recordJump: Boolean = false) {
+        val selected = requested.copy(continuationRevision = store.continuationRevision(requested.story))
         val p = controller ?: return message("Player is starting. Try again shortly.")
         val previous = mutable.value.selection?.let { old -> describeLocalLocation(old, mutable.value.reading, undoPosition(old.chapter, mutable.value.reading, mutable.value.includeAuthorNotes, mutable.value.position)) }
         val chapters = mutable.value.books.find { it.id == selected.story }?.editions?.get(selected.edition)?.takeIf { list -> list.any { it.assembly == selected.chapter.assembly } } ?: listOf(selected.chapter)
         val items = chapters.map { c ->
-            val s = Selection(selected.story, selected.bookTitle, selected.edition, c)
+            val s = Selection(selected.story, selected.bookTitle, selected.edition, c, selected.continuationRevision)
             MediaItem.Builder().setMediaId(c.assembly).setUri("${ListenerApi.BASE}/stories/${s.story}/${s.edition}/audio/${c.assembly}")
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(c.title).setArtist(s.bookTitle).setAlbumTitle("${editionName(s.edition)} edition")
                     .setExtras(Bundle().apply { putString("selection", s.json().toString()) }).build()).build()

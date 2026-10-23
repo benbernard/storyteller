@@ -361,3 +361,23 @@ test('recent jumps page departures and excludes ordinary checkpoints and edition
   assert.deepEqual(result.entries.map(e=>e.eventId),[restore.eventId,jump.eventId]);
   assert.equal(result.entries[0]!.from.seconds,15);assert.equal(result.entries[0]!.location.seconds,5);
 }));
+
+test('continuation handoffs fence stale offline checkpoints while retaining their history', async () => fixture(async(base,state,fiction)=>{
+  const book=(await fiction.read<BookFixture>('book.json'))!;
+  book.editions.v3!.chapters.push({...book.editions.v3!.chapters[0]!,id:'chapter2',sequence:2,title:'Two',assembly:'c'.repeat(64)});
+  await fiction.write('book.json',book);
+  await fiction.write(`assemblies/${'c'.repeat(64)}/metadata.json`,await fiction.read(`assemblies/${location.assembly}/metadata.json`));
+  const first={...location,eventId:randomUUID(),deviceTime:Date.now(),completed:false};
+  assert.equal((await post(base,'/listen/progress',first)).status,200);
+  const input={story:'story',chapterId:'chapter2',source:'bookorbit',sourceRevision:1,expectedRevision:0};
+  assert.equal((await post(base,'/api/listener/sync/preview',input)).status,401);
+  const preview=await (await post(base,'/listen/sync/preview',input)).json() as {id:string};
+  assert.equal((await post(base,'/listen/sync/apply',{id:preview.id})).status,200);
+  assert.equal((await post(base,'/listen/progress',{...first,eventId:randomUUID(),deviceTime:Date.now()+10000})).status,200);
+  const library=await (await fetch(base+'/listen/library',{headers:web})).json() as {state:{positions:Record<string,{chapterId:string;continuationRevision?:number}>;completed:Record<string,boolean>;seen:Record<string,unknown>}};
+  assert.equal(library.state.positions['story:v3:chapter2']?.continuationRevision,1);
+  assert.equal(Object.values(library.state.positions).filter(p=>p.continuationRevision===1).length,1);
+  assert.deepEqual(library.state.completed,{});
+  assert.equal((await post(base,'/listen/sync/preview',input)).status,409);
+}));
+interface BookFixture {editions:Record<string,{chapters:{id:string;sequence:number;title:string;assembly:string;duration:number;checksum:string}[]}>}
