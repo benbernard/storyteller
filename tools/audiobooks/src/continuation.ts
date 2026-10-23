@@ -1,3 +1,4 @@
+import {unlink} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {Store, fingerprint, sha} from './store.js';
@@ -28,7 +29,13 @@ export class ContinuationSync<T extends SyncState> {
     const duplicate=input.sourceRevision<=(saved.syncSources?.[`${input.story}:${input.source}`]??-1);
     const action=duplicate?'duplicate':before?.chapterId===input.chapterId?'preserve':chapter?'move':'unavailable';
     const preview:Preview={id:randomUUID(),input,expires:Date.now()+600000,expected:snapshot(saved,input.story),revision,before,target:chapter?{story:input.story,edition,assembly:chapter.assembly,seconds:0,eventId:randomUUID(),deviceTime:Date.now(),completed:false,reason:'chapter',chapterId:chapter.id,sequence:chapter.sequence,receivedAt:new Date().toISOString()}:null,action,message:action==='unavailable'?'Audio is unavailable for this chapter in your selected edition.':action==='preserve'?'Keeping your precise audio position in this chapter.':action==='duplicate'?'This source revision was already handled.':'Continue at the start of the selected chapter.'};
-    await this.store.write(`sync-previews/${sha(owner)}/${preview.id}.json`,preview);return preview;
+    const directory=`sync-previews/${sha(owner)}`;
+    for(const file of await this.store.list(directory)) {
+      if(!file.endsWith('.json')||!z.uuid().safeParse(file.slice(0,-5)).success)continue;
+      const old=await this.store.read<Preview>(`${directory}/${file}`);
+      if(old&&old.expires<Date.now())await unlink(this.store.path(`${directory}/${file}`));
+    }
+    await this.store.write(`${directory}/${preview.id}.json`,preview);return preview;
   }
   async apply(owner:string,previewId:string) {
     z.uuid().parse(previewId);const saved=await this.read(owner),done=saved.syncChanges?.[previewId];if(done)return {saved:true,change:done};
@@ -49,6 +56,7 @@ export class ContinuationSync<T extends SyncState> {
     saved.continuations??={};saved.continuations[after.story]={revision,source:p.input.source,chapterId:after.chapterId,updatedAt:after.receivedAt};
     const change:Change={id:p.id,story:after.story,revision,before:p.before?{...p.before}:null,after:{...after},source:p.input.source};
     saved.syncChanges??={};saved.syncChanges[p.id]=change;
+    for(const old of Object.keys(saved.syncChanges).slice(0,-200))delete saved.syncChanges[old];
     await this.write(owner,saved);return {saved:true,action:'move',change};
   }
   async undo(owner:string,changeId:string) {

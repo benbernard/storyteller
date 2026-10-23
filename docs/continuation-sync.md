@@ -21,6 +21,8 @@ pinned `owner`. That socket accepts only continuation operations for that accoun
 Its parent directory must already be private and writable by the listener user.
 The socket is created with mode 0600. Do not expose it as a public HTTP endpoint.
 
+Expired previews are removed as new previews are created. Recent undo metadata is
+bounded to 200 changes per account while listening history remains permanent.
 Previews expire after ten minutes and bind the exact current state and source
 acknowledgements. Apply and ordinary progress writes share the listener's mutation
 queue. Repeated applies use the same event identity. Undo requires that playback
